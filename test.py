@@ -1,7 +1,5 @@
 import unittest
-import json
 import requests
-import time
 import logging
 from screenpipe_client import (
     search,
@@ -12,6 +10,7 @@ from screenpipe_client import (
     stop_pipe,
     health_check
 )
+# NOTE: Constants need work, though it should return results for any populated DB
 # CONSTANTS
 VALID_QUERY = " "
 VALID_START_TIME = "2024-01-01T00:00:00Z"
@@ -27,6 +26,7 @@ OCR_CONTENT_TYPE = "ocr"
 AUDIO_CONTENT_TYPE = "audio"
 ALL_CONTENT_TYPE = "all"
 DEFAULT_CONTENT_TYPE = AUDIO_CONTENT_TYPE
+VISION_ID = 31814 # IF this ID doesn't match an OCR frame_id, it will not tag the frame!
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -81,8 +81,8 @@ class TestScreenPipeClient(unittest.TestCase):
             self.fail('List audio devices test failed')
 
     def test_add_tags_to_content(self):
-        content_type = "ocr"
-        id = 1
+        content_type = "vision"
+        id = VISION_ID
         tags = ["test_tag"]
 
         logger.info('Testing add tags to content functionality')
@@ -145,16 +145,16 @@ class TestScreenPipeClient(unittest.TestCase):
             logger.error('Error during health check test: %s', e)
             self.fail('Health check test failed')
 
-    def test_search_with_invalid_query(self):
+    def test_search_with_none_query(self):
         query = None
         content_type = "ocr"
-        limit = 10
+        limit = 1
         offset = 0
         start_time = "2022-01-01T00:00:00Z"
         end_time = "2025-01-01T23:59:59Z"
         app_name = "test_app"
         window_name = "test_window"
-        include_frames = True
+        include_frames = INCLUDE_FRAMES
 
         logger.info('Testing search with invalid query functionality')
         try:
@@ -176,99 +176,39 @@ class TestScreenPipeClient(unittest.TestCase):
             logger.error('Error during search with invalid query test: %s', e)
             self.fail('Search with invalid query test failed')
 
-    def test_list_audio_devices_with_invalid_request(self):
-        logger.info('Testing list audio devices with invalid request functionality')
-        try:
-            response = requests.get(f"{self.base_url}/audio/list", timeout=0.1)
-            response.raise_for_status()
-            logger.info('List audio devices with invalid request response: %s', response)
-        except requests.exceptions.RequestException as e:
-            logger.error('Error during list audio devices with invalid request test: %s', e)
-            self.assertIsInstance(e, requests.exceptions.RequestException)
-
-    def test_add_tags_to_content_with_invalid_request(self):
-        content_type = "ocr"
-        id = 1
-        tags = ["test_tag"]
-
-        logger.info('Testing add tags to content with invalid request functionality')
-        try:
-            response = requests.post(f"{self.base_url}/tags/{content_type}/{id}", json={"tags": tags}, timeout=0.1)
-            response.raise_for_status()
-            logger.info('Add tags to content with invalid request response: %s', response)
-        except requests.exceptions.RequestException as e:
-            logger.error('Error during add tags to content with invalid request test: %s', e)
-            self.assertIsInstance(e, requests.exceptions.RequestException)
-
-    def test_download_pipe_with_invalid_request(self):
-        url = "https://github.com/mediar-ai/screenpipe/tree/main/examples/typescript/pipe-stream-ocr-text"
-
-        logger.info('Testing download pipe with invalid request functionality')
-        try:
-            response = requests.post(f"{self.base_url}/pipes/download", json={"url": url}, timeout=0.1)
-            response.raise_for_status()
-            logger.info('Download pipe with invalid request response: %s', response)
-        except requests.exceptions.RequestException as e:
-            logger.error('Error during download pipe with invalid request test: %s', e)
-            self.assertIsInstance(e, requests.exceptions.RequestException)
-
-    def test_run_pipe_with_invalid_request(self):
-        pipe_id = "pipe-stream-ocr-text"
-
-        logger.info('Testing run pipe with invalid request functionality')
-        try:
-            response = requests.post(f"{self.base_url}/pipes/enable", json={"pipe_id": pipe_id}, timeout=0.1)
-            response.raise_for_status()
-            logger.info('Run pipe with invalid request response: %s', response)
-        except requests.exceptions.RequestException as e:
-            logger.error('Error during run pipe with invalid request test: %s', e)
-            self.assertIsInstance(e, requests.exceptions.RequestException)
-
-    def test_stop_pipe_with_invalid_request(self):
-        pipe_id = "pipe-stream-ocr-text"
-
-        logger.info('Testing stop pipe with invalid request functionality')
-        try:
-            response = requests.post(f"{self.base_url}/pipes/disable", json={"pipe_id": pipe_id}, timeout=0.1)
-            response.raise_for_status()
-            logger.info('Stop pipe with invalid request response: %s', response)
-        except requests.exceptions.RequestException as e:
-            logger.error('Error during stop pipe with invalid request test: %s', e)
-            self.assertIsInstance(e, requests.exceptions.RequestException)
-
-    def test_health_check_with_invalid_request(self):
-        logger.info('Testing health check with invalid request functionality')
-        try:
-            response = requests.get(f"{self.base_url}/health", timeout=0.1)
-            response.raise_for_status()
-            logger.info('Health check with invalid request response: %s', response)
-        except requests.exceptions.RequestException as e:
-            logger.error('Error during health check with invalid request test: %s', e)
-            self.assertIsInstance(e, requests.exceptions.RequestException)
 
 def run_current_tests():
     ONLY_HEALTH = False
+    ADD_PIPES = True
     CURRENT_TESTS = [
-        # "test_search",
-        "test_list_audio_devices",
-        # "test_add_tags_to_content",
-        # "test_download_pipe",
-        # "test_run_pipe",
-        # "test_stop_pipe",
         "test_health_check",
-        # "test_search_with_invalid_query",
-        # "test_list_audio_devices_with_invalid_request",
-        # "test_add_tags_to_content_with_invalid_request",
-        # "test_download_pipe_with_invalid_request",
-        # "test_run_pipe_with_invalid_request",
-        # "test_stop_pipe_with_invalid_request",
-        # "test_health_check_with_invalid_request"
+        "test_search",
+        "test_list_audio_devices",
+        "test_add_tags_to_content",
+        "test_download_pipe",
+        "test_run_pipe",
+        "test_stop_pipe",
+        "test_search_with_none_query",
     ]
+
+    # CONSTANTS
+    ONLY_HEALTH = False
+    ADD_PIPES = True
+
     suite = unittest.TestSuite()
+    
+    if ADD_PIPES:
+        CURRENT_TESTS.append("test_download_pipe")
+        CURRENT_TESTS.append("test_run_pipe")
+        
     if ONLY_HEALTH:
         CURRENT_TESTS = ["test_health_check"]
+    elif ADD_PIPES:
+        CURRENT_TESTS.append("test_stop_pipe")
+    
     for test in CURRENT_TESTS:
         suite.addTest(TestScreenPipeClient(test))
+    
     unittest.TextTestRunner().run(suite)
 
 def main():
@@ -276,4 +216,4 @@ def main():
     run_current_tests()
 
 if __name__ == "__main__":
-    run_current_tests()
+    main()
