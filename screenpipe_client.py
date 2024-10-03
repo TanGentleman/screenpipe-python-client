@@ -85,13 +85,17 @@ def add_tags_to_content(content_type: str, id: int, tags: List[str]) -> Dict:
     Adds custom tags to content items based on the content type (audio or vision).
 
     Args:
-    content_type (str): The type of content.
+    content_type (str): The type of content. Can be "audio" or "vision".
     id (int): The ID of the content item.
     tags (list): A list of tags to add.
 
     Returns:
     dict: The response from the API.
     """
+    if content_type == "ocr":
+        logging.warning("Content type 'ocr' is not used for the tags API. Please use 'vision' instead.")
+        content_type = "vision"
+    assert content_type in ["audio", "vision"], "Invalid content type. Must be 'audio' or 'vision'."
     try:
         response = requests.post(f"{BASE_URL}/tags/{content_type}/{id}", json={"tags": tags})
         response.raise_for_status()
