@@ -1,0 +1,7 @@
+
+.DS_Store
+.gitattributes
+__pycache__/cli.cpython-311.pyc
+outdated/
+output_log_dump.log
+__pycache__/
