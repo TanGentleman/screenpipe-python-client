@@ -9,7 +9,7 @@ from screenpipe_client import (
     stop_pipe,
     health_check
 )
-### Third party -- Downloading can be DANGEROUS!
+# Third party -- Downloading can be DANGEROUS!
 STREAM_TEXT_URL = "https://github.com/mediar-ai/screenpipe/tree/main/examples/typescript/pipe-stream-ocr-text"
 
 # NOTE: Constants need work, though it should return results for any populated DB
@@ -28,11 +28,14 @@ OCR_CONTENT_TYPE = "ocr"
 AUDIO_CONTENT_TYPE = "audio"
 ALL_CONTENT_TYPE = "all"
 DEFAULT_CONTENT_TYPE = AUDIO_CONTENT_TYPE
-VISION_ID = 31814 # IF this ID doesn't match an OCR frame_id, it will not tag the frame!
+VISION_ID = 31814  # IF this ID doesn't match an OCR frame_id, it will not tag the frame!
 
 # Set up logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
 
 class TestScreenPipeClient(unittest.TestCase):
 
@@ -205,17 +208,19 @@ class TestScreenPipeClient(unittest.TestCase):
             logger.error('Error during search with invalid query test: %s', e)
             self.fail('Search with invalid query test failed')
 
-### TEST_CONSTANTS
+
+# TEST_CONSTANTS
 HEALTH_CHECK = "test_health_check"
 SEARCH = "test_search"
 LIST_AUDIO_DEVICES = "test_list_audio_devices"
 ADD_TAGS_TO_CONTENT = "test_add_tags_to_content"
 SEARCH_WITH_NONE_QUERY = "test_audio_search_with_none_query"
 
-### PIPE CONSTANTS
+# PIPE CONSTANTS
 RUN_PIPE = "test_run_pipe"
 STOP_PIPE = "test_stop_pipe"
 DOWNLOAD_PIPE = "test_download_pipe"
+
 
 def run_pipes_workflow():
     HEALTHY_MSG = "Online"
@@ -233,6 +238,7 @@ def run_pipes_workflow():
         print("Pipe not running. Starting pipe...")
         return
 
+
 def run_current_tests():
     ONLY_HEALTH = False
     ADD_PIPES = True
@@ -249,25 +255,27 @@ def run_current_tests():
     ADD_PIPES = True
 
     suite = unittest.TestSuite()
-    
+
     if ADD_PIPES:
         CURRENT_TESTS.append("test_download_pipe")
         CURRENT_TESTS.append("test_run_pipe")
-        
+
     if ONLY_HEALTH:
         CURRENT_TESTS = ["test_health_check"]
     elif ADD_PIPES:
         CURRENT_TESTS.append("test_stop_pipe")
-    
+
     for test in CURRENT_TESTS:
         suite.addTest(TestScreenPipeClient(test))
-    
+
     unittest.TextTestRunner().run(suite)
+
 
 def main():
     # unittest.main()
     # run_current_tests()
     run_pipes_workflow()
+
 
 if __name__ == "__main__":
     main()

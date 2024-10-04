@@ -11,6 +11,7 @@ from screenpipe_client import (
 )
 from outputs import SearchOutput, HealthCheck
 
+
 def main():
     """
     Entry point of the ScreenPipe API Client.
@@ -66,27 +67,41 @@ def main():
         health-check:
             No additional arguments required.
     """
-    # Rest of the code...
     parser = argparse.ArgumentParser(description="ScreenPipe API Client")
     subparsers = parser.add_subparsers(dest="command")
 
     search_parser = subparsers.add_parser("search")
     search_parser.add_argument("--query", help="The search term")
-    search_parser.add_argument("--content-type", help="The type of content to search")
-    search_parser.add_argument("--limit", type=int, help="The maximum number of results per page")
-    search_parser.add_argument("--offset", type=int, help="The pagination offset")
+    search_parser.add_argument(
+        "--content-type",
+        help="The type of content to search")
+    search_parser.add_argument(
+        "--limit",
+        type=int,
+        help="The maximum number of results per page")
+    search_parser.add_argument(
+        "--offset",
+        type=int,
+        help="The pagination offset")
     search_parser.add_argument("--start-time", help="The start timestamp")
     search_parser.add_argument("--end-time", help="The end timestamp")
     search_parser.add_argument("--app-name", help="The application name")
     search_parser.add_argument("--window-name", help="The window name")
-    search_parser.add_argument("--include-frames", action="store_true", help="If True, fetch frame data for OCR content")
+    search_parser.add_argument(
+        "--include-frames",
+        action="store_true",
+        help="If True, fetch frame data for OCR content")
 
-    list_audio_devices_parser = subparsers.add_parser("list-audio-devices")
+    list_audio_devices_parser = subparsers.add_parser(
+        "list-audio-devices")  # No args
 
     add_tags_to_content_parser = subparsers.add_parser("add-tags-to-content")
-    add_tags_to_content_parser.add_argument("--content-type", help="The type of content")
-    add_tags_to_content_parser.add_argument("--id", type=int, help="The ID of the content item")
-    add_tags_to_content_parser.add_argument("--tags", nargs="+", help="A list of tags to add")
+    add_tags_to_content_parser.add_argument(
+        "--content-type", help="The type of content")
+    add_tags_to_content_parser.add_argument(
+        "--id", type=int, help="The ID of the content item")
+    add_tags_to_content_parser.add_argument(
+        "--tags", nargs="+", help="A list of tags to add")
 
     download_pipe_parser = subparsers.add_parser("download-pipe")
     download_pipe_parser.add_argument("--url", help="The URL of the pipe")
@@ -97,7 +112,7 @@ def main():
     stop_pipe_parser = subparsers.add_parser("stop-pipe")
     stop_pipe_parser.add_argument("--pipe-id", help="The ID of the pipe")
 
-    health_check_parser = subparsers.add_parser("health-check")
+    health_check_parser = subparsers.add_parser("health-check")  # No args
 
     args = parser.parse_args()
 
@@ -153,6 +168,7 @@ def main():
             except Exception as e:
                 print(f"Error converting status: {e}")
             print(json.dumps(status.__dict__, indent=4))
+
 
 if __name__ == "__main__":
     main()

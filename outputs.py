@@ -37,8 +37,17 @@ expected_output = {
     }
 }
 
+
 class HealthCheck:
-    def __init__(self, status: str, last_frame_timestamp: str, last_audio_timestamp: str, frame_status: str, audio_status: str, message: str, verbose_instructions: Optional[str] = None):
+    def __init__(
+            self,
+            status: str,
+            last_frame_timestamp: str,
+            last_audio_timestamp: str,
+            frame_status: str,
+            audio_status: str,
+            message: str,
+            verbose_instructions: Optional[str] = None):
         """
         Represents the health check status.
 
@@ -58,9 +67,20 @@ class HealthCheck:
         self.audio_status = audio_status
         self.message = message
         self.verbose_instructions = verbose_instructions
-    
+
+
 class OCR:
-    def __init__(self, frame_id: int, text: str, timestamp: str, file_path: str, offset_index: int, app_name: str, window_name: str, tags: List[str], frame: Optional[Any] = None):
+    def __init__(
+            self,
+            frame_id: int,
+            text: str,
+            timestamp: str,
+            file_path: str,
+            offset_index: int,
+            app_name: str,
+            window_name: str,
+            tags: List[str],
+            frame: Optional[Any] = None):
         """
         Represents an OCR (Optical Character Recognition) output.
 
@@ -87,8 +107,18 @@ class OCR:
             print("Frame data not supported yet")
             self.frame = frame
 
+
 class Audio:
-    def __init__(self, chunk_id: int, transcription: str, timestamp: str, file_path: str, offset_index: int, tags: List[str], device_name: str, device_type: str):
+    def __init__(
+            self,
+            chunk_id: int,
+            transcription: str,
+            timestamp: str,
+            file_path: str,
+            offset_index: int,
+            tags: List[str],
+            device_name: str,
+            device_type: str):
         """
         Represents an audio output.
 
@@ -111,6 +141,7 @@ class Audio:
         self.device_name = device_name
         self.device_type = device_type
 
+
 class SearchOutput:
     def __init__(self, data: List[dict], pagination: dict):
         """
@@ -123,7 +154,7 @@ class SearchOutput:
         self.data = data
         self.pagination = pagination
         self.validate_data()
-    
+
     def validate_data(self):
         """
         Validates the data items and pagination information.

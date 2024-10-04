@@ -5,10 +5,13 @@ import requests
 from typing import Dict, List, Optional
 
 # Set up logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Base URL for the API
 BASE_URL = "http://localhost:3030"
+
 
 def search(
     query: Optional[str] = None,
@@ -41,7 +44,7 @@ def search(
     if not query:
         logging.warning("Please provide a query. Searching spacebar instead.")
         query = " "
-    
+
     all_content_type = content_type or "OCR and Audio"
     print(f"Searching for: {content_type or all_content_type}")
     params = {
@@ -65,6 +68,7 @@ def search(
         logging.error(f"Error searching for content: {e}")
         return None
 
+
 def list_audio_devices() -> List:
     """
     Lists all audio input and output devices available on the machine, including default devices.
@@ -80,6 +84,7 @@ def list_audio_devices() -> List:
         logging.error(f"Error listing audio devices: {e}")
         return None
 
+
 def add_tags_to_content(content_type: str, id: int, tags: List[str]) -> Dict:
     """
     Adds custom tags to content items based on the content type (audio or vision).
@@ -93,16 +98,22 @@ def add_tags_to_content(content_type: str, id: int, tags: List[str]) -> Dict:
     dict: The response from the API.
     """
     if content_type == "ocr":
-        logging.warning("Content type 'ocr' is not used for the tags API. Please use 'vision' instead.")
+        logging.warning(
+            "Content type 'ocr' is not used for the tags API. Please use 'vision' instead.")
         content_type = "vision"
-    assert content_type in ["audio", "vision"], "Invalid content type. Must be 'audio' or 'vision'."
+    assert content_type in [
+        "audio", "vision"], "Invalid content type. Must be 'audio' or 'vision'."
     try:
-        response = requests.post(f"{BASE_URL}/tags/{content_type}/{id}", json={"tags": tags})
+        response = requests.post(
+            f"{BASE_URL}/tags/{content_type}/{id}",
+            json={
+                "tags": tags})
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
         logging.error(f"Error adding tags to content: {e}")
         return None
+
 
 def download_pipe(url: str) -> Dict:
     """
@@ -116,12 +127,17 @@ def download_pipe(url: str) -> Dict:
     """
     PIPE_DOWNLOAD_TIMEOUT_SECS = 20
     try:
-        response = requests.post(f"{BASE_URL}/pipes/download", json={"url": url}, timeout=PIPE_DOWNLOAD_TIMEOUT_SECS)
+        response = requests.post(
+            f"{BASE_URL}/pipes/download",
+            json={
+                "url": url},
+            timeout=PIPE_DOWNLOAD_TIMEOUT_SECS)
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
         logging.error(f"Error downloading pipe: {e}")
         return None
+
 
 def run_pipe(pipe_id: str) -> Dict:
     """
@@ -134,12 +150,16 @@ def run_pipe(pipe_id: str) -> Dict:
     dict: The response from the API.
     """
     try:
-        response = requests.post(f"{BASE_URL}/pipes/enable", json={"pipe_id": pipe_id})
+        response = requests.post(
+            f"{BASE_URL}/pipes/enable",
+            json={
+                "pipe_id": pipe_id})
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
         logging.error(f"Error running pipe: {e}")
         return None
+
 
 def stop_pipe(pipe_id: str) -> Dict:
     """
@@ -152,12 +172,16 @@ def stop_pipe(pipe_id: str) -> Dict:
     dict: The response from the API.
     """
     try:
-        response = requests.post(f"{BASE_URL}/pipes/disable", json={"pipe_id": pipe_id})
+        response = requests.post(
+            f"{BASE_URL}/pipes/disable",
+            json={
+                "pipe_id": pipe_id})
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
         logging.error(f"Error stopping pipe: {e}")
         return None
+
 
 def health_check() -> Dict:
     """
