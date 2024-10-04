@@ -114,8 +114,9 @@ def download_pipe(url: str) -> Dict:
     Returns:
     dict: The response from the API.
     """
+    PIPE_DOWNLOAD_TIMEOUT_SECS = 20
     try:
-        response = requests.post(f"{BASE_URL}/pipes/download", json={"url": url})
+        response = requests.post(f"{BASE_URL}/pipes/download", json={"url": url}, timeout=PIPE_DOWNLOAD_TIMEOUT_SECS)
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
