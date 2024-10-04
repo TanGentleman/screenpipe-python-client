@@ -1,22 +1,45 @@
-# import argparse
-# import json
 import logging
 import requests
 from typing import Dict, List, Optional
 
-# Set up logging
+# Set up local logging for visibility
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s')
 
+SCREENPIPE_PORT = 3030
 # Base URL for the API
-BASE_URL = "http://localhost:3030"
+SCREENPIPE_BASE_URL = f"http://localhost:{SCREENPIPE_PORT}"
+
+# To use:
+# ```python
+# import screenpipe_client as s
+# s.health_check()
+# s.search(query='screenpipe', limit=2)
+# ```
+# Other functions can be used in a similar way
+
+
+def health_check() -> Dict:
+    """
+    Returns the health status of the system, including the timestamps of the last frame and audio captures, and the overall system status.
+
+    Returns:
+    dict: The health status of the system.
+    """
+    try:
+        response = requests.get(f"{SCREENPIPE_BASE_URL}/health")
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Error checking health: {e}")
+        return None
 
 
 def search(
     query: Optional[str] = None,
     content_type: Optional[str] = None,
-    limit: int = 20,
+    limit: int = 5,
     offset: int = 0,
     start_time: Optional[str] = None,
     end_time: Optional[str] = None,
@@ -61,7 +84,7 @@ def search(
 
     params = {k: v for k, v in params.items() if v is not None}
     try:
-        response = requests.get(f"{BASE_URL}/search", params=params)
+        response = requests.get(f"{SCREENPIPE_BASE_URL}/search", params=params)
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
@@ -77,7 +100,7 @@ def list_audio_devices() -> List:
     list: A list of audio devices.
     """
     try:
-        response = requests.get(f"{BASE_URL}/audio/list")
+        response = requests.get(f"{SCREENPIPE_BASE_URL}/audio/list")
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
@@ -105,7 +128,7 @@ def add_tags_to_content(content_type: str, id: int, tags: List[str]) -> Dict:
         "audio", "vision"], "Invalid content type. Must be 'audio' or 'vision'."
     try:
         response = requests.post(
-            f"{BASE_URL}/tags/{content_type}/{id}",
+            f"{SCREENPIPE_BASE_URL}/tags/{content_type}/{id}",
             json={
                 "tags": tags})
         response.raise_for_status()
@@ -128,7 +151,7 @@ def download_pipe(url: str) -> Dict:
     PIPE_DOWNLOAD_TIMEOUT_SECS = 20
     try:
         response = requests.post(
-            f"{BASE_URL}/pipes/download",
+            f"{SCREENPIPE_BASE_URL}/pipes/download",
             json={
                 "url": url},
             timeout=PIPE_DOWNLOAD_TIMEOUT_SECS)
@@ -151,7 +174,7 @@ def run_pipe(pipe_id: str) -> Dict:
     """
     try:
         response = requests.post(
-            f"{BASE_URL}/pipes/enable",
+            f"{SCREENPIPE_BASE_URL}/pipes/enable",
             json={
                 "pipe_id": pipe_id})
         response.raise_for_status()
@@ -173,27 +196,11 @@ def stop_pipe(pipe_id: str) -> Dict:
     """
     try:
         response = requests.post(
-            f"{BASE_URL}/pipes/disable",
+            f"{SCREENPIPE_BASE_URL}/pipes/disable",
             json={
                 "pipe_id": pipe_id})
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
         logging.error(f"Error stopping pipe: {e}")
-        return None
-
-
-def health_check() -> Dict:
-    """
-    Returns the health status of the system, including the timestamps of the last frame and audio captures, and the overall system status.
-
-    Returns:
-    dict: The health status of the system.
-    """
-    try:
-        response = requests.get(f"{BASE_URL}/health")
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Error checking health: {e}")
         return None
