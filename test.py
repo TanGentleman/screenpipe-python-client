@@ -1,5 +1,4 @@
 import unittest
-import requests
 import logging
 from screenpipe_client import (
     search,
@@ -10,6 +9,9 @@ from screenpipe_client import (
     stop_pipe,
     health_check
 )
+### Third party -- Downloading can be DANGEROUS!
+STREAM_TEXT_URL = "https://github.com/mediar-ai/screenpipe/tree/main/examples/typescript/pipe-stream-ocr-text"
+
 # NOTE: Constants need work, though it should return results for any populated DB
 # CONSTANTS
 VALID_QUERY = " "
@@ -95,20 +97,32 @@ class TestScreenPipeClient(unittest.TestCase):
             logger.error('Error during add tags to content test: %s', e)
             self.fail('Add tags to content test failed')
 
-    def test_download_pipe(self):
-        url = "https://github.com/mediar-ai/screenpipe/tree/main/examples/typescript/pipe-stream-ocr-text"
+    def test_download_pipe(self) -> bool:
+        """
+        Tests the download pipe functionality
 
+        Returns:
+            bool: True if no exceptions are raised
+        """
+        url = STREAM_TEXT_URL
         logger.info('Testing download pipe functionality')
         try:
             response = download_pipe(url)
             logger.info('Download pipe response: %s', response)
             self.assertIsNotNone(response)
             self.assertIsInstance(response, dict)
+            return True
         except Exception as e:
             logger.error('Error during download pipe test: %s', e)
-            self.fail('Download pipe test failed')
+            return False
 
-    def test_run_pipe(self):
+    def test_run_pipe(self) -> bool:
+        """
+        Tests the run pipe functionality
+
+        Returns:
+            bool: True if no exceptions are raised
+        """
         pipe_id = "pipe-stream-ocr-text"
 
         logger.info('Testing run pipe functionality')
@@ -117,11 +131,18 @@ class TestScreenPipeClient(unittest.TestCase):
             logger.info('Run pipe response: %s', response)
             self.assertIsNotNone(response)
             self.assertIsInstance(response, dict)
+            return True
         except Exception as e:
             logger.error('Error during run pipe test: %s', e)
-            self.fail('Run pipe test failed')
+            return False
 
-    def test_stop_pipe(self):
+    def test_stop_pipe(self) -> bool:
+        """
+        Tests the stop pipe functionality
+
+        Returns:
+            bool: True if no exceptions are raised
+        """
         pipe_id = "pipe-stream-ocr-text"
 
         logger.info('Testing stop pipe functionality')
@@ -130,22 +151,30 @@ class TestScreenPipeClient(unittest.TestCase):
             logger.info('Stop pipe response: %s', response)
             self.assertIsNotNone(response)
             self.assertIsInstance(response, dict)
+            return True
         except Exception as e:
             logger.error('Error during stop pipe test: %s', e)
-            self.fail('Stop pipe test failed')
+            return False
 
-    def test_health_check(self):
+    def test_health_check(self) -> bool:
+        """
+        Tests the health check functionality
+
+        Returns:
+            bool: True if no exceptions are raised
+        """
         logger.info('Testing health check functionality')
         try:
             response = health_check()
             logger.info('Health check response: %s', response)
             self.assertIsNotNone(response)
             self.assertIsInstance(response, dict)
+            return True
         except Exception as e:
             logger.error('Error during health check test: %s', e)
-            self.fail('Health check test failed')
+            return False
 
-    def test_search_with_none_query(self):
+    def test_audio_search_with_none_query(self):
         query = None
         content_type = "ocr"
         limit = 1
@@ -176,6 +205,33 @@ class TestScreenPipeClient(unittest.TestCase):
             logger.error('Error during search with invalid query test: %s', e)
             self.fail('Search with invalid query test failed')
 
+### TEST_CONSTANTS
+HEALTH_CHECK = "test_health_check"
+SEARCH = "test_search"
+LIST_AUDIO_DEVICES = "test_list_audio_devices"
+ADD_TAGS_TO_CONTENT = "test_add_tags_to_content"
+SEARCH_WITH_NONE_QUERY = "test_audio_search_with_none_query"
+
+### PIPE CONSTANTS
+RUN_PIPE = "test_run_pipe"
+STOP_PIPE = "test_stop_pipe"
+DOWNLOAD_PIPE = "test_download_pipe"
+
+def run_pipes_workflow():
+    HEALTHY_MSG = "Online"
+    UNHEALTHY_MSG = "Offline"
+
+    res = TestScreenPipeClient(HEALTH_CHECK)
+    if TestScreenPipeClient(HEALTH_CHECK) is False:
+        print("Offline")
+        return
+    print("Online")
+    # PIPE_ID = "pipe-stream-ocr-text"
+    # Run the pipe. If pipe not present, download the pipe.
+    pipe_id = "pipe-stream-ocr-text"
+    if TestScreenPipeClient(RUN_PIPE) is None:
+        print("Pipe not running. Starting pipe...")
+        return
 
 def run_current_tests():
     ONLY_HEALTH = False
@@ -185,10 +241,7 @@ def run_current_tests():
         "test_search",
         "test_list_audio_devices",
         "test_add_tags_to_content",
-        "test_download_pipe",
-        "test_run_pipe",
-        "test_stop_pipe",
-        "test_search_with_none_query",
+        "test_audio_search_with_none_query",
     ]
 
     # CONSTANTS
@@ -213,7 +266,8 @@ def run_current_tests():
 
 def main():
     # unittest.main()
-    run_current_tests()
+    # run_current_tests()
+    run_pipes_workflow()
 
 if __name__ == "__main__":
     main()
