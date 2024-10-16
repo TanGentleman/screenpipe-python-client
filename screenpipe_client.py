@@ -45,7 +45,9 @@ def search(
     end_time: Optional[str] = None,
     app_name: Optional[str] = None,
     window_name: Optional[str] = None,
-    include_frames: bool = False
+    include_frames: bool = False,
+    min_length: Optional[int] = None,
+    max_length: Optional[int] = None
 ) -> Dict:
     """
     Searches captured data (OCR, audio transcriptions, etc.) stored in ScreenPipe's local database based on filters such as content type, timestamps, app name, and window name.
@@ -60,6 +62,8 @@ def search(
     app_name (str): The application name.
     window_name (str): The window name.
     include_frames (bool): If True, fetch frame data for OCR content.
+    min_length (int): Minimum length of the content.
+    max_length (int): Maximum length of the content.
 
     Returns:
     dict: The search results.
@@ -68,7 +72,7 @@ def search(
         logging.warning("Please provide a query. Searching spacebar instead.")
         query = " "
 
-    all_content_type = content_type or "OCR and Audio"
+    all_content_type = content_type or "all"
     print(f"Searching for: {content_type or all_content_type}")
     params = {
         "q": query,
@@ -79,7 +83,9 @@ def search(
         "end_time": end_time,
         "app_name": app_name,
         "window_name": window_name,
-        "include_frames": str(include_frames).lower()
+        "include_frames": str(include_frames).lower(),
+        "min_length": min_length,
+        "max_length": max_length
     }
 
     params = {k: v for k, v in params.items() if v is not None}
@@ -105,6 +111,22 @@ def list_audio_devices() -> List:
         return response.json()
     except requests.exceptions.RequestException as e:
         logging.error(f"Error listing audio devices: {e}")
+        return None
+
+
+def list_monitors() -> List:
+    """
+    Lists all monitors available on the machine, including default monitors.
+
+    Returns:
+    list: A list of monitors.
+    """
+    try:
+        response = requests.post(f"{SCREENPIPE_BASE_URL}/vision/list")
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Error listing monitors: {e}")
         return None
 
 
@@ -135,6 +157,71 @@ def add_tags_to_content(content_type: str, id: int, tags: List[str]) -> Dict:
         return response.json()
     except requests.exceptions.RequestException as e:
         logging.error(f"Error adding tags to content: {e}")
+        return None
+
+
+def remove_tags_from_content(content_type: str, id: int, tags: List[str]) -> Dict:
+    """
+    Removes custom tags from content items based on the content type (audio or vision).
+
+    Args:
+    content_type (str): The type of content. Can be "audio" or "vision".
+    id (int): The ID of the content item.
+    tags (list): A list of tags to remove.
+
+    Returns:
+    dict: The response from the API.
+    """
+    if content_type == "ocr":
+        logging.warning(
+            "Content type 'ocr' is not used for the tags API. Please use 'vision' instead.")
+        content_type = "vision"
+    assert content_type in [
+        "audio", "vision"], "Invalid content type. Must be 'audio' or 'vision'."
+    try:
+        response = requests.delete(
+            f"{SCREENPIPE_BASE_URL}/tags/{content_type}/{id}",
+            json={
+                "tags": tags})
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Error removing tags from content: {e}")
+        return None
+
+
+def get_pipe_info(pipe_id: str) -> Dict:
+    """
+    Retrieves information about a specific pipe.
+
+    Args:
+    pipe_id (str): The ID of the pipe.
+
+    Returns:
+    dict: The response from the API.
+    """
+    try:
+        response = requests.get(f"{SCREENPIPE_BASE_URL}/pipes/info/{pipe_id}")
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Error getting pipe info: {e}")
+        return None
+
+
+def list_pipes() -> List:
+    """
+    Lists all available pipes.
+
+    Returns:
+    list: A list of pipes.
+    """
+    try:
+        response = requests.get(f"{SCREENPIPE_BASE_URL}/pipes/list")
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Error listing pipes: {e}")
         return None
 
 
@@ -203,4 +290,29 @@ def stop_pipe(pipe_id: str) -> Dict:
         return response.json()
     except requests.exceptions.RequestException as e:
         logging.error(f"Error stopping pipe: {e}")
+        return None
+
+
+def update_pipe_configuration(pipe_id: str, config: Dict) -> Dict:
+    """
+    Updates the configuration of a specific pipe.
+
+    Args:
+    pipe_id (str): The ID of the pipe.
+    config (dict): The new configuration settings for the pipe.
+
+    Returns:
+    dict: The response from the API.
+    """
+    try:
+        response = requests.post(
+            f"{SCREENPIPE_BASE_URL}/pipes/update",
+            json={
+                "pipe_id": pipe_id,
+                "config": config
+            })
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Error updating pipe configuration: {e}")
         return None
