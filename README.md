@@ -1,6 +1,8 @@
 # screenpipe-python-client
  
-I spent some time making a Python client for the Screenpipe API! Should make it a lot easier for the community to troubleshoot/interact with the Screenpipe API more intuitively.
+The following is a Python client for the Screenpipe API! Should make it a lot easier for the community to troubleshoot/interact with the Screenpipe API more intuitively. The API reference in docs.md is based on the source code of https://github.com/mediar-ai/screenpipe/blob/main/screenpipe-server/src/server.rs.
+
+For developers, use screenpipe_client.py as an SDK for Python integrations.
 
 For instance, to check screenpipe status:
 ```bash
