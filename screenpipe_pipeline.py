@@ -48,19 +48,19 @@ def reformat_user_message(user_message: str, sanitized_results: str) -> str:
 
 def get_messages_with_screenpipe_data(messages: List[dict], results_as_string: str) -> List[dict]:
     """
-    Combines the original messages with the sanitized ScreenPipe search results.
+    Combines the last user message with the sanitized ScreenPipe search results.
 
-    This function takes the original conversation messages and appends the sanitized
-    ScreenPipe search results as a new message. This allows the AI model to consider
-    both the conversation context and the search results in its next response.
+    This function takes the original conversation messages, extracts the last user message,
+    and combines it with the sanitized ScreenPipe search results. This allows the AI model
+    to consider both the user's query and the search results in its next response.
 
     Args:
         messages (List[dict]): The original list of conversation messages.
-        sanitized_results (List[dict]): The sanitized results from the ScreenPipe search.
+        results_as_string (str): The sanitized results from the ScreenPipe search as a string.
 
     Returns:
-        List[dict]: A new list of messages that includes the original messages and
-                    the ScreenPipe search results as a new message.
+        List[dict]: A new list of messages that includes a system message and a reformatted user message
+                    containing the original query and ScreenPipe search results.
     """
     # Replace system message
     SYSTEM_MESSAGE = "You are a helpful assistant that parses screenpipe search results. Use the search results to answer the user's question as best as possible. If unclear, synthesize the context and provide an explanation."
@@ -163,7 +163,7 @@ class Pipeline:
         self.name = "Screenpipe Pipeline"
         self.valves = self.Valves(
             **{
-                "LITELLM_API_KEY": os.getenv("LITELLM_API_KEY", ""),
+                "LITELLM_API_KEY": os.getenv("LITELLM_API_KEY", "BAD-KEY"),
                 "TOOL_MODEL": "Llama-3.1-70B",
                 "FINAL_MODEL": "Qwen2.5-72B"
             }
@@ -172,6 +172,8 @@ class Pipeline:
         #     base_url="https://api.together.xyz/v1",
         #     api_key=self.valves.TOGETHER_API_KEY
         # )
+        if not self.valves.LITELLM_API_KEY:
+            raise ValueError("LITELLM_API_KEY MUST be set")
         self.liteLLM_client = OpenAI(
             base_url="http://localhost:4000/v1",
             api_key=self.valves.LITELLM_API_KEY
