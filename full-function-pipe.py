@@ -2,6 +2,7 @@
 title: Screenpipe Pipeline
 author: TanGentleman
 author_url: https://github.com/TanGentleman
+funding_url: https://github.com/TanGentleman
 version: 0.1
 """
 # NOTE: This is a full-function pipe. It can be added using OpenWebUI > Workspace > Functions > Add Function
@@ -24,11 +25,11 @@ SCREENPIPE_BASE_URL = f"http://host.docker.internal:{SCREENPIPE_PORT}"
 # NOTE: The following must be set correctly!
 
 ### IMPORTANT CONFIG ###
-LLM_API_BASE_URL = "http://host.docker.internal:4000/v1"
-LLM_API_KEY = "API-KEY"
-TOOL_MODEL = "Llama-3.1-70B"
-FINAL_MODEL = "Qwen2.5-72B"
-# The model names must be valid for the endpoint LLM_API_BASE_URL/v1/chat/completions
+USER_LLM_API_BASE_URL = "http://host.docker.internal:4000/v1"
+USER_LLM_API_KEY = "YOUR-KEY"
+USER_TOOL_MODEL = "Llama-3.1-70B" # This model should support native tool use
+USER_FINAL_MODEL = "Qwen2.5-72B"
+# The model names must be valid for the endpoint USER_LLM_API_BASE_URL/v1/chat/completions
 
 # NOTE: The following can be used to remove/replace sensitive keywords
 SENSITIVE_WORD_1, SENSITIVE_REPLACEMENT_1 = "LASTNAME", ""
@@ -273,31 +274,30 @@ class Pipe:
         FINAL_MODEL: str = ""
 
     def __init__(self):
-        self.name = "Screenpipe Pipeline"
+        self.type = "pipe"
         self.valves = self.Valves(
             **{
-                "LLM_API_BASE_URL": LLM_API_BASE_URL,
-                "LLM_API_KEY": LLM_API_KEY,
-                "TOOL_MODEL": TOOL_MODEL,
-                "FINAL_MODEL": FINAL_MODEL
+                "LLM_API_BASE_URL": USER_LLM_API_BASE_URL,
+                "LLM_API_KEY": USER_LLM_API_KEY,
+                "TOOL_MODEL": USER_TOOL_MODEL,
+                "FINAL_MODEL": USER_FINAL_MODEL
             }
         )
-        
+        # self.client = OpenAI(
+        #     base_url=self.valves.LLM_API_BASE_URL,
+        #     api_key=self.valves.LLM_API_KEY
+        # )
+        self.client = OpenAI(
+            base_url=USER_LLM_API_BASE_URL,
+            api_key=USER_LLM_API_KEY
+        )
         self.tools = [convert_to_openai_tool(screenpipe_search)]
 
-    
-    
     def pipe(
         self, body: dict
     ) -> Union[str, Generator, Iterator]:
         print(f"pipe:{__name__}")
-        messages = body["messages"]
         print("Now piping body:", body)
-        self.client = OpenAI(
-            base_url=self.valves.LLM_API_BASE_URL,
-            api_key=self.valves.LLM_API_KEY
-        )
-        
         messages = body["messages"]
         if messages[0]["role"] == "system":
             print("System message is being replaced!")
@@ -308,13 +308,16 @@ class Pipe:
             "role": "system",
             "content": SYSTEM_MESSAGE
         })
-
-        response = self.client.chat.completions.create(
-            model=self.valves.TOOL_MODEL,
-            messages=messages,
-            tools=self.tools,
-            tool_choice="auto", # NOTE: This can instead be set to force tool use
-        )
+        try:
+            response = self.client.chat.completions.create(
+                model=USER_TOOL_MODEL,
+                messages=messages,
+                tools=self.tools,
+                tool_choice="auto", # NOTE: This can instead be set to force tool use
+                stream=False
+            )
+        except Exception:
+            return "Failed tool api call."
 
         tool_calls = response.choices[0].message.model_dump().get('tool_calls', [])
         if not tool_calls:
@@ -341,13 +344,20 @@ class Pipe:
         messages_with_screenpipe_data = get_messages_with_screenpipe_data(messages, results_as_string)
         if body["stream"]:
             return self.client.chat.completions.create(
-                model=self.valves.FINAL_MODEL,
+                model=USER_FINAL_MODEL,
                 messages=messages_with_screenpipe_data,
                 stream=True
             )
         else:
             final_response = self.client.chat.completions.create(
-                model=self.valves.FINAL_MODEL,
+                model=USER_FINAL_MODEL,
                 messages=messages_with_screenpipe_data,
             )
             return final_response.choices[0].message.content
+            # body["messages"].append(
+            #     {
+            #         "role": "assistant",
+            #         "content": final_response.choices[0].message.content
+            #     }
+            # )
+            # return body
