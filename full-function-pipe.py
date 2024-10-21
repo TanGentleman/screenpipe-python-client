@@ -34,6 +34,7 @@ FINAL_MODEL = "Qwen2.5-72B"
 SENSITIVE_WORD_1, SENSITIVE_REPLACEMENT_1 = "LASTNAME", ""
 SENSITIVE_WORD_2, SENSITIVE_REPLACEMENT_2 = "FIRSTNAME", "NICKNAME"
 
+### HELPER FUNCTIONS ###
 def remove_names(content: str) -> str:
     return content.replace(SENSITIVE_WORD_1, SENSITIVE_REPLACEMENT_1).replace(SENSITIVE_WORD_2, SENSITIVE_REPLACEMENT_2)
 
@@ -261,6 +262,9 @@ def screenpipe_search(
     print(f"Found {len(results)} results")
     return results
 
+def get_current_time() -> str:
+    return datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
+
 class Pipe:
     class Valves(BaseModel):
         LLM_API_BASE_URL: str = ""
@@ -281,19 +285,7 @@ class Pipe:
         
         self.tools = [convert_to_openai_tool(screenpipe_search)]
 
-    # ... existing methods ...
-    async def on_startup(self):
-        # This function is called when the server is started.
-        print(f"on_startup:{__name__}")
-        pass
-
-    async def on_shutdown(self):
-        # This function is called when the server is stopped.
-        print(f"on_shutdown:{__name__}")
-        pass
-
-    def get_current_time(self) -> str:
-        return datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
+    
     
     def pipe(
         self, body: dict
@@ -311,7 +303,7 @@ class Pipe:
             print("System message is being replaced!")
             messages = messages[1:]
 
-        SYSTEM_MESSAGE = f"You are a helpful assistant that can access external functions. When performing searches, consider the current date and time, which is {self.get_current_time()}. When appropriate, create a short search_substring to narrow down the search results."
+        SYSTEM_MESSAGE = f"You are a helpful assistant that can access external functions. When performing searches, consider the current date and time, which is {get_current_time()}. When appropriate, create a short search_substring to narrow down the search results."
         messages.insert(0, {
             "role": "system",
             "content": SYSTEM_MESSAGE
@@ -321,7 +313,7 @@ class Pipe:
             model=self.valves.TOOL_MODEL,
             messages=messages,
             tools=self.tools,
-            tool_choice="auto",
+            tool_choice="auto", # NOTE: This can instead be set to force tool use
         )
 
         tool_calls = response.choices[0].message.model_dump().get('tool_calls', [])
