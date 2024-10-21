@@ -160,10 +160,14 @@ def main():
     get_pipe_info_parser = subparsers.add_parser("get-pipe-info")
     get_pipe_info_parser.add_argument("--pipe-id", help="The ID of the pipe")
 
-    remove_tags_from_content_parser = subparsers.add_parser("remove-tags-from-content")
-    remove_tags_from_content_parser.add_argument("--content-type", help="The type of content")
-    remove_tags_from_content_parser.add_argument("--id", type=int, help="The ID of the content item")
-    remove_tags_from_content_parser.add_argument("--tags", nargs="+", help="A list of tags to remove")
+    remove_tags_from_content_parser = subparsers.add_parser(
+        "remove-tags-from-content")
+    remove_tags_from_content_parser.add_argument(
+        "--content-type", help="The type of content")
+    remove_tags_from_content_parser.add_argument(
+        "--id", type=int, help="The ID of the content item")
+    remove_tags_from_content_parser.add_argument(
+        "--tags", nargs="+", help="A list of tags to remove")
 
     args = parser.parse_args()
 
@@ -238,7 +242,8 @@ def main():
             print(json.dumps(info, indent=4))
 
     elif args.command == "remove-tags-from-content":
-        response = remove_tags_from_content(args.content_type, args.id, args.tags)
+        response = remove_tags_from_content(
+            args.content_type, args.id, args.tags)
         if response:
             print(json.dumps(response, indent=4))
 
