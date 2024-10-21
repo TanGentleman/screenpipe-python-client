@@ -1,6 +1,8 @@
+import requests
+import logging
 import argparse
 import json
-from screenpipe_client import (
+from utils.screenpipe_client import (
     search,
     list_audio_devices,
     add_tags_to_content,
@@ -21,7 +23,8 @@ def main():
     Usage:
         python cli.py search [--query QUERY] [--content-type CONTENT_TYPE] [--limit LIMIT] [--offset OFFSET]
                              [--start-time START_TIME] [--end-time END_TIME] [--app-name APP_NAME]
-                             [--window-name WINDOW_NAME] [--include-frames]
+                             [--window-name WINDOW_NAME] [--include-frames] [--min-length MIN_LENGTH]
+                             [--max-length MAX_LENGTH]
 
         python cli.py list-audio-devices
 
@@ -38,7 +41,7 @@ def main():
     Command Line Arguments:
         search:
             --query: The search term
-            --content-type: The type of content to search
+            --content-type: The type of content to search (ocr, audio, fts, all)
             --limit: The maximum number of results per page
             --offset: The pagination offset
             --start-time: The start timestamp
@@ -46,6 +49,8 @@ def main():
             --app-name: The application name
             --window-name: The window name
             --include-frames: If True, fetch frame data for OCR content
+            --min-length: Minimum length of the content
+            --max-length: Maximum length of the content
 
         list-audio-devices:
             No additional arguments required.
@@ -74,7 +79,7 @@ def main():
     search_parser.add_argument("--query", help="The search term")
     search_parser.add_argument(
         "--content-type",
-        help="The type of content to search")
+        help="The type of content to search (ocr, audio, fts, all)")
     search_parser.add_argument(
         "--limit",
         type=int,
@@ -91,6 +96,14 @@ def main():
         "--include-frames",
         action="store_true",
         help="If True, fetch frame data for OCR content")
+    search_parser.add_argument(
+        "--min-length",
+        type=int,
+        help="Minimum length of the content")
+    search_parser.add_argument(
+        "--max-length",
+        type=int,
+        help="Maximum length of the content")
 
     list_audio_devices_parser = subparsers.add_parser(
         "list-audio-devices")  # No args
@@ -126,7 +139,9 @@ def main():
             end_time=args.end_time,
             app_name=args.app_name,
             window_name=args.window_name,
-            include_frames=args.include_frames
+            include_frames=args.include_frames,
+            min_length=args.min_length,
+            max_length=args.max_length
         )
         if results:
             try:
