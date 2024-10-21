@@ -3,9 +3,9 @@ title: Screenpipe Pipeline
 author: TanGentleman
 author_url: https://github.com/TanGentleman
 funding_url: https://github.com/TanGentleman
-version: 0.1
+version: 0.2
 """
-# NOTE: This is a full-function pipe. It can be added using OpenWebUI > Workspace > Functions > Add Function
+# NOTE: Add pipeline using OpenWebUI > Workspace > Functions > Add Function
 
 # Standard library imports
 import json
@@ -27,17 +27,27 @@ SCREENPIPE_BASE_URL = f"http://host.docker.internal:{SCREENPIPE_PORT}"
 ### IMPORTANT CONFIG ###
 USER_LLM_API_BASE_URL = "http://host.docker.internal:4000/v1"
 USER_LLM_API_KEY = "YOUR-KEY"
-USER_TOOL_MODEL = "Llama-3.1-70B" # This model should support native tool use
+USER_TOOL_MODEL = "Llama-3.1-70B"  # This model should support native tool use
+# This model can be local, as it receives private screenpipe data
 USER_FINAL_MODEL = "Qwen2.5-72B"
-# The model names must be valid for the endpoint USER_LLM_API_BASE_URL/v1/chat/completions
+# NOTE: Model name must be valid for the endpoint
+# {USER_LLM_API_BASE_URL}/v1/chat/completions
 
 # NOTE: The following can be used to remove/replace sensitive keywords
 SENSITIVE_WORD_1, SENSITIVE_REPLACEMENT_1 = "LASTNAME", ""
 SENSITIVE_WORD_2, SENSITIVE_REPLACEMENT_2 = "FIRSTNAME", "NICKNAME"
 
 ### HELPER FUNCTIONS ###
+
+
 def remove_names(content: str) -> str:
-    return content.replace(SENSITIVE_WORD_1, SENSITIVE_REPLACEMENT_1).replace(SENSITIVE_WORD_2, SENSITIVE_REPLACEMENT_2)
+    return content.replace(
+        SENSITIVE_WORD_1,
+        SENSITIVE_REPLACEMENT_1).replace(
+        SENSITIVE_WORD_2,
+        SENSITIVE_REPLACEMENT_2
+    )
+
 
 def convert_to_pst(timestamp, safety=True):
     """
@@ -59,6 +69,7 @@ def convert_to_pst(timestamp, safety=True):
         tzinfo=ZoneInfo('UTC')).astimezone(
         ZoneInfo('America/Los_Angeles'))
     return dt_pst.strftime("%m/%d/%y %I:%M%p")
+
 
 def sp_search(
     limit: int = 5,
@@ -97,7 +108,8 @@ def sp_search(
 
     if content_type is None:
         content_type = "all"
-    assert content_type in ["ocr", "audio", "fts", "all"], "Invalid content type. Must be 'ocr', 'audio', 'fts', or 'all'."
+    assert content_type in ["ocr", "audio", "fts",
+                            "all"], "Invalid content type. Must be 'ocr', 'audio', 'fts', or 'all'."
     print(f"Searching for: {content_type}")
     params = {
         "q": query,
@@ -134,10 +146,11 @@ def reformat_user_message(user_message: str, sanitized_results: str) -> str:
     Returns:
         str: A reformatted user message with added context and rules.
     """
-    assert isinstance(sanitized_results, str), "Sanitized results must be a string"
+    assert isinstance(
+        sanitized_results, str), "Sanitized results must be a string"
     query = user_message
     context = sanitized_results
-    
+
     reformatted_message = f"""You are given a user query, context from personal screen and microphone data, and rules, all inside xml tags. Answer the query based on the context while respecting the rules.
 <context>
 {context}
@@ -156,7 +169,10 @@ def reformat_user_message(user_message: str, sanitized_results: str) -> str:
 """
     return reformatted_message
 
-def get_messages_with_screenpipe_data(messages: List[dict], results_as_string: str) -> List[dict]:
+
+def get_messages_with_screenpipe_data(
+        messages: List[dict],
+        results_as_string: str) -> List[dict]:
     """
     Combines the last user message with the sanitized ScreenPipe search results.
 
@@ -178,19 +194,22 @@ def get_messages_with_screenpipe_data(messages: List[dict], results_as_string: s
         raise ValueError("Last message must be from the user!")
     if len(messages) > 2:
         print("Warning! This LLM call uses only the search results and user message.")
-    
-    new_user_message = reformat_user_message(messages[-1]["content"], results_as_string)
+
+    new_user_message = reformat_user_message(
+        messages[-1]["content"], results_as_string)
     new_messages = [
         {"role": "system", "content": SYSTEM_MESSAGE},
         {"role": "user", "content": new_user_message}
     ]
     return new_messages
 
+
 def sanitize_results(results: dict) -> list[dict]:
     """
     Sanitizes the results from the screenpipe_search function.
     """
-    assert isinstance(results, dict) and results.get("data"), "Result dictionary must match schema of screenpipe search results"
+    assert isinstance(results, dict) and results.get(
+        "data"), "Result dictionary must match schema of screenpipe search results"
     results = results["data"]
     new_results = []
     for result in results:
@@ -207,9 +226,11 @@ def sanitize_results(results: dict) -> list[dict]:
             # NOTE: Not removing names from audio transcription
         else:
             raise ValueError(f"Unknown result type: {result['type']}")
-        new_result["timestamp"] = convert_to_pst(result["content"]["timestamp"])
+        new_result["timestamp"] = convert_to_pst(
+            result["content"]["timestamp"])
         new_results.append(new_result)
     return new_results
+
 
 def screenpipe_search(
     search_substring: str = "",
@@ -232,7 +253,7 @@ def screenpipe_search(
     Returns:
         dict: A dictionary containing an error message or the search results.
     """
-    if type(limit) == str:
+    if isinstance(limit, str):
         try:
             limit = int(limit)
         except ValueError:
@@ -242,7 +263,8 @@ def screenpipe_search(
     assert start_time < end_time, "Start time must be before end time"
 
     if limit > 50:
-        print(f"Warning: Limit is set to {limit}. This may return a large number of results.")
+        print(
+            f"Warning: Limit is set to {limit}. This may return a large number of results.")
         print("CHANGING LIMIT TO 40!")
         limit = 40
     # Make first letter of app_name uppercase
@@ -263,8 +285,10 @@ def screenpipe_search(
     print(f"Found {len(results)} results")
     return results
 
+
 def get_current_time() -> str:
     return datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
+
 
 class Pipe:
     class Valves(BaseModel):
@@ -283,10 +307,6 @@ class Pipe:
                 "FINAL_MODEL": USER_FINAL_MODEL
             }
         )
-        # self.client = OpenAI(
-        #     base_url=self.valves.LLM_API_BASE_URL,
-        #     api_key=self.valves.LLM_API_KEY
-        # )
         self.client = OpenAI(
             base_url=USER_LLM_API_BASE_URL,
             api_key=USER_LLM_API_KEY
@@ -313,35 +333,39 @@ class Pipe:
                 model=USER_TOOL_MODEL,
                 messages=messages,
                 tools=self.tools,
-                tool_choice="auto", # NOTE: This can instead be set to force tool use
+                tool_choice="auto",  # NOTE: This can instead be set to force tool use
                 stream=False
             )
         except Exception:
             return "Failed tool api call."
 
-        tool_calls = response.choices[0].message.model_dump().get('tool_calls', [])
+        tool_calls = response.choices[0].message.model_dump().get(
+            'tool_calls', [])
         if not tool_calls:
             return response.choices[0].message.content
 
         max_tool_calls = 1
         if len(tool_calls) > max_tool_calls:
-            print(f"Warning: More than {max_tool_calls} tool calls found. Only the first {max_tool_calls} tool calls will be processed.")
+            print(
+                f"Warning: More than {max_tool_calls} tool calls found. Only the first {max_tool_calls} tool calls will be processed.")
             tool_calls = tool_calls[:max_tool_calls]
-        
+
         for tool_call in tool_calls:
             if tool_call['function']['name'] == 'screenpipe_search':
                 function_args = json.loads(tool_call['function']['arguments'])
                 search_results = screenpipe_search(**function_args)
-                assert isinstance(search_results, dict), "Search results must be a dictionary"
+                assert isinstance(
+                    search_results, dict), "Search results must be a dictionary"
                 if not search_results:
                     return "No results found"
                 if "error" in search_results:
                     # NOTE: Returning the error message from screenpipe_search
                     return search_results["error"]
-                
+
                 sanitized_results = sanitize_results(search_results)
         results_as_string = json.dumps(sanitized_results)
-        messages_with_screenpipe_data = get_messages_with_screenpipe_data(messages, results_as_string)
+        messages_with_screenpipe_data = get_messages_with_screenpipe_data(
+            messages, results_as_string)
         if body["stream"]:
             return self.client.chat.completions.create(
                 model=USER_FINAL_MODEL,
@@ -354,10 +378,3 @@ class Pipe:
                 messages=messages_with_screenpipe_data,
             )
             return final_response.choices[0].message.content
-            # body["messages"].append(
-            #     {
-            #         "role": "assistant",
-            #         "content": final_response.choices[0].message.content
-            #     }
-            # )
-            # return body
