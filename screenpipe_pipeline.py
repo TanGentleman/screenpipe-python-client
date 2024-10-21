@@ -155,7 +155,8 @@ def screenpipe_search(
 
 class Pipeline:
     class Valves(BaseModel):
-        LITELLM_API_KEY: str = ""
+        LLM_API_BASE_URL: str = ""
+        LLM_API_KEY: str = ""
         TOOL_MODEL: str = ""
         FINAL_MODEL: str = ""
 
@@ -163,22 +164,13 @@ class Pipeline:
         self.name = "Screenpipe Pipeline"
         self.valves = self.Valves(
             **{
-                "LITELLM_API_KEY": os.getenv("LITELLM_API_KEY", "BAD-KEY"),
+                "LLM_API_BASE_URL": "http://localhost:4000/v1",
+                "LLM_API_KEY": "BAD-KEY",
                 "TOOL_MODEL": "Llama-3.1-70B",
                 "FINAL_MODEL": "Qwen2.5-72B"
             }
         )
-        # self.client = OpenAI(
-        #     base_url="https://api.together.xyz/v1",
-        #     api_key=self.valves.TOGETHER_API_KEY
-        # )
-        if not self.valves.LITELLM_API_KEY:
-            raise ValueError("LITELLM_API_KEY MUST be set")
-        self.liteLLM_client = OpenAI(
-            base_url="http://localhost:4000/v1",
-            api_key=self.valves.LITELLM_API_KEY
-        )
-
+        
         self.tools = [convert_to_openai_tool(screenpipe_search)]
 
     # ... existing methods ...
@@ -202,6 +194,11 @@ class Pipeline:
         print(messages)
         print(user_message)
         print("Now piping body:", body)
+        self.client = OpenAI(
+            base_url=self.valves.LLM_API_BASE_URL,
+            api_key=self.valves.LLM_API_KEY
+        )
+        
         messages = body["messages"]
         if messages[0]["role"] == "system":
             print("System message is being replaced!")
@@ -213,7 +210,7 @@ class Pipeline:
             "content": SYSTEM_MESSAGE
         })
 
-        response = self.liteLLM_client.chat.completions.create(
+        response = self.client.chat.completions.create(
             model=self.valves.TOOL_MODEL,
             messages=messages,
             tools=self.tools,
@@ -252,13 +249,13 @@ class Pipeline:
         results_as_string = json.dumps(sanitized_results)
         messages_with_screenpipe_data = get_messages_with_screenpipe_data(messages, results_as_string)
         if body["stream"]:
-            return self.liteLLM_client.chat.completions.create(
+            return self.client.chat.completions.create(
                 model=self.valves.FINAL_MODEL,
                 messages=messages_with_screenpipe_data,
                 stream=True
             )
         else:
-            final_response = self.liteLLM_client.chat.completions.create(
+            final_response = self.client.chat.completions.create(
                 model=self.valves.FINAL_MODEL,
                 messages=messages_with_screenpipe_data,
             )
