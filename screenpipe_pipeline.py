@@ -1,6 +1,5 @@
 # Standard library imports
 import json
-import os
 from datetime import datetime
 from typing import Generator, Iterator, List, Literal, Optional, Union
 
@@ -14,6 +13,14 @@ from pydantic import BaseModel
 # from schemas import OpenAIChatMessage
 from utils.screenpipe_client import search as sp_search
 from utils.sp_utils import remove_names, convert_to_pst
+
+### IMPORTANT CONFIG ###
+LLM_API_BASE_URL = "http://localhost:4000/v1"
+LLM_API_KEY = "API-KEY"
+TOOL_MODEL = "Llama-3.1-70B"
+FINAL_MODEL = "Qwen2.5-72B"
+# The model names must be valid for the endpoint LLM_API_BASE_URL/v1/chat/completions
+
 def reformat_user_message(user_message: str, sanitized_results: str) -> str:
     """
     Reformats the user message by adding context and rules from ScreenPipe search results.
@@ -164,10 +171,10 @@ class Pipeline:
         self.name = "Screenpipe Pipeline"
         self.valves = self.Valves(
             **{
-                "LLM_API_BASE_URL": "http://localhost:4000/v1",
-                "LLM_API_KEY": "BAD-KEY",
-                "TOOL_MODEL": "Llama-3.1-70B",
-                "FINAL_MODEL": "Qwen2.5-72B"
+                "LLM_API_BASE_URL": LLM_API_BASE_URL,
+                "LLM_API_KEY": LLM_API_KEY,
+                "TOOL_MODEL": TOOL_MODEL,
+                "FINAL_MODEL": FINAL_MODEL
             }
         )
         
