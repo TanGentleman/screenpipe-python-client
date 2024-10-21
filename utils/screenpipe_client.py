@@ -37,10 +37,10 @@ def health_check() -> Dict:
 
 
 def search(
+    limit: int = 5,
     query: Optional[str] = None,
     content_type: Optional[str] = None,
-    limit: int = 5,
-    offset: int = 0,
+    offset: Optional[int] = None,
     start_time: Optional[str] = None,
     end_time: Optional[str] = None,
     app_name: Optional[str] = None,
@@ -54,7 +54,7 @@ def search(
 
     Args:
     query (str): The search term.
-    content_type (str): The type of content to search (OCR, audio, etc.).
+    content_type (str): The type of content to search (ocr, audio, fts, all.).
     limit (int): The maximum number of results per page.
     offset (int): The pagination offset.
     start_time (str): The start timestamp.
@@ -69,11 +69,13 @@ def search(
     dict: The search results.
     """
     if not query:
-        logging.warning("Please provide a query. Searching spacebar instead.")
-        query = " "
+        logging.warning("Query is an empty string.")
+        query = ""
 
-    all_content_type = content_type or "all"
-    print(f"Searching for: {content_type or all_content_type}")
+    if content_type is None:
+        content_type = "all"
+    assert content_type in ["ocr", "audio", "fts", "all"], "Invalid content type. Must be 'ocr', 'audio', 'fts', or 'all'."
+    print(f"Searching for: {content_type}")
     params = {
         "q": query,
         "content_type": content_type,
@@ -88,7 +90,8 @@ def search(
         "max_length": max_length
     }
 
-    params = {k: v for k, v in params.items() if v is not None}
+    # Remove None values from params dictionary
+    params = {key: value for key, value in params.items() if value is not None}
     try:
         response = requests.get(f"{SCREENPIPE_BASE_URL}/search", params=params)
         response.raise_for_status()
