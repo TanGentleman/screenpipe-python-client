@@ -85,7 +85,7 @@ def search(
         "end_time": end_time,
         "app_name": app_name,
         "window_name": window_name,
-        "include_frames": str(include_frames).lower(),
+        "include_frames": "true" if include_frames is True else None,
         "min_length": min_length,
         "max_length": max_length
     }

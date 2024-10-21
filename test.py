@@ -1,6 +1,6 @@
 import unittest
 import logging
-from screenpipe_client import (
+from utils.screenpipe_client import (
     search,
     list_audio_devices,
     add_tags_to_content,
