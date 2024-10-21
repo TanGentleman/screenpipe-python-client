@@ -1,3 +1,11 @@
+"""
+title: Screenpipe Pipeline
+author: TanGentleman
+author_url: https://github.com/TanGentleman
+version: 0.1
+"""
+# NOTE: This is a full-function pipe. It can be added using OpenWebUI > Workspace > Functions > Add Function
+
 # Standard library imports
 import json
 from datetime import datetime
@@ -10,11 +18,10 @@ from langchain_core.utils.function_calling import convert_to_openai_tool
 from openai import OpenAI
 from pydantic import BaseModel
 
-# Local imports
-# from schemas import OpenAIChatMessage
-
 SCREENPIPE_PORT = 3030
 SCREENPIPE_BASE_URL = f"http://host.docker.internal:{SCREENPIPE_PORT}"
+
+# NOTE: The following must be set correctly!
 
 ### IMPORTANT CONFIG ###
 LLM_API_BASE_URL = "http://host.docker.internal:4000/v1"
@@ -23,8 +30,7 @@ TOOL_MODEL = "Llama-3.1-70B"
 FINAL_MODEL = "Qwen2.5-72B"
 # The model names must be valid for the endpoint LLM_API_BASE_URL/v1/chat/completions
 
-# NOTE: This has Sensitive information
-
+# NOTE: The following can be used to remove/replace sensitive keywords
 SENSITIVE_WORD_1, SENSITIVE_REPLACEMENT_1 = "LASTNAME", ""
 SENSITIVE_WORD_2, SENSITIVE_REPLACEMENT_2 = "FIRSTNAME", "NICKNAME"
 
