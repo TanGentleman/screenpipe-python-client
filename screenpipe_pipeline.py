@@ -12,7 +12,7 @@ from pydantic import BaseModel
 # Local imports
 # from schemas import OpenAIChatMessage
 from utils.screenpipe_client import search as sp_search
-from utils.sp_utils import remove_names, convert_to_pst
+from utils.sp_utils import remove_names, convert_to_local_time
 
 ### IMPORTANT CONFIG ###
 LLM_API_BASE_URL = "http://localhost:4000/v1"
@@ -113,7 +113,7 @@ def sanitize_results(results: dict) -> list[dict]:
             # NOTE: Not removing names from audio transcription
         else:
             raise ValueError(f"Unknown result type: {result['type']}")
-        new_result["timestamp"] = convert_to_pst(
+        new_result["timestamp"] = convert_to_local_time(
             result["content"]["timestamp"])
         new_results.append(new_result)
     return new_results

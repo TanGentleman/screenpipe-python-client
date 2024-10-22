@@ -1,5 +1,5 @@
 from typing import Any, List, Optional
-from utils.sp_utils import convert_to_pst
+from utils.sp_utils import convert_to_local_time
 expected_output = {
     "data": [
         {
@@ -61,8 +61,8 @@ class HealthCheck:
             verbose_instructions (str, optional): Optional verbose instructions. Defaults to None.
         """
         self.status = status
-        self.last_frame_timestamp = convert_to_pst(last_frame_timestamp)
-        self.last_audio_timestamp = convert_to_pst(last_audio_timestamp)
+        self.last_frame_timestamp = convert_to_local_time(last_frame_timestamp)
+        self.last_audio_timestamp = convert_to_local_time(last_audio_timestamp)
         self.frame_status = frame_status
         self.audio_status = audio_status
         self.message = message
@@ -97,7 +97,7 @@ class OCR:
         """
         self.frame_id = frame_id
         self.text = text
-        self.timestamp = convert_to_pst(timestamp)
+        self.timestamp = convert_to_local_time(timestamp)
         self.file_path = file_path
         self.offset_index = offset_index
         self.app_name = app_name
@@ -134,7 +134,7 @@ class Audio:
         """
         self.chunk_id = chunk_id
         self.transcription = transcription
-        self.timestamp = convert_to_pst(timestamp)
+        self.timestamp = convert_to_local_time(timestamp)
         self.file_path = file_path
         self.offset_index = offset_index
         self.tags = tags
