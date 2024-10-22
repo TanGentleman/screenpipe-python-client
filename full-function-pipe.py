@@ -3,7 +3,7 @@ title: Screenpipe Pipeline
 author: TanGentleman
 author_url: https://github.com/TanGentleman
 funding_url: https://github.com/TanGentleman
-version: 0.3
+version: 0.4
 """
 # NOTE: Add pipeline using OpenWebUI > Workspace > Functions > Add Function
 
@@ -17,29 +17,42 @@ from zoneinfo import ZoneInfo
 import requests
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from openai import OpenAI
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 SCREENPIPE_PORT = 3030
 SCREENPIPE_BASE_URL = f"http://host.docker.internal:{SCREENPIPE_PORT}"
 
 # NOTE: The following must be set correctly!
 
+SENSITIVE_KEY = "api-key"
+
+SENSITIVE_WORD_1, SENSITIVE_REPLACEMENT_1 = "LASTNAME", ""
+SENSITIVE_WORD_2, SENSITIVE_REPLACEMENT_2 = "FIRSTNAME", "NICKNAME"
+# NOTE: The above are used to remove/replace sensitive keywords
+
 ### IMPORTANT CONFIG ###
 USER_LLM_API_BASE_URL = "http://host.docker.internal:4000/v1"
-USER_LLM_API_KEY = "YOUR-KEY"
+USER_LLM_API_KEY = SENSITIVE_KEY
 USER_TOOL_MODEL = "Llama-3.1-70B"  # This model should support native tool use
-# This model can be local, as it receives private screenpipe data
-USER_FINAL_MODEL = "Qwen2.5-72B"
+
+USER_FINAL_MODEL = "Qwen2.5-72B" # This model receives private screenpipe data
+# USER_LOCAL_TOOL_MODEL = "lmstudio-qwen-14B"
+USER_LOCAL_TOOL_MODEL = "Llama-3.2-3B-4bit-MLX"
 # NOTE: Model name must be valid for the endpoint
 # {USER_LLM_API_BASE_URL}/v1/chat/completions
 
-# NOTE: The following can be used to remove/replace sensitive keywords
-SENSITIVE_WORD_1, SENSITIVE_REPLACEMENT_1 = "LASTNAME", ""
-SENSITIVE_WORD_2, SENSITIVE_REPLACEMENT_2 = "FIRSTNAME", "NICKNAME"
+
 
 MAX_TOOL_CALLS = 1
 ### HELPER FUNCTIONS ###
 
+class SearchSchema(BaseModel):
+    search_substring: str = ""
+    content_type: Literal["ocr", "audio", "all"] = "all"
+    start_time: str = "2024-10-01T00:00:00Z"
+    end_time: str = "2024-10-31T23:59:59Z"
+    limit: int = 5
+    app_name: Optional[str] = None
 
 def remove_names(content: str) -> str:
     return content.replace(
@@ -50,7 +63,7 @@ def remove_names(content: str) -> str:
     )
 
 
-def convert_to_pst(timestamp, safety=True):
+def convert_to_local_time(timestamp, safety=True):
     """
     Converts a given timestamp to Pacific Standard Time (PST).
 
@@ -222,7 +235,7 @@ def sanitize_results(results: dict) -> list[dict]:
             # NOTE: Not removing names from audio transcription
         else:
             raise ValueError(f"Unknown result type: {result['type']}")
-        new_result["timestamp"] = convert_to_pst(
+        new_result["timestamp"] = convert_to_local_time(
             result["content"]["timestamp"])
         new_results.append(new_result)
     return new_results
@@ -367,6 +380,51 @@ class Pipe:
         search_results = self._process_tool_calls(tool_calls)
         return search_results
 
+    def _parse_schema_from_response(self, response_text: str, target_schema = SearchSchema) -> SearchSchema | str:
+        """
+        Parses the response text into a dictionary using the provided Pydantic schema.
+
+        Args:
+            response_text (str): The response text to parse.
+            schema (BaseModel): The Pydantic schema to validate the parsed data against.
+
+        Returns:
+            dict: The parsed and validated data as a dictionary. If parsing fails, returns an empty dictionary.
+        """
+        assert issubclass(target_schema, BaseModel), "Schema must be a Pydantic BaseModel"
+        try:
+            response_object = json.loads(response_text)
+            pydantic_object = target_schema(**response_object)
+            return pydantic_object
+        except (json.JSONDecodeError, ValidationError) as e:
+            print(f"Error: {e}")
+            return response_text
+
+    def _grammar_response_as_results_or_str(self, messages: list) -> str | dict:
+        try:
+            json_schema = SearchSchema.model_json_schema()
+            print(json_schema)
+            response = self.client.chat.completions.create(
+                model=USER_LOCAL_TOOL_MODEL,
+                messages=messages,
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {
+                        "strict": True,
+                        "schema": json_schema
+                    }
+                }
+            )
+            response_text = response.choices[0].message.content
+            parsed_search_schema = self._parse_schema_from_response(response_text)
+            if isinstance(parsed_search_schema, str):
+                return response_text
+            
+            function_args = parsed_search_schema.model_dump()
+            search_results = screenpipe_search(**function_args)
+            return search_results
+        except Exception:
+            return "Failed grammar api call."
     def pipe(
         self, body: dict
     ) -> Union[str, Generator, Iterator]:
@@ -377,13 +435,13 @@ class Pipe:
 
         TOOL_METHOD = True
         if TOOL_METHOD:
-            search_results = self._tool_response_as_results_or_str(messages)
-            pass
+            parsed_results = self._tool_response_as_results_or_str(messages)
         else:
-            pass
-        if isinstance(search_results, str):
-            return search_results
-
+            parsed_results = self._grammar_response_as_results_or_str(messages)
+            # NOTE: THIS ABOVE LOGIC NEEDS TO CHANGE
+        if isinstance(parsed_results, str):
+            return parsed_results
+        search_results = parsed_results
         sanitized_results = sanitize_results(search_results)
         results_as_string = json.dumps(sanitized_results)
         messages_with_screenpipe_data = get_messages_with_screenpipe_data(
