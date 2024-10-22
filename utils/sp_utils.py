@@ -11,8 +11,13 @@ def convert_to_local_time(timestamp, safety=True):
     Returns:
     - str: The converted timestamp in the format MM/DD/YY HH:MM AM/PM.
     """
-    if safety and not timestamp.endswith('Z'):
-        return timestamp
+    correct_timestamp_length = len("YYYY-MM-DDTHH:MM:SS.ssssssZ")
+    alternate_timestamp_length = len("YYYY-MM-DDTHH:MM:SS")
+    if safety and len(timestamp) != correct_timestamp_length:
+        if len(timestamp) == alternate_timestamp_length:
+            timestamp += ".000000Z"
+        else:
+            return timestamp
     
     # Parse the UTC timestamp
     dt = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S.%fZ")
