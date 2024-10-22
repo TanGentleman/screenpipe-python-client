@@ -15,7 +15,7 @@ from utils.screenpipe_client import (
     list_pipes,
     get_pipe_info
 )
-from outputs import SearchOutput, HealthCheck
+from utils.outputs import SearchOutput, HealthCheck
 
 
 def main():
