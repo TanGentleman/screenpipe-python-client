@@ -1,19 +1,21 @@
 from datetime import datetime
 
-def convert_to_local_time(timestamp, safety=True):
+PREFER_24_HOUR_FORMAT = False
+
+def convert_to_local_time(timestamp: str, use_24_hour_format=PREFER_24_HOUR_FORMAT):
     """
     Converts a given timestamp to the user's local time.
 
     Args:
     - timestamp (str): The timestamp to convert, in the format YYYY-MM-DDTHH:MM:SS.ssssssZ.
-    - safety (bool): If True, the function will return the original timestamp if it does not end with 'Z'. Defaults to True.
+    - use_24_hour_format (bool): If True, the function will return the time in 24-hour format. Defaults to True.
 
     Returns:
-    - str: The converted timestamp in the format MM/DD/YY HH:MM AM/PM.
+    - str: The converted timestamp in the format MM/DD/YY HH:MM (24-hour) or MM/DD/YY HH:MM AM/PM (12-hour).
     """
     correct_timestamp_length = len("YYYY-MM-DDTHH:MM:SS.ssssssZ")
     alternate_timestamp_length = len("YYYY-MM-DDTHH:MM:SS")
-    if safety and len(timestamp) != correct_timestamp_length:
+    if len(timestamp) != correct_timestamp_length:
         if len(timestamp) == alternate_timestamp_length:
             timestamp += ".000000Z"
         else:
@@ -26,7 +28,10 @@ def convert_to_local_time(timestamp, safety=True):
     dt_local = dt.replace(tzinfo=datetime.now().astimezone().tzinfo)
     
     # Format the date string
-    return dt_local.strftime("%m/%d/%y %I:%M%p")
+    if use_24_hour_format:
+        return dt_local.strftime("%m/%d/%y %H:%M")
+    else:
+        return dt_local.strftime("%m/%d/%y %I:%M%p")
 
 def main():
     print("Welcome! Current timestamp:")
