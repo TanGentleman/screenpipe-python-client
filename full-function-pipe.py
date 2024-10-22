@@ -3,7 +3,7 @@ title: Screenpipe Pipeline
 author: TanGentleman
 author_url: https://github.com/TanGentleman
 funding_url: https://github.com/TanGentleman
-version: 0.2
+version: 0.3
 """
 # NOTE: Add pipeline using OpenWebUI > Workspace > Functions > Add Function
 
@@ -37,6 +37,7 @@ USER_FINAL_MODEL = "Qwen2.5-72B"
 SENSITIVE_WORD_1, SENSITIVE_REPLACEMENT_1 = "LASTNAME", ""
 SENSITIVE_WORD_2, SENSITIVE_REPLACEMENT_2 = "FIRSTNAME", "NICKNAME"
 
+MAX_TOOL_CALLS = 1
 ### HELPER FUNCTIONS ###
 
 
@@ -174,26 +175,21 @@ def get_messages_with_screenpipe_data(
         messages: List[dict],
         results_as_string: str) -> List[dict]:
     """
-    Combines the last user message with the sanitized ScreenPipe search results.
-
-    This function takes the original conversation messages, extracts the last user message,
-    and combines it with the sanitized ScreenPipe search results. This allows the AI model
-    to consider both the user's query and the search results in its next response.
+    Combines the last user message with sanitized ScreenPipe search results.
 
     Args:
-        messages (List[dict]): The original list of conversation messages.
-        results_as_string (str): The sanitized results from the ScreenPipe search as a string.
+        messages (List[dict]): Original conversation messages.
+        results_as_string (str): Sanitized ScreenPipe search results.
 
     Returns:
-        List[dict]: A new list of messages that includes a system message and a reformatted user message
-                    containing the original query and ScreenPipe search results.
+        List[dict]: New message list with system message and reformatted user message.
     """
     # Replace system message
     SYSTEM_MESSAGE = "You are a helpful assistant that parses screenpipe search results. Use the search results to answer the user's question as best as possible. If unclear, synthesize the context and provide an explanation."
     if messages[-1]["role"] != "user":
         raise ValueError("Last message must be from the user!")
     if len(messages) > 2:
-        print("Warning! This LLM call uses only the search results and user message.")
+        print("Warning! This LLM call does not use past chat history!")
 
     new_user_message = reformat_user_message(
         messages[-1]["content"], results_as_string)
@@ -313,59 +309,137 @@ class Pipe:
         )
         self.tools = [convert_to_openai_tool(screenpipe_search)]
 
+    def parse_tool_or_response_string(self, response_text: str) -> str | dict:
+        tool_start_string = "<function=screenpipe_search>"
+        def is_tool_condition(text):
+            return text.startswith(tool_start_string)
+        if is_tool_condition(response_text):
+            try:
+                end_index = response_text.rfind("}")
+                if end_index == -1:
+                    print("Closing bracket not found in response text")
+                    return response_text
+                
+                function_args_str = response_text[len(tool_start_string):end_index + 1]
+                
+                # Validate JSON structure
+                json.loads(function_args_str)  # This will raise JSONDecodeError if invalid
+                # TODO: Avoid duplicate json.loads call
+                # by storing the object and skipping json.loads if isinstance(arguments, dict)
+                # Append new tool call for screenpipe_search
+                new_tool_call = {
+                    "id": f"call_{len(function_args_str)}",
+                    "type": "function",
+                    "function": {
+                        "name": "screenpipe_search",
+                        "arguments": function_args_str
+                    }
+                }
+                return new_tool_call
+            except json.JSONDecodeError:
+                print("Error: Invalid JSON in function arguments")
+                return response_text
+            except Exception as e:
+                print(f"Unexpected error: {str(e)}")
+                return "An unexpected error occurred while processing the function call"
+        else:
+            return response_text
+
+    def _tool_response_as_results_or_str(self, messages: list) -> str | dict:
+        try:
+            response = self._make_tool_api_call(messages)
+        except Exception:
+            return "Failed tool api call."
+
+        tool_calls = self._extract_tool_calls(response)
+        
+        if not tool_calls:
+            response_text = response.choices[0].message.content
+            parsed_response = self.parse_tool_or_response_string(response_text)
+            if isinstance(parsed_response, str):
+                return parsed_response
+            parsed_tool_call = parsed_response
+            assert isinstance(parsed_tool_call, dict), "Parsed tool must be dict"
+            # RESPONSE is a tool
+            tool_calls = [parsed_tool_call]
+
+        tool_calls = self._limit_tool_calls(tool_calls)
+        search_results = self._process_tool_calls(tool_calls)
+        return search_results
+
     def pipe(
         self, body: dict
     ) -> Union[str, Generator, Iterator]:
         print(f"pipe:{__name__}")
         print("Now piping body:", body)
-        messages = body["messages"]
+        
+        messages = self._prepare_messages(body["messages"])
+
+        TOOL_METHOD = True
+        if TOOL_METHOD:
+            search_results = self._tool_response_as_results_or_str(messages)
+            pass
+        else:
+            pass
+        if isinstance(search_results, str):
+            return search_results
+
+        sanitized_results = sanitize_results(search_results)
+        results_as_string = json.dumps(sanitized_results)
+        messages_with_screenpipe_data = get_messages_with_screenpipe_data(
+            messages, 
+            results_as_string
+        )
+
+        return self._generate_final_response(body, messages_with_screenpipe_data)
+
+    def _prepare_messages(self, messages):
+        assert messages[-1]["role"] == "user", "Last message must be from the user!"
         if messages[0]["role"] == "system":
             print("System message is being replaced!")
-            messages = messages[1:]
-
+        if len(messages) > 2:
+            print("Warning! This LLM call does not use past chat history!")
         SYSTEM_MESSAGE = f"You are a helpful assistant that can access external functions. When performing searches, consider the current date and time, which is {get_current_time()}. When appropriate, create a short search_substring to narrow down the search results."
-        messages.insert(0, {
-            "role": "system",
-            "content": SYSTEM_MESSAGE
-        })
-        try:
-            response = self.client.chat.completions.create(
-                model=USER_TOOL_MODEL,
-                messages=messages,
-                tools=self.tools,
-                tool_choice="auto",  # NOTE: This can instead be set to force tool use
-                stream=False
-            )
-        except Exception:
-            return "Failed tool api call."
+        new_messages = [
+            {"role": "system", "content": SYSTEM_MESSAGE},
+            {"role": "user", "content": messages[-1]["content"]}
+        ]
+        return new_messages
 
-        tool_calls = response.choices[0].message.model_dump().get(
-            'tool_calls', [])
+    def _make_tool_api_call(self, messages):
+        return self.client.chat.completions.create(
+            model=USER_TOOL_MODEL,
+            messages=messages,
+            tools=self.tools,
+            tool_choice="auto",
+            stream=False
+        )
+
+    def _extract_tool_calls(self, response):
+        return response.choices[0].message.model_dump().get('tool_calls', [])
+
+    def _limit_tool_calls(self, tool_calls):
         if not tool_calls:
-            return response.choices[0].message.content
+            raise ValueError("No tool calls found")
+        if len(tool_calls) > MAX_TOOL_CALLS:
+            print(f"Warning: More than {MAX_TOOL_CALLS} tool calls found. Only the first {MAX_TOOL_CALLS} tool calls will be processed.")
+            return tool_calls[:MAX_TOOL_CALLS]
+        return tool_calls
 
-        max_tool_calls = 1
-        if len(tool_calls) > max_tool_calls:
-            print(
-                f"Warning: More than {max_tool_calls} tool calls found. Only the first {max_tool_calls} tool calls will be processed.")
-            tool_calls = tool_calls[:max_tool_calls]
-
+    def _process_tool_calls(self, tool_calls) -> dict | str:
         for tool_call in tool_calls:
             if tool_call['function']['name'] == 'screenpipe_search':
                 function_args = json.loads(tool_call['function']['arguments'])
                 search_results = screenpipe_search(**function_args)
-                assert isinstance(
-                    search_results, dict), "Search results must be a dictionary"
+                assert isinstance(search_results, dict), "Search results must be a dictionary"
                 if not search_results:
                     return "No results found"
                 if "error" in search_results:
-                    # NOTE: Returning the error message from screenpipe_search
                     return search_results["error"]
+                return search_results
+        raise ValueError("No valid tool call found")
 
-                sanitized_results = sanitize_results(search_results)
-        results_as_string = json.dumps(sanitized_results)
-        messages_with_screenpipe_data = get_messages_with_screenpipe_data(
-            messages, results_as_string)
+    def _generate_final_response(self, body, messages_with_screenpipe_data):
         if body["stream"]:
             return self.client.chat.completions.create(
                 model=USER_FINAL_MODEL,
