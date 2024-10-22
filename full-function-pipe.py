@@ -48,11 +48,11 @@ MAX_TOOL_CALLS = 1
 ### HELPER FUNCTIONS ###
 
 class SearchSchema(BaseModel):
-    search_substring: str = ""
-    content_type: Literal["ocr", "audio", "all"] = "all"
-    start_time: str = "2024-10-01T00:00:00Z"
-    end_time: str = "2024-10-31T23:59:59Z"
     limit: int = 5
+    content_type: Literal["ocr", "audio", "all"] = "all"
+    search_substring: Optional[str] = ""
+    start_time: Optional[str] = "2024-10-01T00:00:00Z"
+    end_time: Optional[str] = "2024-10-31T23:59:59Z"
     app_name: Optional[str] = None
 
 def remove_names(content: str) -> str:
@@ -425,6 +425,7 @@ class Pipe:
                 return response_text
             
             function_args = parsed_search_schema.model_dump()
+            print(function_args)
             search_results = screenpipe_search(**function_args)
             return search_results
         except Exception:
@@ -464,18 +465,17 @@ class Pipe:
         if self.use_grammar:
             system_message = f"""You are a helpful assistant. Create a screenpipe search conforming to the correct schema to search captured data stored in ScreenPipe's local database.
 Fields:
-search_substring (str): The search term. Defaults to "".
-content_type (Literal["ocr", "audio", "all"]): The type of content to search. Defaults to "all".
-start_time (str): The start timestamp for the search range. Defaults to "2024-10-01T00:00:00Z".
-end_time (str): The end timestamp for the search range. Defaults to "2024-10-31T23:59:59Z".
-limit (int): The maximum number of results to return. Should be between 1 and 100.
+limit (int): The maximum number of results to return. Should be between 1 and 100. Default to 10.
+content_type (Literal["ocr", "audio", "all"]): The type of content to search. Default to "all".
+search_substring (Optional[str]): The optional search term.
+start_time (Optional[str]): The start timestamp for the search range. Defaults to "2024-10-01T00:00:00Z".
+end_time (Optional[str]): The end timestamp for the search range. Defaults to "2024-10-31T23:59:59Z".
 app_name (Optional[str]): The name of the app to search in. Defaults to None.
 
 The start_time and end_time fields must be in the same format as the current time.
 Current time: {CURRENT_TIME}.
 
-Construct an optimal search filter for the query. When appropriate, create a search_substring to narrow down the search results.
-ALL fields are optional except an integer limit. When in doubt, set a limit of 5. Do not include unnecessary fields.
+Construct an optimal search filter for the query. When appropriate, create a search_substring to narrow down the search results. Do not include unnecessary fields.
 """
         else:
             system_message = f"You are a helpful assistant that can access external functions. When performing searches, consider the current date and time, which is {CURRENT_TIME}. When appropriate, create a short search_substring to narrow down the search results."
