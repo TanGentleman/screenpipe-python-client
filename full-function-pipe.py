@@ -3,7 +3,7 @@ title: Screenpipe Pipeline
 author: TanGentleman
 author_url: https://github.com/TanGentleman
 funding_url: https://github.com/TanGentleman
-version: 0.4
+version: 0.5
 """
 # NOTE: Add pipeline using OpenWebUI > Workspace > Functions > Add Function
 
@@ -33,11 +33,12 @@ SENSITIVE_WORD_2, SENSITIVE_REPLACEMENT_2 = "FIRSTNAME", "NICKNAME"
 ### IMPORTANT CONFIG ###
 USER_LLM_API_BASE_URL = "http://host.docker.internal:4000/v1"
 USER_LLM_API_KEY = SENSITIVE_KEY
+
 USER_TOOL_MODEL = "Llama-3.1-70B"  # This model should support native tool use
 
 USER_FINAL_MODEL = "Qwen2.5-72B" # This model receives private screenpipe data
 # USER_LOCAL_TOOL_MODEL = "lmstudio-qwen-14B"
-USER_LOCAL_TOOL_MODEL = "Llama-3.2-3B-4bit-MLX"
+USER_LOCAL_TOOL_MODEL = "lmstudio-qwen-14B"
 # NOTE: Model name must be valid for the endpoint
 # {USER_LLM_API_BASE_URL}/v1/chat/completions
 
@@ -321,6 +322,7 @@ class Pipe:
             api_key=USER_LLM_API_KEY
         )
         self.tools = [convert_to_openai_tool(screenpipe_search)]
+        self.use_grammar = True
 
     def parse_tool_or_response_string(self, response_text: str) -> str | dict:
         tool_start_string = "<function=screenpipe_search>"
@@ -401,6 +403,8 @@ class Pipe:
             return response_text
 
     def _grammar_response_as_results_or_str(self, messages: list) -> str | dict:
+        # Replace system message
+        assert messages[0]["role"] == "system", "There should be a system message here!"
         try:
             json_schema = SearchSchema.model_json_schema()
             print(json_schema)
@@ -433,12 +437,10 @@ class Pipe:
         
         messages = self._prepare_messages(body["messages"])
 
-        TOOL_METHOD = True
-        if TOOL_METHOD:
-            parsed_results = self._tool_response_as_results_or_str(messages)
-        else:
+        if self.use_grammar:
             parsed_results = self._grammar_response_as_results_or_str(messages)
-            # NOTE: THIS ABOVE LOGIC NEEDS TO CHANGE
+        else:
+            parsed_results = self._tool_response_as_results_or_str(messages)
         if isinstance(parsed_results, str):
             return parsed_results
         search_results = parsed_results
@@ -457,9 +459,28 @@ class Pipe:
             print("System message is being replaced!")
         if len(messages) > 2:
             print("Warning! This LLM call does not use past chat history!")
-        SYSTEM_MESSAGE = f"You are a helpful assistant that can access external functions. When performing searches, consider the current date and time, which is {get_current_time()}. When appropriate, create a short search_substring to narrow down the search results."
+        
+        CURRENT_TIME = get_current_time()
+        if self.use_grammar:
+            system_message = f"""You are a helpful assistant. Create a screenpipe search conforming to the correct schema to search captured data stored in ScreenPipe's local database.
+Fields:
+search_substring (str): The search term. Defaults to "".
+content_type (Literal["ocr", "audio", "all"]): The type of content to search. Defaults to "all".
+start_time (str): The start timestamp for the search range. Defaults to "2024-10-01T00:00:00Z".
+end_time (str): The end timestamp for the search range. Defaults to "2024-10-31T23:59:59Z".
+limit (int): The maximum number of results to return. Should be between 1 and 100.
+app_name (Optional[str]): The name of the app to search in. Defaults to None.
+
+The start_time and end_time fields must be in the same format as the current time.
+Current time: {CURRENT_TIME}.
+
+Construct an optimal search filter for the query. When appropriate, create a search_substring to narrow down the search results.
+ALL fields are optional except an integer limit. When in doubt, set a limit of 5. Do not include unnecessary fields.
+"""
+        else:
+            system_message = f"You are a helpful assistant that can access external functions. When performing searches, consider the current date and time, which is {CURRENT_TIME}. When appropriate, create a short search_substring to narrow down the search results."
         new_messages = [
-            {"role": "system", "content": SYSTEM_MESSAGE},
+            {"role": "system", "content": system_message},
             {"role": "user", "content": messages[-1]["content"]}
         ]
         return new_messages
