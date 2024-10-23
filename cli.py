@@ -53,7 +53,7 @@ def main():
     Command Line Arguments:
         search:
             --query: The search term
-            --content-type: The type of content to search (ocr, audio, fts, all)
+            --content-type: The type of content to search (ocr, audio, all)
             --limit: The maximum number of results per page
             --offset: The pagination offset
             --start-time: The start timestamp
@@ -105,7 +105,7 @@ def main():
     search_parser.add_argument("--query", help="The search term")
     search_parser.add_argument(
         "--content-type",
-        help="The type of content to search (ocr, audio, fts, all)")
+        help="The type of content to search (ocr, audio, all)")
     search_parser.add_argument(
         "--limit",
         type=int,

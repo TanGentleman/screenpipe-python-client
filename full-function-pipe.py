@@ -46,6 +46,8 @@ DEFAULT_LOCAL_GRAMMAR_MODEL = "lmstudio-nemo"
 
 MAX_TOOL_CALLS = 1
 ### HELPER FUNCTIONS ###
+
+
 class SearchSchema(BaseModel):
     limit: int = 5
     content_type: Literal["ocr", "audio", "all"] = "all"
@@ -53,6 +55,7 @@ class SearchSchema(BaseModel):
     start_time: Optional[str] = "2024-10-01T00:00:00Z"
     end_time: Optional[str] = "2024-10-31T23:59:59Z"
     app_name: Optional[str] = None
+
 
 def remove_names(content: str) -> str:
     return content.replace(
@@ -103,7 +106,7 @@ def sp_search(
 
     Args:
     query (str): The search term.
-    content_type (str): The type of content to search (ocr, audio, fts, all.).
+    content_type (str): The type of content to search (ocr, audio, all.).
     limit (int): The maximum number of results per page.
     offset (int): The pagination offset.
     start_time (str): The start timestamp.
@@ -122,8 +125,8 @@ def sp_search(
 
     if content_type is None:
         content_type = "all"
-    assert content_type in ["ocr", "audio", "fts",
-                            "all"], "Invalid content type. Must be 'ocr', 'audio', 'fts', or 'all'."
+    assert content_type in [
+        "ocr", "audio", "all"], "Invalid content type. Must be 'ocr', 'audio', or 'all'."
     print(f"Searching for: {content_type}")
     params = {
         "q": query,
@@ -338,6 +341,7 @@ class Pipe:
 
     def parse_tool_or_response_string(self, response_text: str) -> str | dict:
         tool_start_string = "<function=screenpipe_search>"
+
         def is_tool_condition(text):
             return text.startswith(tool_start_string)
         if is_tool_condition(response_text):
@@ -346,11 +350,13 @@ class Pipe:
                 if end_index == -1:
                     print("Closing bracket not found in response text")
                     return response_text
-                
-                function_args_str = response_text[len(tool_start_string):end_index + 1]
-                
+
+                function_args_str = response_text[len(
+                    tool_start_string):end_index + 1]
+
                 # Validate JSON structure
-                json.loads(function_args_str)  # This will raise JSONDecodeError if invalid
+                # This will raise JSONDecodeError if invalid
+                json.loads(function_args_str)
                 # TODO: Avoid duplicate json.loads call
                 # by storing the object and skipping json.loads if isinstance(arguments, dict)
                 # Append new tool call for screenpipe_search
@@ -379,14 +385,15 @@ class Pipe:
             return "Failed tool api call."
 
         tool_calls = self._extract_tool_calls(response)
-        
+
         if not tool_calls:
             response_text = response.choices[0].message.content
             parsed_response = self.parse_tool_or_response_string(response_text)
             if isinstance(parsed_response, str):
                 return parsed_response
             parsed_tool_call = parsed_response
-            assert isinstance(parsed_tool_call, dict), "Parsed tool must be dict"
+            assert isinstance(
+                parsed_tool_call, dict), "Parsed tool must be dict"
             # RESPONSE is a tool
             tool_calls = [parsed_tool_call]
 
@@ -394,7 +401,10 @@ class Pipe:
         search_results = self._process_tool_calls(tool_calls)
         return search_results
 
-    def _parse_schema_from_response(self, response_text: str, target_schema = SearchSchema) -> SearchSchema | str:
+    def _parse_schema_from_response(
+            self,
+            response_text: str,
+            target_schema=SearchSchema) -> SearchSchema | str:
         """
         Parses the response text into a dictionary using the provided Pydantic schema.
 
@@ -405,7 +415,8 @@ class Pipe:
         Returns:
             dict: The parsed and validated data as a dictionary. If parsing fails, returns an empty dictionary.
         """
-        assert issubclass(target_schema, BaseModel), "Schema must be a Pydantic BaseModel"
+        assert issubclass(
+            target_schema, BaseModel), "Schema must be a Pydantic BaseModel"
         try:
             response_object = json.loads(response_text)
             pydantic_object = target_schema(**response_object)
@@ -425,13 +436,14 @@ class Pipe:
                     "schema": json_schema
                 }
             }
-        ### OpenAI format, but doesn't allow a forced schema
+        # OpenAI format, but doesn't allow a forced schema
         else:
             return {
                 "type": "json_object",
             }
 
-    def _grammar_response_as_results_or_str(self, messages: list) -> str | dict:
+    def _grammar_response_as_results_or_str(
+            self, messages: list) -> str | dict:
         # Replace system message
         assert messages[0]["role"] == "system", "There should be a system message here!"
         # NOTE: Response format varies by provider
@@ -442,10 +454,11 @@ class Pipe:
                 response_format=self._get_response_format(),
             )
             response_text = response.choices[0].message.content
-            parsed_search_schema = self._parse_schema_from_response(response_text)
+            parsed_search_schema = self._parse_schema_from_response(
+                response_text)
             if isinstance(parsed_search_schema, str):
                 return response_text
-            
+
             function_args = parsed_search_schema.model_dump()
             print("Constructed search params:", function_args)
             search_results = screenpipe_search(**function_args)
@@ -456,6 +469,7 @@ class Pipe:
             return search_results
         except Exception:
             return "Failed grammar api call."
+
     def pipe(
         self, body: dict
     ) -> Union[str, Generator, Iterator]:
@@ -477,14 +491,14 @@ class Pipe:
         # Get Final Response Prologue
         # final_response_prologue = self._prologue_from_search_results(sanitized_results)
 
-
         results_as_string = json.dumps(sanitized_results)
         messages_with_screenpipe_data = get_messages_with_screenpipe_data(
-            messages, 
+            messages,
             results_as_string
         )
 
-        return self._generate_final_response(body, messages_with_screenpipe_data)
+        return self._generate_final_response(
+            body, messages_with_screenpipe_data)
 
     def _prepare_messages(self, messages):
         assert messages[-1]["role"] == "user", "Last message must be from the user!"
@@ -492,7 +506,7 @@ class Pipe:
             print("System message is being replaced!")
         if len(messages) > 2:
             print("Warning! This LLM call does not use past chat history!")
-        
+
         CURRENT_TIME = get_current_time()
         # NOTE: This overrides valve settings if self.use_grammar is True!!!
         if self.use_grammar:
@@ -536,7 +550,8 @@ Construct an optimal search filter for the query. When appropriate, create a sea
         if not tool_calls:
             raise ValueError("No tool calls found")
         if len(tool_calls) > MAX_TOOL_CALLS:
-            print(f"Warning: More than {MAX_TOOL_CALLS} tool calls found. Only the first {MAX_TOOL_CALLS} tool calls will be processed.")
+            print(
+                f"Warning: More than {MAX_TOOL_CALLS} tool calls found. Only the first {MAX_TOOL_CALLS} tool calls will be processed.")
             return tool_calls[:MAX_TOOL_CALLS]
         return tool_calls
 

@@ -54,7 +54,7 @@ def search(
 
     Args:
     query (str): The search term.
-    content_type (str): The type of content to search (ocr, audio, fts, all.).
+    content_type (str): The type of content to search (ocr, audio, all.).
     limit (int): The maximum number of results per page.
     offset (int): The pagination offset.
     start_time (str): The start timestamp.
@@ -74,7 +74,8 @@ def search(
 
     if content_type is None:
         content_type = "all"
-    assert content_type in ["ocr", "audio", "fts", "all"], "Invalid content type. Must be 'ocr', 'audio', 'fts', or 'all'."
+    assert content_type in [
+        "ocr", "audio", "all"], "Invalid content type. Must be 'ocr', 'audio', or 'all'."
     print(f"Searching for: {content_type}")
     params = {
         "q": query,
@@ -92,6 +93,7 @@ def search(
 
     # Remove None values from params dictionary
     params = {key: value for key, value in params.items() if value is not None}
+    # print(params)
     try:
         response = requests.get(f"{SCREENPIPE_BASE_URL}/search", params=params)
         response.raise_for_status()
@@ -163,7 +165,10 @@ def add_tags_to_content(content_type: str, id: int, tags: List[str]) -> Dict:
         return None
 
 
-def remove_tags_from_content(content_type: str, id: int, tags: List[str]) -> Dict:
+def remove_tags_from_content(
+        content_type: str,
+        id: int,
+        tags: List[str]) -> Dict:
     """
     Removes custom tags from content items based on the content type (audio or vision).
 

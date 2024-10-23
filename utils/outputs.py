@@ -40,14 +40,14 @@ expected_output = {
 
 class HealthCheck:
     def __init__(
-        self,
-        status: str,
-        last_frame_timestamp: str,
-        last_audio_timestamp: str,
-        frame_status: str,
-        audio_status: str,
-        message: str,
-        verbose_instructions: Optional[str] = None):
+            self,
+            status: str,
+            last_frame_timestamp: str,
+            last_audio_timestamp: str,
+            frame_status: str,
+            audio_status: str,
+            message: str,
+            verbose_instructions: Optional[str] = None):
         """
         Represents the health check status.
 
@@ -67,6 +67,7 @@ class HealthCheck:
         self.audio_status = audio_status
         self.message = message
         self.verbose_instructions = verbose_instructions
+
 
 class OCR:
     def __init__(
@@ -120,7 +121,7 @@ class OCR:
         if self.frame:
             return base64.b64decode(self.frame)
         return None
-    
+
     def save_frame(self, output_path: str):
         """
         Save the frame image to a file.
@@ -132,6 +133,7 @@ class OCR:
         if frame_data:
             with open(output_path, "wb") as file:
                 file.write(frame_data)
+
 
 class Audio:
     def __init__(
@@ -167,7 +169,7 @@ class Audio:
         self.device_type = device_type
 
         self._clean_data()
-    
+
     def _clean_data(self):
         """
         Cleans the data (converts the timestamp to local time).
