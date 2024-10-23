@@ -34,6 +34,7 @@ SENSITIVE_WORD_2, SENSITIVE_REPLACEMENT_2 = "FIRSTNAME", "NICKNAME"
 DEFAULT_LLM_API_BASE_URL = "http://host.docker.internal:4000/v1"
 DEFAULT_LLM_API_KEY = SENSITIVE_KEY
 DEFAULT_USE_GRAMMAR = False
+# If USE_GRAMMAR is True, grammar model is used instead of the tool model
 
 # MODELS
 DEFAULT_TOOL_MODEL = "Llama-3.1-70B"  # This model should support native tool use
@@ -417,22 +418,36 @@ class Pipe:
             print(f"Error: {e}")
             return response_text
 
+    def _get_response_format(self) -> dict:
+        json_schema = SearchSchema.model_json_schema()
+        allow_condition = True
+        if allow_condition or "lmstudio" in self.local_grammar_model:
+            return {
+                "type": "json_schema",
+                "json_schema": {
+                    "strict": True,
+                    "schema": json_schema
+                }
+            }
+        ### TogetherAI format, but seems deprecated
+        else:
+            return {
+                "type": "json_object",
+                "schema": {
+                    "strict": True,
+                    "schema": json_schema
+                }
+            }
+
     def _grammar_response_as_results_or_str(self, messages: list) -> str | dict:
         # Replace system message
         assert messages[0]["role"] == "system", "There should be a system message here!"
+        # NOTE: Response format varies by provider
         try:
-            json_schema = SearchSchema.model_json_schema()
-            print(json_schema)
             response = self.client.chat.completions.create(
                 model=self.local_grammar_model,
                 messages=messages,
-                response_format={
-                    "type": "json_schema",
-                    "json_schema": {
-                        "strict": True,
-                        "schema": json_schema
-                    }
-                }
+                response_format=self._get_response_format(),
             )
             response_text = response.choices[0].message.content
             parsed_search_schema = self._parse_schema_from_response(response_text)
