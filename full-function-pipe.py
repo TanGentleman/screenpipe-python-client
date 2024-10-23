@@ -38,9 +38,7 @@ DEFAULT_USE_GRAMMAR = False
 
 # MODELS
 DEFAULT_TOOL_MODEL = "Llama-3.1-70B"  # This model should support native tool use
-
 DEFAULT_FINAL_MODEL = "Qwen2.5-72B" # This model receives private screenpipe data
-# DEFAULT_LOCAL_GRAMMAR_MODEL = "lmstudio-qwen-14B"
 DEFAULT_LOCAL_GRAMMAR_MODEL = "lmstudio-nemo"
 
 # NOTE: Model name must be valid for the endpoint:
@@ -48,7 +46,6 @@ DEFAULT_LOCAL_GRAMMAR_MODEL = "lmstudio-nemo"
 
 MAX_TOOL_CALLS = 1
 ### HELPER FUNCTIONS ###
-
 class SearchSchema(BaseModel):
     limit: int = 5
     content_type: Literal["ocr", "audio", "all"] = "all"
@@ -325,7 +322,6 @@ class Pipe:
             }
         )
         self.tools = [convert_to_openai_tool(screenpipe_search)]
-        # self.initialize_settings()
 
     def initialize_settings(self):
         base_url = self.valves.LLM_API_BASE_URL or DEFAULT_LLM_API_BASE_URL
@@ -420,8 +416,8 @@ class Pipe:
 
     def _get_response_format(self) -> dict:
         json_schema = SearchSchema.model_json_schema()
-        allow_condition = True
-        if allow_condition or "lmstudio" in self.local_grammar_model:
+        allow_condition = "lmstudio" in self.local_grammar_model
+        if allow_condition:
             return {
                 "type": "json_schema",
                 "json_schema": {
@@ -429,14 +425,10 @@ class Pipe:
                     "schema": json_schema
                 }
             }
-        ### TogetherAI format, but seems deprecated
+        ### OpenAI format, but doesn't allow a forced schema
         else:
             return {
                 "type": "json_object",
-                "schema": {
-                    "strict": True,
-                    "schema": json_schema
-                }
             }
 
     def _grammar_response_as_results_or_str(self, messages: list) -> str | dict:
