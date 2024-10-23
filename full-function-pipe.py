@@ -3,7 +3,7 @@ title: Screenpipe Pipeline
 author: TanGentleman
 author_url: https://github.com/TanGentleman
 funding_url: https://github.com/TanGentleman
-version: 0.5
+version: 0.6
 """
 # NOTE: Add pipeline using OpenWebUI > Workspace > Functions > Add Function
 
@@ -22,7 +22,7 @@ from pydantic import BaseModel, ValidationError
 SCREENPIPE_PORT = 3030
 SCREENPIPE_BASE_URL = f"http://host.docker.internal:{SCREENPIPE_PORT}"
 
-# NOTE: The following must be set correctly!
+# NOTE: Sensitive - Sanitize before sharing
 
 SENSITIVE_KEY = "api-key"
 
@@ -31,19 +31,19 @@ SENSITIVE_WORD_2, SENSITIVE_REPLACEMENT_2 = "FIRSTNAME", "NICKNAME"
 # NOTE: The above are used to remove/replace sensitive keywords
 
 ### IMPORTANT CONFIG ###
-USER_LLM_API_BASE_URL = "http://host.docker.internal:4000/v1"
-USER_LLM_API_KEY = SENSITIVE_KEY
-USE_GRAMMAR = False
+DEFAULT_LLM_API_BASE_URL = "http://host.docker.internal:4000/v1"
+DEFAULT_LLM_API_KEY = SENSITIVE_KEY
+DEFAULT_USE_GRAMMAR = False
 
 # MODELS
-USER_TOOL_MODEL = "Llama-3.1-70B"  # This model should support native tool use
+DEFAULT_TOOL_MODEL = "Llama-3.1-70B"  # This model should support native tool use
 
-USER_FINAL_MODEL = "Qwen2.5-72B" # This model receives private screenpipe data
-# USER_LOCAL_TOOL_MODEL = "lmstudio-qwen-14B"
-USER_LOCAL_TOOL_MODEL = "lmstudio-nemo"
+DEFAULT_FINAL_MODEL = "Qwen2.5-72B" # This model receives private screenpipe data
+# DEFAULT_LOCAL_GRAMMAR_MODEL = "lmstudio-qwen-14B"
+DEFAULT_LOCAL_GRAMMAR_MODEL = "lmstudio-nemo"
 
 # NOTE: Model name must be valid for the endpoint:
-# {USER_LLM_API_BASE_URL}/v1/chat/completions
+# {DEFAULT_LLM_API_BASE_URL}/v1/chat/completions
 
 MAX_TOOL_CALLS = 1
 ### HELPER FUNCTIONS ###
@@ -307,23 +307,37 @@ class Pipe:
         LLM_API_KEY: str = ""
         TOOL_MODEL: str = ""
         FINAL_MODEL: str = ""
+        LOCAL_GRAMMAR_MODEL: str = ""
+        USE_GRAMMAR: bool = False
 
     def __init__(self):
         self.type = "pipe"
+        self.name = "screenpipe_pipeline"
         self.valves = self.Valves(
             **{
-                "LLM_API_BASE_URL": USER_LLM_API_BASE_URL,
-                "LLM_API_KEY": USER_LLM_API_KEY,
-                "TOOL_MODEL": USER_TOOL_MODEL,
-                "FINAL_MODEL": USER_FINAL_MODEL
+                "LLM_API_BASE_URL": DEFAULT_LLM_API_BASE_URL,
+                "LLM_API_KEY": DEFAULT_LLM_API_KEY,
+                "TOOL_MODEL": DEFAULT_TOOL_MODEL,
+                "FINAL_MODEL": DEFAULT_FINAL_MODEL,
+                "LOCAL_GRAMMAR_MODEL": DEFAULT_LOCAL_GRAMMAR_MODEL,
+                "USE_GRAMMAR": DEFAULT_USE_GRAMMAR
             }
         )
-        self.client = OpenAI(
-            base_url=USER_LLM_API_BASE_URL,
-            api_key=USER_LLM_API_KEY
-        )
         self.tools = [convert_to_openai_tool(screenpipe_search)]
-        self.use_grammar = USE_GRAMMAR
+        # self.initialize_settings()
+
+    def initialize_settings(self):
+        base_url = self.valves.LLM_API_BASE_URL or DEFAULT_LLM_API_BASE_URL
+        api_key = self.valves.LLM_API_KEY or DEFAULT_LLM_API_KEY
+        self.client = OpenAI(
+            base_url=base_url,
+            api_key=api_key
+        )
+        self.tool_model = self.valves.TOOL_MODEL or DEFAULT_TOOL_MODEL
+        self.final_model = self.valves.FINAL_MODEL or DEFAULT_FINAL_MODEL
+        self.local_grammar_model = self.valves.LOCAL_GRAMMAR_MODEL or DEFAULT_LOCAL_GRAMMAR_MODEL
+        self.use_grammar = self.valves.USE_GRAMMAR or DEFAULT_USE_GRAMMAR
+        pass
 
     def parse_tool_or_response_string(self, response_text: str) -> str | dict:
         tool_start_string = "<function=screenpipe_search>"
@@ -410,7 +424,7 @@ class Pipe:
             json_schema = SearchSchema.model_json_schema()
             print(json_schema)
             response = self.client.chat.completions.create(
-                model=USER_LOCAL_TOOL_MODEL,
+                model=self.local_grammar_model,
                 messages=messages,
                 response_format={
                     "type": "json_schema",
@@ -426,8 +440,12 @@ class Pipe:
                 return response_text
             
             function_args = parsed_search_schema.model_dump()
-            print(function_args)
+            print("Constructed search params:", function_args)
             search_results = screenpipe_search(**function_args)
+            if not search_results:
+                return "No results found"
+            if "error" in search_results:
+                return search_results["error"]
             return search_results
         except Exception:
             return "Failed grammar api call."
@@ -436,7 +454,8 @@ class Pipe:
     ) -> Union[str, Generator, Iterator]:
         print(f"pipe:{__name__}")
         print("Now piping body:", body)
-        
+        print("Valves:", self.valves)
+        self.initialize_settings()
         messages = self._prepare_messages(body["messages"])
 
         if self.use_grammar:
@@ -468,6 +487,7 @@ class Pipe:
             print("Warning! This LLM call does not use past chat history!")
         
         CURRENT_TIME = get_current_time()
+        # NOTE: This overrides valve settings if self.use_grammar is True!!!
         if self.use_grammar:
             system_message = f"""You are a helpful assistant. Create a screenpipe search conforming to the correct schema to search captured data stored in ScreenPipe's local database.
 Fields:
@@ -492,8 +512,10 @@ Construct an optimal search filter for the query. When appropriate, create a sea
         return new_messages
 
     def _make_tool_api_call(self, messages):
+        tool_model = self.tool_model
+        print("Using tool model:", tool_model)
         return self.client.chat.completions.create(
-            model=USER_TOOL_MODEL,
+            model=tool_model,
             messages=messages,
             tools=self.tools,
             tool_choice="auto",
@@ -516,7 +538,6 @@ Construct an optimal search filter for the query. When appropriate, create a sea
             if tool_call['function']['name'] == 'screenpipe_search':
                 function_args = json.loads(tool_call['function']['arguments'])
                 search_results = screenpipe_search(**function_args)
-                assert isinstance(search_results, dict), "Search results must be a dictionary"
                 if not search_results:
                     return "No results found"
                 if "error" in search_results:
@@ -527,13 +548,13 @@ Construct an optimal search filter for the query. When appropriate, create a sea
     def _generate_final_response(self, body, messages_with_screenpipe_data):
         if body["stream"]:
             return self.client.chat.completions.create(
-                model=USER_FINAL_MODEL,
+                model=self.final_model,
                 messages=messages_with_screenpipe_data,
                 stream=True
             )
         else:
             final_response = self.client.chat.completions.create(
-                model=USER_FINAL_MODEL,
+                model=self.final_model,
                 messages=messages_with_screenpipe_data,
             )
             return final_response.choices[0].message.content
