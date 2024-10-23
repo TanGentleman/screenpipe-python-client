@@ -33,16 +33,17 @@ SENSITIVE_WORD_2, SENSITIVE_REPLACEMENT_2 = "FIRSTNAME", "NICKNAME"
 ### IMPORTANT CONFIG ###
 USER_LLM_API_BASE_URL = "http://host.docker.internal:4000/v1"
 USER_LLM_API_KEY = SENSITIVE_KEY
+USE_GRAMMAR = False
 
+# MODELS
 USER_TOOL_MODEL = "Llama-3.1-70B"  # This model should support native tool use
 
 USER_FINAL_MODEL = "Qwen2.5-72B" # This model receives private screenpipe data
 # USER_LOCAL_TOOL_MODEL = "lmstudio-qwen-14B"
-USER_LOCAL_TOOL_MODEL = "lmstudio-qwen-14B"
-# NOTE: Model name must be valid for the endpoint
+USER_LOCAL_TOOL_MODEL = "lmstudio-nemo"
+
+# NOTE: Model name must be valid for the endpoint:
 # {USER_LLM_API_BASE_URL}/v1/chat/completions
-
-
 
 MAX_TOOL_CALLS = 1
 ### HELPER FUNCTIONS ###
@@ -322,7 +323,7 @@ class Pipe:
             api_key=USER_LLM_API_KEY
         )
         self.tools = [convert_to_openai_tool(screenpipe_search)]
-        self.use_grammar = True
+        self.use_grammar = USE_GRAMMAR
 
     def parse_tool_or_response_string(self, response_text: str) -> str | dict:
         tool_start_string = "<function=screenpipe_search>"
@@ -446,6 +447,11 @@ class Pipe:
             return parsed_results
         search_results = parsed_results
         sanitized_results = sanitize_results(search_results)
+
+        # Get Final Response Prologue
+        # final_response_prologue = self._prologue_from_search_results(sanitized_results)
+
+
         results_as_string = json.dumps(sanitized_results)
         messages_with_screenpipe_data = get_messages_with_screenpipe_data(
             messages, 
