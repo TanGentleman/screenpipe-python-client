@@ -1,4 +1,4 @@
-from typing import Any, List, Optional
+from typing import List, Optional
 from utils.sp_utils import convert_to_local_time
 expected_output = {
     "data": [
@@ -13,7 +13,7 @@ expected_output = {
                 "app_name": str,
                 "window_name": str,
                 "tags": list,
-                "frame": Optional[Any]
+                "frame": Optional[str]
             }
         },
         {
@@ -40,14 +40,14 @@ expected_output = {
 
 class HealthCheck:
     def __init__(
-            self,
-            status: str,
-            last_frame_timestamp: str,
-            last_audio_timestamp: str,
-            frame_status: str,
-            audio_status: str,
-            message: str,
-            verbose_instructions: Optional[str] = None):
+        self,
+        status: str,
+        last_frame_timestamp: str,
+        last_audio_timestamp: str,
+        frame_status: str,
+        audio_status: str,
+        message: str,
+        verbose_instructions: Optional[str] = None):
         """
         Represents the health check status.
 
@@ -68,7 +68,6 @@ class HealthCheck:
         self.message = message
         self.verbose_instructions = verbose_instructions
 
-
 class OCR:
     def __init__(
             self,
@@ -80,33 +79,59 @@ class OCR:
             app_name: str,
             window_name: str,
             tags: List[str],
-            frame: Optional[Any] = None):
+            frame: Optional[str] = None):
         """
         Represents an OCR (Optical Character Recognition) output.
 
         Args:
             frame_id (int): The ID of the frame.
             text (str): The extracted text.
-            timestamp (str): The timestamp of the OCR output in PST timezone.
+            timestamp (str): The timestamp of the OCR output in UTC timezone.
             file_path (str): The file path of the OCR output.
             offset_index (int): The offset index.
             app_name (str): The name of the application.
             window_name (str): The name of the window.
             tags (List[str]): The list of tags associated with the OCR output.
-            frame (Any, optional): The frame associated with the OCR output. Defaults to None.
+            frame (Optional[str], optional): The frame associated with the OCR output. Defaults to None.
         """
         self.frame_id = frame_id
         self.text = text
-        self.timestamp = convert_to_local_time(timestamp)
+        self.timestamp = timestamp
         self.file_path = file_path
         self.offset_index = offset_index
         self.app_name = app_name
         self.window_name = window_name
         self.tags = tags
-        if frame:
-            print("Frame data not supported yet")
-            self.frame = frame
+        self.frame = frame
 
+        self._clean_data()
+
+    def _clean_data(self):
+        """
+        Cleans the data (converts the timestamp to local time).
+        """
+        self.timestamp = convert_to_local_time(self.timestamp)
+
+    def _get_frame_as_image(self) -> Optional[bytes]:
+        """
+        Get the frame as a byte array (image data).
+        """
+        import base64
+        if self.frame:
+            return base64.b64decode(self.frame)
+        return None
+    
+    def save_frame(self, output_path: str):
+        """
+        Save the frame image to a file.
+
+        Args:
+            output_path (str): The output file path.
+        """
+        frame_data = self._get_frame_as_image()
+        if frame_data:
+            with open(output_path, "wb") as file:
+                file.write(frame_data)
 
 class Audio:
     def __init__(
@@ -134,16 +159,24 @@ class Audio:
         """
         self.chunk_id = chunk_id
         self.transcription = transcription
-        self.timestamp = convert_to_local_time(timestamp)
+        self.timestamp = timestamp
         self.file_path = file_path
         self.offset_index = offset_index
         self.tags = tags
         self.device_name = device_name
         self.device_type = device_type
 
+        self._clean_data()
+    
+    def _clean_data(self):
+        """
+        Cleans the data (converts the timestamp to local time).
+        """
+        self.timestamp = convert_to_local_time(self.timestamp)
+
 
 class SearchOutput:
-    def __init__(self, data: List[dict], pagination: dict):
+    def __init__(self, data: List[dict], pagination: dict | None = None):
         """
         Represents the search output.
 
@@ -167,7 +200,8 @@ class SearchOutput:
                 item["content"] = Audio(**item["content"]).__dict__
             else:
                 raise ValueError("Invalid data type")
-        assert isinstance(self.pagination, dict)
-        assert isinstance(self.pagination["limit"], int)
-        assert isinstance(self.pagination["offset"], int)
-        assert isinstance(self.pagination["total"], int)
+        if self.pagination is not None:
+            assert isinstance(self.pagination, dict)
+            assert isinstance(self.pagination["limit"], int)
+            assert isinstance(self.pagination["offset"], int)
+            assert isinstance(self.pagination["total"], int)
