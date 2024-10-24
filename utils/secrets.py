@@ -1,0 +1,5 @@
+LLM_API_KEY = "SECRET-KEY"
+REPLACEMENT_TUPLES = [
+    # ("LASTNAME", ""),
+    # ("FIRSTNAME", "NICKNAME"),
+]
