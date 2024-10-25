@@ -216,34 +216,6 @@ def get_messages_with_screenpipe_data(
     return new_messages
 
 
-def sanitize_results(results: dict) -> list[dict]:
-    """
-    Sanitizes the results from the screenpipe_search function.
-    """
-    assert isinstance(results, dict) and results.get(
-        "data"), "Result dictionary must match schema of screenpipe search results"
-    results = results["data"]
-    new_results = []
-    for result in results:
-        new_result = dict()
-        if result["type"] == "OCR":
-            new_result["type"] = "OCR"
-            new_result["content"] = remove_names(result["content"]["text"])
-            new_result["app_name"] = result["content"]["app_name"]
-            new_result["window_name"] = result["content"]["window_name"]
-        elif result["type"] == "Audio":
-            new_result["type"] = "Audio"
-            new_result["content"] = result["content"]["transcription"]
-            new_result["device_name"] = result["content"]["device_name"]
-            # NOTE: Not removing names from audio transcription
-        else:
-            raise ValueError(f"Unknown result type: {result['type']}")
-        new_result["timestamp"] = convert_to_local_time(
-            result["content"]["timestamp"])
-        new_results.append(new_result)
-    return new_results
-
-
 def screenpipe_search(
     search_substring: str = "",
     content_type: Literal["ocr", "audio", "all"] = "all",
@@ -338,6 +310,34 @@ class Pipe:
         self.local_grammar_model = self.valves.LOCAL_GRAMMAR_MODEL or DEFAULT_LOCAL_GRAMMAR_MODEL
         self.use_grammar = self.valves.USE_GRAMMAR or DEFAULT_USE_GRAMMAR
         pass
+
+    
+    def sanitize_results(self, results: dict) -> list[dict]:
+        """
+        Sanitizes the results from the screenpipe_search function.
+        """
+        assert isinstance(results, dict) and results.get(
+            "data"), "Result dictionary must match schema of screenpipe search results"
+        results = results["data"]
+        new_results = []
+        for result in results:
+            new_result = dict()
+            if result["type"] == "OCR":
+                new_result["type"] = "OCR"
+                new_result["content"] = remove_names(result["content"]["text"])
+                new_result["app_name"] = result["content"]["app_name"]
+                new_result["window_name"] = result["content"]["window_name"]
+            elif result["type"] == "Audio":
+                new_result["type"] = "Audio"
+                new_result["content"] = result["content"]["transcription"]
+                new_result["device_name"] = result["content"]["device_name"]
+                # NOTE: Not removing names from audio transcription
+            else:
+                raise ValueError(f"Unknown result type: {result['type']}")
+            new_result["timestamp"] = convert_to_local_time(
+                result["content"]["timestamp"])
+            new_results.append(new_result)
+        return new_results
 
     def parse_tool_or_response_string(self, response_text: str) -> str | dict:
         tool_start_string = "<function=screenpipe_search>"
@@ -470,6 +470,10 @@ class Pipe:
         except Exception:
             return "Failed grammar api call."
 
+
+    def _prologue_from_search_results(self, search_results: dict) -> str:
+        return f"Found {len(search_results)} results"
+
     def pipe(
         self, body: dict
     ) -> Union[str, Generator, Iterator]:
@@ -486,11 +490,10 @@ class Pipe:
         if isinstance(parsed_results, str):
             return parsed_results
         search_results = parsed_results
-        sanitized_results = sanitize_results(search_results)
-
         # Get Final Response Prologue
-        # final_response_prologue = self._prologue_from_search_results(sanitized_results)
-
+        final_response_prologue = self._prologue_from_search_results(search_results)
+        # Sanitize results
+        sanitized_results = self.sanitize_results(search_results)
         results_as_string = json.dumps(sanitized_results)
         messages_with_screenpipe_data = get_messages_with_screenpipe_data(
             messages,
