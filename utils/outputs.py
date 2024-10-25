@@ -130,10 +130,36 @@ class OCR:
             output_path (str): The output file path.
         """
         frame_data = self._get_frame_as_image()
-        if frame_data:
-            with open(output_path, "wb") as file:
-                file.write(frame_data)
+        if not frame_data:
+            print("No frame data found.")
+            return
+        with open(output_path, "wb") as file:
+            file.write(frame_data)
+        print(f"Frame saved as: {output_path}")
+    
+    def _convert_to_string(self, truncate: int = 50, trim_fields: bool = True) -> str:
+        """
+        Convert the OCR output to a string representation.
 
+        Args:
+            truncate (int, optional): The number of characters to truncate the text to. Defaults to 50.
+            clean (bool, optional): If True, the output will be cleaned (without file path and tags). Defaults to True.
+
+        Returns:
+            str: _description_
+        """
+        # NOTE: Should I remove the file path?
+        # I'm removing tags for now too.
+        if trim_fields:
+            return f"OCR(frame_id={self.frame_id}, text={self.text[:truncate]}..., timestamp={self.timestamp}, app_name={self.app_name}, window_name={self.window_name})"
+        else:
+            return f"OCR(frame_id={self.frame_id}, text={self.text[:truncate]}..., timestamp={self.timestamp}, file_path={self.file_path}, app_name={self.app_name}, window_name={self.window_name}, tags={self.tags})"
+
+    def __str__(self):
+        return self._convert_to_string()
+
+    def __repr__(self):
+        return self._convert_to_string(truncate=10)
 
 class Audio:
     def __init__(
@@ -175,6 +201,9 @@ class Audio:
         Cleans the data (converts the timestamp to local time).
         """
         self.timestamp = convert_to_local_time(self.timestamp)
+    
+    def __str__(self):
+        return f"Audio(chunk_id={self.chunk_id}, transcription={self.transcription}, timestamp={self.timestamp}, file_path={self.file_path}, offset_index={self.offset_index}, tags={self.tags}, device_name={self.device_name}, device_type={self.device_type})"
 
 
 class SearchOutput:
