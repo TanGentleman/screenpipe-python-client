@@ -3,15 +3,14 @@ title: Screenpipe Pipeline
 author: TanGentleman
 author_url: https://github.com/TanGentleman
 funding_url: https://github.com/TanGentleman
-version: 0.6
+version: 0.7
 """
 # NOTE: Add pipeline using OpenWebUI > Workspace > Functions > Add Function
 
 # Standard library imports
 import json
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Generator, Iterator, List, Literal, Optional, Union
-from zoneinfo import ZoneInfo
 
 # Third-party imports
 import requests
@@ -20,7 +19,7 @@ from openai import OpenAI
 from pydantic import BaseModel, ValidationError
 
 SCREENPIPE_PORT = 3030
-SCREENPIPE_BASE_URL = f"http://host.docker.internal:{SCREENPIPE_PORT}"
+DEFAULT_SCREENPIPE_BASE_URL = f"http://host.docker.internal:{SCREENPIPE_PORT}"
 
 # NOTE: Sensitive - Sanitize before sharing
 
@@ -45,8 +44,8 @@ DEFAULT_LOCAL_GRAMMAR_MODEL = "lmstudio-nemo"
 # {DEFAULT_LLM_API_BASE_URL}/v1/chat/completions
 
 MAX_TOOL_CALLS = 1
+PREFER_24_HOUR_FORMAT = True
 ### HELPER FUNCTIONS ###
-
 
 class SearchSchema(BaseModel):
     limit: int = 5
@@ -65,28 +64,58 @@ def remove_names(content: str) -> str:
         SENSITIVE_REPLACEMENT_2
     )
 
-
-def convert_to_local_time(timestamp, safety=True):
+def clean_timestamp(timestamp: str, utc_offset_hours: Optional[float] = None) -> str:
     """
-    Converts a given timestamp to Pacific Standard Time (PST).
+    Cleans and converts a timestamp to a specified UTC offset.
 
     Args:
     - timestamp (str): The timestamp to convert, in the format YYYY-MM-DDTHH:MM:SS.ssssssZ.
-    - safety (bool): If True, the function will return the original timestamp if it does not end with 'Z'. Defaults to True.
+    - utc_offset_hours (Optional[float]): The UTC offset in hours. Positive for timezones ahead of UTC,
+      negative for those behind. If None, assumes UTC. For example, -5 for EST, 5.5 for IST.
 
     Returns:
-    - str: The converted timestamp in the format MM/DD/YY HH:MM AM/PM.
+    - str: The converted timestamp in the format MM/DD/YY HH:MM (24-hour) or MM/DD/YY HH:MM AM/PM (12-hour).
     """
-    if safety:
-        if not timestamp.endswith('Z'):
-            # NOTE: Should I have a warning message?
-            return timestamp
-    dt = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S.%fZ")
-    dt_pst = dt.replace(
-        tzinfo=ZoneInfo('UTC')).astimezone(
-        ZoneInfo('America/Los_Angeles'))
-    return dt_pst.strftime("%m/%d/%y %I:%M%p")
+    return convert_to_offset(timestamp, utc_offset_hours)
 
+
+def convert_to_offset(
+        timestamp: str,
+        utc_offset_hours: Optional[float] = None,
+        use_24_hour_format: bool = PREFER_24_HOUR_FORMAT) -> str:
+    """
+    Converts a given timestamp to UTC or a specified UTC offset.
+
+    Args:
+    - timestamp (str): The timestamp to convert, in the format YYYY-MM-DDTHH:MM:SS.ssssssZ or YYYY-MM-DDTHH:MM:SSZ.
+    - utc_offset_hours (Optional[float]): The UTC offset in hours. Positive for timezones ahead of UTC,
+      negative for those behind. If None, keeps UTC. For example, -5 for EST, 5.5 for IST.
+    - use_24_hour_format (bool): If True, the function will return the time in 24-hour format.
+
+    Returns:
+    - str: The converted timestamp in the format MM/DD/YY HH:MM (24-hour) or MM/DD/YY HH:MM AM/PM (12-hour).
+
+    Raises:
+    - ValueError: If the timestamp format is invalid.
+    """
+    if not isinstance(timestamp, str):
+        raise ValueError("Timestamp must be a string.")
+
+    try:
+        dt = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S.%fZ")
+    except ValueError:
+        try:
+            dt = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%SZ")
+        except ValueError:
+            raise ValueError(f"Invalid timestamp format: {timestamp}. Expected format: YYYY-MM-DDTHH:MM:SS.ssssssZ or YYYY-MM-DDTHH:MM:SSZ")
+
+    dt = dt.astimezone(timezone.utc)
+
+    if utc_offset_hours is not None:
+        dt = dt + timedelta(hours=utc_offset_hours)
+
+    format_string = "%m/%d/%y %H:%M" if use_24_hour_format else "%m/%d/%y %I:%M %p"
+    return dt.strftime(format_string)
 
 def sp_search(
     limit: int = 5,
@@ -145,7 +174,7 @@ def sp_search(
     # Remove None values from params dictionary
     params = {key: value for key, value in params.items() if value is not None}
     try:
-        response = requests.get(f"{SCREENPIPE_BASE_URL}/search", params=params)
+        response = requests.get(f"{self.screenpipe_base_url}/search", params=params)
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
@@ -276,6 +305,7 @@ def get_current_time() -> str:
 
 class Pipe:
     class Valves(BaseModel):
+        SCREENPIPE_BASE_URL: str = ""
         LLM_API_BASE_URL: str = ""
         LLM_API_KEY: str = ""
         TOOL_MODEL: str = ""
@@ -288,6 +318,7 @@ class Pipe:
         self.name = "screenpipe_pipeline"
         self.valves = self.Valves(
             **{
+                "SCREENPIPE_BASE_URL": DEFAULT_SCREENPIPE_BASE_URL,
                 "LLM_API_BASE_URL": DEFAULT_LLM_API_BASE_URL,
                 "LLM_API_KEY": DEFAULT_LLM_API_KEY,
                 "TOOL_MODEL": DEFAULT_TOOL_MODEL,
@@ -309,6 +340,7 @@ class Pipe:
         self.final_model = self.valves.FINAL_MODEL or DEFAULT_FINAL_MODEL
         self.local_grammar_model = self.valves.LOCAL_GRAMMAR_MODEL or DEFAULT_LOCAL_GRAMMAR_MODEL
         self.use_grammar = self.valves.USE_GRAMMAR or DEFAULT_USE_GRAMMAR
+        self.screenpipe_base_url = self.valves.SCREENPIPE_BASE_URL or DEFAULT_SCREENPIPE_BASE_URL
         pass
 
     
@@ -334,7 +366,7 @@ class Pipe:
                 # NOTE: Not removing names from audio transcription
             else:
                 raise ValueError(f"Unknown result type: {result['type']}")
-            new_result["timestamp"] = convert_to_local_time(
+            new_result["timestamp"] = clean_timestamp(
                 result["content"]["timestamp"])
             new_results.append(new_result)
         return new_results
@@ -583,3 +615,4 @@ Construct an optimal search filter for the query. When appropriate, create a sea
                 messages=messages_with_screenpipe_data,
             )
             return final_response.choices[0].message.content
+
