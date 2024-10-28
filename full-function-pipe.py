@@ -20,6 +20,9 @@ from pydantic import BaseModel, ValidationError
 
 SCREENPIPE_PORT = 3030
 DEFAULT_SCREENPIPE_BASE_URL = f"http://host.docker.internal:{SCREENPIPE_PORT}"
+# NOTE: This is currently hardcoded to the docker container port.
+# If you are using screenpipe via a different method, update this.
+
 
 # NOTE: Sensitive - Sanitize before sharing
 
@@ -174,7 +177,7 @@ def sp_search(
     # Remove None values from params dictionary
     params = {key: value for key, value in params.items() if value is not None}
     try:
-        response = requests.get(f"{self.screenpipe_base_url}/search", params=params)
+        response = requests.get(f"{DEFAULT_SCREENPIPE_BASE_URL}/search", params=params)
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
