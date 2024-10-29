@@ -68,7 +68,9 @@ class HealthCheck:
         self.message = message
         self.verbose_instructions = verbose_instructions
 
-
+    def to_dict(self):
+        return self.__dict__
+    
 class OCR:
     def __init__(
             self,
