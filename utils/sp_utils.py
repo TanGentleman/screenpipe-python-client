@@ -1,9 +1,7 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+from typing import Optional, Union
 
 PREFER_24_HOUR_FORMAT = False
-
-from utils.secrets import REPLACEMENT_TUPLES
-
 
 def reformat_user_message(user_message: str, sanitized_results: str) -> str:
     """
@@ -38,44 +36,37 @@ def reformat_user_message(user_message: str, sanitized_results: str) -> str:
 """
     return reformatted_message
 
-def remove_names(content: str) -> str:
-    for old, new in REPLACEMENT_TUPLES[:10]:
-        content = content.replace(old, new)
-    return content
-
-def convert_to_local_time(
-        timestamp: str,
-        use_24_hour_format=PREFER_24_HOUR_FORMAT):
+def format_timestamp(timestamp: str, offset_hours: Optional[float] = None) -> str:
     """
-    Converts a given timestamp to the user's local time.
-
+    Formats an ISO UTC timestamp string to local time with an optional hour offset.
+    
     Args:
-    - timestamp (str): The timestamp to convert, in the format YYYY-MM-DDTHH:MM:SS.ssssssZ.
-    - use_24_hour_format (bool): If True, the function will return the time in 24-hour format. Defaults to True.
+        timestamp (str): ISO format UTC timestamp (YYYY-MM-DDTHH:MM:SS.ssssssZ or YYYY-MM-DDTHH:MM:SSZ)
+        offset_hours (Optional[float]): Hours to offset from UTC. Default -7 (PDT).
+                                      Example: -4 for EDT, 5.5 for IST, None for UTC.
 
     Returns:
-    - str: The converted timestamp in the format MM/DD/YY HH:MM (24-hour) or MM/DD/YY HH:MM AM/PM (12-hour).
+        str: Formatted timestamp as "MM/DD/YY HH:MM" (24-hour format)
+
+    Raises:
+        ValueError: If timestamp format is invalid or not a string
     """
-    correct_timestamp_length = len("YYYY-MM-DDTHH:MM:SS.ssssssZ")
-    alternate_timestamp_length = len("YYYY-MM-DDTHH:MM:SSZ")
-    if len(timestamp) != correct_timestamp_length:
-        if len(timestamp) == alternate_timestamp_length:
-            timestamp = timestamp[:-1] + ".000000Z"
-        else:
-            return timestamp
+    if not isinstance(timestamp, str):
+        raise ValueError("Timestamp must be a string")
 
-    # Parse the UTC timestamp
-    dt = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S.%fZ")
+    try:
+        # Force UTC interpretation by using timezone.utc
+        dt = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
+    except ValueError:
+        try:
+            dt = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        except ValueError:
+            raise ValueError(f"Invalid timestamp format: {timestamp}")
 
-    # Convert to local timezone
-    dt_local = dt.replace(tzinfo=datetime.now().astimezone().tzinfo)
-
-    # Format the date string
-    if use_24_hour_format:
-        return dt_local.strftime("%m/%d/%y %H:%M")
-    else:
-        return dt_local.strftime("%m/%d/%y %I:%M%p")
-
+    if offset_hours is not None:
+        dt = dt + timedelta(hours=offset_hours)
+        
+    return dt.strftime("%m/%d/%y %H:%M")
 
 def get_current_time() -> str:
     """Get the current timestamp in UTC timezone.
@@ -110,21 +101,27 @@ def get_past_time(days: int = 0, weeks: int = 0, months: int = 0, hours: int = 0
 
     return (datetime.now() - delta).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-def main():
-    print("Welcome! Current timestamp:")
-    current_timestamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-    print(current_timestamp)
-    print("Converted to your local time:")
-    print(convert_to_local_time(current_timestamp))
+def persistent_stamper():
     while True:
         timestamp = input("Enter a timestamp (or 'q' to quit): ")
         if timestamp.lower() == 'q':
             break
         try:
-            print(convert_to_local_time(timestamp))
+            print(format_timestamp(timestamp))
         except ValueError:
             print("Invalid timestamp format. Please use YYYY-MM-DDTHH:MM:SS.ssssssZ")
 
+def main():
+    print("Welcome! Current timestamp:")
+    current_timestamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    print(current_timestamp)
+    print("Converted to your local time:")
+    print(format_timestamp(current_timestamp))
+    print("Converted to current timezone:")
+    print(format_timestamp(current_timestamp, offset_hours=-7))
+    
 
 if __name__ == "__main__":
     main()
+
+
