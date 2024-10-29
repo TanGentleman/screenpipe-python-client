@@ -18,11 +18,13 @@ from langchain_core.utils.function_calling import convert_to_openai_tool
 from openai import OpenAI
 from pydantic import BaseModel, ValidationError
 
+# Mode configuration for base URL
+SCREENPIPE_MODE = "docker"
 SCREENPIPE_PORT = 3030
-DEFAULT_SCREENPIPE_BASE_URL = f"http://host.docker.internal:{SCREENPIPE_PORT}"
-# NOTE: This is currently hardcoded to the docker container port.
-# If you are using screenpipe via a different method, update this.
+assert SCREENPIPE_MODE in ["docker", "localhost"]
 
+URL_BASE = f"http://localhost" if SCREENPIPE_MODE == "localhost" else f"http://host.docker.internal"
+DEFAULT_SCREENPIPE_BASE_URL = f"{URL_BASE}:{SCREENPIPE_PORT}"
 
 # NOTE: Sensitive - Sanitize before sharing
 
@@ -33,15 +35,15 @@ SENSITIVE_WORD_2, SENSITIVE_REPLACEMENT_2 = "FIRSTNAME", "NICKNAME"
 # NOTE: The above are used to remove/replace sensitive keywords
 
 ### IMPORTANT CONFIG ###
-DEFAULT_LLM_API_BASE_URL = "http://host.docker.internal:4000/v1"
+DEFAULT_LLM_API_BASE_URL = f"{URL_BASE}:4000/v1" # Change this to any openai compatible endpoint
 DEFAULT_LLM_API_KEY = SENSITIVE_KEY
 DEFAULT_USE_GRAMMAR = False
 # If USE_GRAMMAR is True, grammar model is used instead of the tool model
 
 # MODELS
 DEFAULT_TOOL_MODEL = "Llama-3.1-70B"  # This model should support native tool use
-DEFAULT_FINAL_MODEL = "Qwen2.5-72B" # This model receives private screenpipe data
-DEFAULT_LOCAL_GRAMMAR_MODEL = "lmstudio-nemo"
+DEFAULT_FINAL_MODEL = "lmstudio-Llama-3.2-3B-4bit-MLX" # This model receives private screenpipe data
+DEFAULT_LOCAL_GRAMMAR_MODEL = "lmstudio-Llama-3.2-3B-4bit-MLX"
 
 # NOTE: Model name must be valid for the endpoint:
 # {DEFAULT_LLM_API_BASE_URL}/v1/chat/completions
@@ -67,123 +69,36 @@ def remove_names(content: str) -> str:
         SENSITIVE_REPLACEMENT_2
     )
 
-def clean_timestamp(timestamp: str, utc_offset_hours: Optional[float] = None) -> str:
+def format_timestamp(timestamp: str, utc_offset_hours: Optional[float] = None) -> str:
     """
-    Cleans and converts a timestamp to a specified UTC offset.
+    Formats a timestamp with an optional UTC offset.
 
     Args:
-    - timestamp (str): The timestamp to convert, in the format YYYY-MM-DDTHH:MM:SS.ssssssZ.
-    - utc_offset_hours (Optional[float]): The UTC offset in hours. Positive for timezones ahead of UTC,
-      negative for those behind. If None, assumes UTC. For example, -5 for EST, 5.5 for IST.
+        timestamp (str): ISO format timestamp (YYYY-MM-DDTHH:MM:SS.ssssssZ or YYYY-MM-DDTHH:MM:SSZ)
+        utc_offset_hours (Optional[float]): Hours offset from UTC. Positive for ahead, negative for behind.
+                                          If None, keeps UTC. Example: -5 for EST, 5.5 for IST.
 
     Returns:
-    - str: The converted timestamp in the format MM/DD/YY HH:MM (24-hour) or MM/DD/YY HH:MM AM/PM (12-hour).
-    """
-    return convert_to_offset(timestamp, utc_offset_hours)
-
-
-def convert_to_offset(
-        timestamp: str,
-        utc_offset_hours: Optional[float] = None,
-        use_24_hour_format: bool = PREFER_24_HOUR_FORMAT) -> str:
-    """
-    Converts a given timestamp to UTC or a specified UTC offset.
-
-    Args:
-    - timestamp (str): The timestamp to convert, in the format YYYY-MM-DDTHH:MM:SS.ssssssZ or YYYY-MM-DDTHH:MM:SSZ.
-    - utc_offset_hours (Optional[float]): The UTC offset in hours. Positive for timezones ahead of UTC,
-      negative for those behind. If None, keeps UTC. For example, -5 for EST, 5.5 for IST.
-    - use_24_hour_format (bool): If True, the function will return the time in 24-hour format.
-
-    Returns:
-    - str: The converted timestamp in the format MM/DD/YY HH:MM (24-hour) or MM/DD/YY HH:MM AM/PM (12-hour).
+        str: Formatted timestamp as "MM/DD/YY HH:MM" (24-hour format)
 
     Raises:
-    - ValueError: If the timestamp format is invalid.
+        ValueError: If timestamp format is invalid
     """
     if not isinstance(timestamp, str):
-        raise ValueError("Timestamp must be a string.")
+        raise ValueError("Timestamp must be a string")
 
     try:
         dt = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S.%fZ")
     except ValueError:
         try:
-            dt = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%SZ")
+            dt = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%SZ") 
         except ValueError:
-            raise ValueError(f"Invalid timestamp format: {timestamp}. Expected format: YYYY-MM-DDTHH:MM:SS.ssssssZ or YYYY-MM-DDTHH:MM:SSZ")
-
-    dt = dt.astimezone(timezone.utc)
+            raise ValueError(f"Invalid timestamp format: {timestamp}")
 
     if utc_offset_hours is not None:
         dt = dt + timedelta(hours=utc_offset_hours)
 
-    format_string = "%m/%d/%y %H:%M" if use_24_hour_format else "%m/%d/%y %I:%M %p"
-    return dt.strftime(format_string)
-
-def sp_search(
-    limit: int = 5,
-    query: Optional[str] = None,
-    content_type: Optional[str] = None,
-    offset: Optional[int] = None,
-    start_time: Optional[str] = None,
-    end_time: Optional[str] = None,
-    app_name: Optional[str] = None,
-    window_name: Optional[str] = None,
-    include_frames: bool = False,
-    min_length: Optional[int] = None,
-    max_length: Optional[int] = None
-) -> dict:
-    """
-    Searches captured data (OCR, audio transcriptions, etc.) stored in ScreenPipe's local database based on filters such as content type, timestamps, app name, and window name.
-
-    Args:
-    query (str): The search term.
-    content_type (str): The type of content to search (ocr, audio, all.).
-    limit (int): The maximum number of results per page.
-    offset (int): The pagination offset.
-    start_time (str): The start timestamp.
-    end_time (str): The end timestamp.
-    app_name (str): The application name.
-    window_name (str): The window name.
-    include_frames (bool): If True, fetch frame data for OCR content.
-    min_length (int): Minimum length of the content.
-    max_length (int): Maximum length of the content.
-
-    Returns:
-    dict: The search results.
-    """
-    if not query:
-        query = ""
-
-    if content_type is None:
-        content_type = "all"
-    assert content_type in [
-        "ocr", "audio", "all"], "Invalid content type. Must be 'ocr', 'audio', or 'all'."
-    print(f"Searching for: {content_type}")
-    params = {
-        "q": query,
-        "content_type": content_type,
-        "limit": limit,
-        "offset": offset,
-        "start_time": start_time,
-        "end_time": end_time,
-        "app_name": app_name,
-        "window_name": window_name,
-        "include_frames": "true" if include_frames is True else None,
-        "min_length": min_length,
-        "max_length": max_length
-    }
-
-    # Remove None values from params dictionary
-    params = {key: value for key, value in params.items() if value is not None}
-    try:
-        response = requests.get(f"{DEFAULT_SCREENPIPE_BASE_URL}/search", params=params)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        print(f"Error searching for content: {e}")
-        return None
-
+    return dt.strftime("%m/%d/%y %H:%M")
 
 def reformat_user_message(user_message: str, sanitized_results: str) -> str:
     """
@@ -286,21 +201,28 @@ def screenpipe_search(
     # Make first letter of app_name uppercase
     if app_name:
         app_name = app_name.capitalize()
-    results = sp_search(
-        query=search_substring,
-        content_type=content_type,
-        limit=limit,
-        start_time=start_time,
-        end_time=end_time,
-        app_name=app_name,
-    )
+    params = {
+        "q": search_substring,
+        "content_type": content_type,
+        "limit": limit,
+        "start_time": start_time,
+        "end_time": end_time,
+        "app_name": app_name
+    }
+    # Remove None values from params dictionary
+    params = {key: value for key, value in params.items() if value is not None}
+    try:
+        response = requests.get(f"{DEFAULT_SCREENPIPE_BASE_URL}/search", params=params)
+        response.raise_for_status()
+        results = response.json()
+    except requests.exceptions.RequestException as e:
+        return {"error": f"Screenpipe search failed: {e}"}
     if results is None:
-        return {"error": "Screenpipe search failed"}
+        return {"error": "Screenpipe request failed"}
     if not results["data"]:
         return {"error": "No results found"}
-    print(f"Found {len(results)} results")
+    print(f"Found {len(results['data'])} results")
     return results
-
 
 def get_current_time() -> str:
     return datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -369,7 +291,7 @@ class Pipe:
                 # NOTE: Not removing names from audio transcription
             else:
                 raise ValueError(f"Unknown result type: {result['type']}")
-            new_result["timestamp"] = clean_timestamp(
+            new_result["timestamp"] = format_timestamp(
                 result["content"]["timestamp"])
             new_results.append(new_result)
         return new_results
@@ -514,6 +436,8 @@ class Pipe:
     ) -> Union[str, Generator, Iterator]:
         print(f"pipe:{__name__}")
         print("Now piping body:", body)
+        assert "messages" in body and "stream" in body, "Body must have keys 'messages' and 'stream'"
+
         print("Valves:", self.valves)
         self.initialize_settings()
         messages = self._prepare_messages(body["messages"])
@@ -530,6 +454,7 @@ class Pipe:
         # Sanitize results
         sanitized_results = self.sanitize_results(search_results)
         results_as_string = json.dumps(sanitized_results)
+        print("Results as string:", results_as_string)
         messages_with_screenpipe_data = get_messages_with_screenpipe_data(
             messages,
             results_as_string
@@ -619,3 +544,27 @@ Construct an optimal search filter for the query. When appropriate, create a sea
             )
             return final_response.choices[0].message.content
 
+if __name__ == "__main__":
+    pipe = Pipe()
+    stream = True
+    body = {
+        "stream": stream,
+        "messages": [{"role": "user", "content": "Search with a limit of 2, type all. Search results may be incomplete. Describe their contents regardless."}]
+    }
+    if stream:
+        chunk_count = 0
+        for chunk in pipe.pipe(body):
+            if chunk_count == 0:
+                print("\nStreaming response:")
+            chunk_count += 1
+            if isinstance(chunk, str):
+                print(chunk, end="", flush=True)
+            elif chunk.choices[0].delta.content is not None:
+                print(chunk.choices[0].delta.content, end="", flush=True)
+            else:
+                finish_reason = chunk.choices[0].finish_reason
+                # assert finish_reason is not None, "Finish reason must be present"
+                print(f"\n\nFinish reason: {finish_reason}\n\n")
+    else:
+        print("Non-streaming response:")
+        print(pipe.pipe(body))
