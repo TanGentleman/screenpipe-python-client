@@ -1,6 +1,6 @@
 import logging
 import requests
-from typing import Dict, List, Optional
+from typing import Dict, List, Literal, Optional
 
 # Set up local logging for visibility
 logging.basicConfig(
@@ -38,8 +38,8 @@ def health_check() -> Dict:
 
 def search(
     limit: int = 5,
-    query: Optional[str] = None,
-    content_type: Optional[str] = None,
+    query: str = "",
+    content_type: Optional[Literal["ocr", "audio", "all"]] = "all",
     offset: Optional[int] = None,
     start_time: Optional[str] = None,
     end_time: Optional[str] = None,
@@ -48,35 +48,35 @@ def search(
     include_frames: bool = False,
     min_length: Optional[int] = None,
     max_length: Optional[int] = None
-) -> Dict:
-    """
-    Searches captured data (OCR, audio transcriptions, etc.) stored in ScreenPipe's local database based on filters such as content type, timestamps, app name, and window name.
+) -> dict:
+    """Searches captured data stored in ScreenPipe's local database based on filters such as content type and timestamps.
 
     Args:
-    query (str): The search term.
-    content_type (str): The type of content to search (ocr, audio, all.).
-    limit (int): The maximum number of results per page.
-    offset (int): The pagination offset.
-    start_time (str): The start timestamp.
-    end_time (str): The end timestamp.
-    app_name (str): The application name.
-    window_name (str): The window name.
-    include_frames (bool): If True, fetch frame data for OCR content.
-    min_length (int): Minimum length of the content.
-    max_length (int): Maximum length of the content.
+        query: The search term. Defaults to "".
+        content_type: The type of content to search. Must be one of "ocr", "audio", or "all". Defaults to "all".
+        limit: The maximum number of results per page. Defaults to 5.
+        offset: The pagination offset. Defaults to None.
+        start_time: The start timestamp for the search range. Defaults to None.
+        end_time: The end timestamp for the search range. Defaults to None.
+        app_name: The name of the app to search in. Defaults to None.
+        window_name: The window name to filter by. Defaults to None.
+        include_frames: If True, fetch frame data for OCR content. Defaults to False.
+        min_length: Minimum length of the content. Defaults to None.
+        max_length: Maximum length of the content. Defaults to None.
 
     Returns:
-    dict: The search results.
+        dict: A dictionary containing the search results.
     """
-    if not query:
-        logging.warning("Query is an empty string.")
-        query = ""
-
-    if content_type is None:
-        content_type = "all"
-    assert content_type in [
+    # TODO: Wrap as check_args function
+    def check_args():
+        if not query:
+            query = ""
+        if content_type is None:
+            content_type = "all"
+        assert content_type in [
         "ocr", "audio", "all"], "Invalid content type. Must be 'ocr', 'audio', or 'all'."
-    print(f"Searching for: {content_type}")
+    
+    print(f"Searching for {limit} chunks. Type: {content_type or 'all'}")
     params = {
         "q": query,
         "content_type": content_type,
@@ -93,13 +93,12 @@ def search(
 
     # Remove None values from params dictionary
     params = {key: value for key, value in params.items() if value is not None}
-    # print(params)
     try:
         response = requests.get(f"{SCREENPIPE_BASE_URL}/search", params=params)
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
-        logging.error(f"Error searching for content: {e}")
+        print(f"Error searching for content: {e}")
         return None
 
 
