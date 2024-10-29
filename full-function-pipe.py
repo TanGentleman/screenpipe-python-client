@@ -50,6 +50,7 @@ DEFAULT_LOCAL_GRAMMAR_MODEL = "lmstudio-Llama-3.2-3B-4bit-MLX"
 
 MAX_TOOL_CALLS = 1
 PREFER_24_HOUR_FORMAT = True
+DEFAULT_UTC_OFFSET = -7 # PDT
 ### HELPER FUNCTIONS ###
 
 class SearchSchema(BaseModel):
@@ -69,35 +70,36 @@ def remove_names(content: str) -> str:
         SENSITIVE_REPLACEMENT_2
     )
 
-def format_timestamp(timestamp: str, utc_offset_hours: Optional[float] = None) -> str:
+def format_timestamp(timestamp: str, offset_hours: Optional[float] = DEFAULT_UTC_OFFSET) -> str:
     """
-    Formats a timestamp with an optional UTC offset.
-
+    Formats an ISO UTC timestamp string to local time with an optional hour offset.
+    
     Args:
-        timestamp (str): ISO format timestamp (YYYY-MM-DDTHH:MM:SS.ssssssZ or YYYY-MM-DDTHH:MM:SSZ)
-        utc_offset_hours (Optional[float]): Hours offset from UTC. Positive for ahead, negative for behind.
-                                          If None, keeps UTC. Example: -5 for EST, 5.5 for IST.
+        timestamp (str): ISO format UTC timestamp (YYYY-MM-DDTHH:MM:SS.ssssssZ or YYYY-MM-DDTHH:MM:SSZ)
+        offset_hours (Optional[float]): Hours to offset from UTC. Default -7 (PDT).
+                                      Example: -4 for EDT, 5.5 for IST, None for UTC.
 
     Returns:
         str: Formatted timestamp as "MM/DD/YY HH:MM" (24-hour format)
 
     Raises:
-        ValueError: If timestamp format is invalid
+        ValueError: If timestamp format is invalid or not a string
     """
     if not isinstance(timestamp, str):
         raise ValueError("Timestamp must be a string")
 
     try:
-        dt = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S.%fZ")
+        # Force UTC interpretation by using timezone.utc
+        dt = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
     except ValueError:
         try:
-            dt = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%SZ") 
+            dt = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
         except ValueError:
             raise ValueError(f"Invalid timestamp format: {timestamp}")
 
-    if utc_offset_hours is not None:
-        dt = dt + timedelta(hours=utc_offset_hours)
-
+    if offset_hours is not None:
+        dt = dt + timedelta(hours=offset_hours)
+        
     return dt.strftime("%m/%d/%y %H:%M")
 
 def reformat_user_message(user_message: str, sanitized_results: str) -> str:
@@ -549,7 +551,7 @@ if __name__ == "__main__":
     stream = True
     body = {
         "stream": stream,
-        "messages": [{"role": "user", "content": "Search with a limit of 2, type all. Search results may be incomplete. Describe their contents regardless."}]
+        "messages": [{"role": "user", "content": "Search with a limit of 1, type audio. Search results may be incomplete. Describe their contents regardless."}]
     }
     if stream:
         chunk_count = 0
