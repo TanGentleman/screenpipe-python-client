@@ -224,7 +224,7 @@ def main():
                 status = HealthCheck(**status)
             except Exception as e:
                 print(f"Error converting status: {e}")
-            print(json.dumps(status.__dict__, indent=4))
+            print(json.dumps(status, indent=4))
 
     elif args.command == "list-monitors":
         monitors = list_monitors()
