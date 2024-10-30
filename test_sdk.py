@@ -229,6 +229,7 @@ GET_PIPE_INFO = "test_get_pipe_info"
 LIST_PIPES = "test_list_pipes"
 UPDATE_PIPE_CONFIGURATION = "test_update_pipe_configuration"
 
+
 def create_test_suite():
     CURRENT_TESTS = [
         HEALTH_CHECK,
@@ -249,13 +250,16 @@ def create_test_suite():
         suite.addTest(TestScreenPipeClient(test))
     return suite
 
+
 def run_tests():
     suite = create_test_suite()
     runner = unittest.TextTestRunner(verbosity=2)
     runner.run(suite)
 
+
 def main():
     unittest.main()
+
 
 if __name__ == '__main__':
     main()

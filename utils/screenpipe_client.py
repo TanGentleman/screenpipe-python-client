@@ -74,8 +74,8 @@ def search(
         if content_type is None:
             content_type = "all"
         assert content_type in [
-        "ocr", "audio", "all"], "Invalid content type. Must be 'ocr', 'audio', or 'all'."
-    
+            "ocr", "audio", "all"], "Invalid content type. Must be 'ocr', 'audio', or 'all'."
+
     print(f"Searching for {limit} chunks. Type: {content_type or 'all'}")
     params = {
         "q": query,

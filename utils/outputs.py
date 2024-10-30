@@ -70,7 +70,8 @@ class HealthCheck:
 
     def to_dict(self):
         return self.__dict__
-    
+
+
 class OCR:
     def __init__(
             self,
@@ -138,8 +139,11 @@ class OCR:
         with open(output_path, "wb") as file:
             file.write(frame_data)
         print(f"Frame saved as: {output_path}")
-    
-    def _convert_to_string(self, truncate: int = 50, trim_fields: bool = True) -> str:
+
+    def _convert_to_string(
+            self,
+            truncate: int = 50,
+            trim_fields: bool = True) -> str:
         """
         Convert the OCR output to a string representation.
 
@@ -162,6 +166,7 @@ class OCR:
 
     def __repr__(self):
         return self._convert_to_string(truncate=10)
+
 
 class Audio:
     def __init__(
@@ -203,7 +208,7 @@ class Audio:
         Cleans the data (converts the timestamp to local time).
         """
         self.timestamp = format_timestamp(self.timestamp)
-    
+
     def __str__(self):
         return f"Audio(chunk_id={self.chunk_id}, transcription={self.transcription}, timestamp={self.timestamp}, file_path={self.file_path}, offset_index={self.offset_index}, tags={self.tags}, device_name={self.device_name}, device_type={self.device_type})"
 

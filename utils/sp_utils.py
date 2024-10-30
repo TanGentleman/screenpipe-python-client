@@ -3,6 +3,7 @@ from typing import Optional, Union
 
 PREFER_24_HOUR_FORMAT = False
 
+
 def reformat_user_message(user_message: str, sanitized_results: str) -> str:
     """
     Reformats the user message by adding context and rules from ScreenPipe search results.
@@ -36,10 +37,13 @@ def reformat_user_message(user_message: str, sanitized_results: str) -> str:
 """
     return reformatted_message
 
-def format_timestamp(timestamp: str, offset_hours: Optional[float] = None) -> str:
+
+def format_timestamp(
+        timestamp: str,
+        offset_hours: Optional[float] = None) -> str:
     """
     Formats an ISO UTC timestamp string to local time with an optional hour offset.
-    
+
     Args:
         timestamp (str): ISO format UTC timestamp (YYYY-MM-DDTHH:MM:SS.ssssssZ or YYYY-MM-DDTHH:MM:SSZ)
         offset_hours (Optional[float]): Hours to offset from UTC. Default -7 (PDT).
@@ -56,17 +60,20 @@ def format_timestamp(timestamp: str, offset_hours: Optional[float] = None) -> st
 
     try:
         # Force UTC interpretation by using timezone.utc
-        dt = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
+        dt = datetime.strptime(
+            timestamp, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
     except ValueError:
         try:
-            dt = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+            dt = datetime.strptime(
+                timestamp, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
         except ValueError:
             raise ValueError(f"Invalid timestamp format: {timestamp}")
 
     if offset_hours is not None:
         dt = dt + timedelta(hours=offset_hours)
-        
+
     return dt.strftime("%m/%d/%y %H:%M")
+
 
 def get_current_time() -> str:
     """Get the current timestamp in UTC timezone.
@@ -75,7 +82,13 @@ def get_current_time() -> str:
     """
     return datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
 
-def get_past_time(days: int = 0, weeks: int = 0, months: int = 0, hours: int = 0, minutes: int = 0) -> str:
+
+def get_past_time(
+        days: int = 0,
+        weeks: int = 0,
+        months: int = 0,
+        hours: int = 0,
+        minutes: int = 0) -> str:
     """
     Get the timestamp for a past time relative to the current time.
 
@@ -101,6 +114,7 @@ def get_past_time(days: int = 0, weeks: int = 0, months: int = 0, hours: int = 0
 
     return (datetime.now() - delta).strftime("%Y-%m-%dT%H:%M:%SZ")
 
+
 def persistent_stamper():
     while True:
         timestamp = input("Enter a timestamp (or 'q' to quit): ")
@@ -111,6 +125,7 @@ def persistent_stamper():
         except ValueError:
             print("Invalid timestamp format. Please use YYYY-MM-DDTHH:MM:SS.ssssssZ")
 
+
 def main():
     print("Welcome! Current timestamp:")
     current_timestamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
@@ -119,9 +134,7 @@ def main():
     print(format_timestamp(current_timestamp))
     print("Converted to current timezone:")
     print(format_timestamp(current_timestamp, offset_hours=-7))
-    
+
 
 if __name__ == "__main__":
     main()
-
-

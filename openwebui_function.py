@@ -36,14 +36,17 @@ DEFAULT_SCREENPIPE_BASE_URL = f"{URL_BASE}:{SCREENPIPE_PORT}"
 # NOTE: The above are used to remove/replace sensitive keywords
 
 ### IMPORTANT CONFIG ###
-DEFAULT_LLM_API_BASE_URL = f"{URL_BASE}:4000/v1" # Change this to any openai compatible endpoint
+# Change this to any openai compatible endpoint
+DEFAULT_LLM_API_BASE_URL = f"{URL_BASE}:4000/v1"
 DEFAULT_LLM_API_KEY = SENSITIVE_KEY
 DEFAULT_USE_GRAMMAR = False
 # If USE_GRAMMAR is True, grammar model is used instead of the tool model
 
 # MODELS
-DEFAULT_TOOL_MODEL = "Llama-3.1-70B"  # This model should support native tool use
-DEFAULT_FINAL_MODEL = "lmstudio-Llama-3.2-3B-4bit-MLX" # This model receives private screenpipe data
+# This model should support native tool use
+DEFAULT_TOOL_MODEL = "Llama-3.1-70B"
+# This model receives private screenpipe data
+DEFAULT_FINAL_MODEL = "lmstudio-Llama-3.2-3B-4bit-MLX"
 DEFAULT_LOCAL_GRAMMAR_MODEL = "lmstudio-Llama-3.2-3B-4bit-MLX"
 
 # NOTE: Model name must be valid for the endpoint:
@@ -51,8 +54,9 @@ DEFAULT_LOCAL_GRAMMAR_MODEL = "lmstudio-Llama-3.2-3B-4bit-MLX"
 
 MAX_TOOL_CALLS = 1
 PREFER_24_HOUR_FORMAT = True
-DEFAULT_UTC_OFFSET = -7 # PDT
+DEFAULT_UTC_OFFSET = -7  # PDT
 ### HELPER FUNCTIONS ###
+
 
 class SearchSchema(BaseModel):
     limit: int = 5
@@ -61,6 +65,7 @@ class SearchSchema(BaseModel):
     start_time: Optional[str] = "2024-10-01T00:00:00Z"
     end_time: Optional[str] = "2024-10-31T23:59:59Z"
     app_name: Optional[str] = None
+
 
 def screenpipe_search(
     search_substring: str = "",
@@ -111,7 +116,9 @@ def screenpipe_search(
     # Remove None values from params dictionary
     params = {key: value for key, value in params.items() if value is not None}
     try:
-        response = requests.get(f"{DEFAULT_SCREENPIPE_BASE_URL}/search", params=params)
+        response = requests.get(
+            f"{DEFAULT_SCREENPIPE_BASE_URL}/search",
+            params=params)
         response.raise_for_status()
         results = response.json()
     except requests.exceptions.RequestException as e:
@@ -122,6 +129,7 @@ def screenpipe_search(
         return {"error": "No results found"}
     print(f"Found {len(results['data'])} results")
     return results
+
 
 def get_current_time() -> str:
     return datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -167,7 +175,6 @@ class Pipe:
         self.screenpipe_base_url = self.valves.SCREENPIPE_BASE_URL or DEFAULT_SCREENPIPE_BASE_URL
         pass
 
-    
     def sanitize_results(self, results: dict) -> list[dict]:
         """
         Sanitizes the results from the screenpipe_search function.
@@ -180,7 +187,8 @@ class Pipe:
             new_result = dict()
             if result["type"] == "OCR":
                 new_result["type"] = "OCR"
-                new_result["content"] = self.remove_names(result["content"]["text"])
+                new_result["content"] = self.remove_names(
+                    result["content"]["text"])
                 new_result["app_name"] = result["content"]["app_name"]
                 new_result["window_name"] = result["content"]["window_name"]
             elif result["type"] == "Audio":
@@ -326,7 +334,6 @@ class Pipe:
         except Exception:
             return "Failed grammar api call."
 
-
     def _prologue_from_search_results(self, search_results: dict) -> str:
         return f"Found {len(search_results)} results"
 
@@ -349,7 +356,8 @@ class Pipe:
             return parsed_results
         search_results = parsed_results
         # Get Final Response Prologue
-        final_response_prologue = self._prologue_from_search_results(search_results)
+        final_response_prologue = self._prologue_from_search_results(
+            search_results)
         # Sanitize results
         sanitized_results = self.sanitize_results(search_results)
         results_as_string = json.dumps(sanitized_results)
@@ -442,7 +450,7 @@ Construct an optimal search filter for the query. When appropriate, create a sea
                 messages=messages_with_screenpipe_data,
             )
             return final_response.choices[0].message.content
-        
+
     def get_messages_with_screenpipe_data(
             self,
             messages: List[dict],
@@ -462,8 +470,8 @@ Construct an optimal search filter for the query. When appropriate, create a sea
             {"role": "system", "content": SYSTEM_MESSAGE},
             {"role": "user", "content": new_user_message}
         ]
-        return new_messages    
-    
+        return new_messages
+
     @staticmethod
     def remove_names(content: str) -> str:
         for sensitive_word, replacement in REPLACEMENT_TUPLES:
@@ -471,10 +479,12 @@ Construct an optimal search filter for the query. When appropriate, create a sea
         return content
 
     @staticmethod
-    def format_timestamp(timestamp: str, offset_hours: Optional[float] = DEFAULT_UTC_OFFSET) -> str:
+    def format_timestamp(
+            timestamp: str,
+            offset_hours: Optional[float] = DEFAULT_UTC_OFFSET) -> str:
         """
         Formats an ISO UTC timestamp string to local time with an optional hour offset.
-        
+
         Args:
             timestamp (str): ISO format UTC timestamp (YYYY-MM-DDTHH:MM:SS.ssssssZ or YYYY-MM-DDTHH:MM:SSZ)
             offset_hours (Optional[float]): Hours to offset from UTC. Default -7 (PDT).
@@ -488,24 +498,29 @@ Construct an optimal search filter for the query. When appropriate, create a sea
 
         try:
             # Force UTC interpretation by using timezone.utc
-            dt = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
+            dt = datetime.strptime(
+                timestamp, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
         except ValueError:
             try:
-                dt = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+                dt = datetime.strptime(
+                    timestamp, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
             except ValueError:
                 raise ValueError(f"Invalid timestamp format: {timestamp}")
 
         if offset_hours is not None:
             dt = dt + timedelta(hours=offset_hours)
-            
+
         return dt.strftime("%m/%d/%y %H:%M")
 
     @staticmethod
-    def reformat_user_message(user_message: str, sanitized_results: str) -> str:
+    def reformat_user_message(
+            user_message: str,
+            sanitized_results: str) -> str:
         """
         Reformats the user message by adding context and rules from ScreenPipe search results.
         """
-        assert isinstance(sanitized_results, str), "Sanitized results must be a string"
+        assert isinstance(
+            sanitized_results, str), "Sanitized results must be a string"
         query = user_message
         context = sanitized_results
 
@@ -526,8 +541,6 @@ Construct an optimal search filter for the query. When appropriate, create a sea
 </user_query>
 """
         return reformatted_message
-
-    
 
     @staticmethod
     def get_current_time() -> str:
