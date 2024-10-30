@@ -22,6 +22,10 @@ from pydantic import BaseModel, ValidationError
 SENSITIVE_KEY = "api-key"
 SENSITIVE_WORD_1, SENSITIVE_REPLACEMENT_1 = "LASTNAME", ""
 SENSITIVE_WORD_2, SENSITIVE_REPLACEMENT_2 = "FIRSTNAME", "NICKNAME"
+REPLACEMENT_TUPLES = [
+    # (SENSITIVE_WORD_1, SENSITIVE_REPLACEMENT_1),
+    # (SENSITIVE_WORD_2, SENSITIVE_REPLACEMENT_2)
+]
 # Mode configuration for base URL
 SCRIPT_ORIGIN = "docker"
 SCREENPIPE_PORT = 3030
@@ -59,47 +63,6 @@ class SearchSchema(BaseModel):
     start_time: Optional[str] = "2024-10-01T00:00:00Z"
     end_time: Optional[str] = "2024-10-31T23:59:59Z"
     app_name: Optional[str] = None
-
-
-def remove_names(content: str) -> str:
-    return content.replace(
-        SENSITIVE_WORD_1,
-        SENSITIVE_REPLACEMENT_1).replace(
-        SENSITIVE_WORD_2,
-        SENSITIVE_REPLACEMENT_2
-    )
-
-def format_timestamp(timestamp: str, offset_hours: Optional[float] = DEFAULT_UTC_OFFSET) -> str:
-    """
-    Formats an ISO UTC timestamp string to local time with an optional hour offset.
-    
-    Args:
-        timestamp (str): ISO format UTC timestamp (YYYY-MM-DDTHH:MM:SS.ssssssZ or YYYY-MM-DDTHH:MM:SSZ)
-        offset_hours (Optional[float]): Hours to offset from UTC. Default -7 (PDT).
-                                      Example: -4 for EDT, 5.5 for IST, None for UTC.
-
-    Returns:
-        str: Formatted timestamp as "MM/DD/YY HH:MM" (24-hour format)
-
-    Raises:
-        ValueError: If timestamp format is invalid or not a string
-    """
-    if not isinstance(timestamp, str):
-        raise ValueError("Timestamp must be a string")
-
-    try:
-        # Force UTC interpretation by using timezone.utc
-        dt = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
-    except ValueError:
-        try:
-            dt = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
-        except ValueError:
-            raise ValueError(f"Invalid timestamp format: {timestamp}")
-
-    if offset_hours is not None:
-        dt = dt + timedelta(hours=offset_hours)
-        
-    return dt.strftime("%m/%d/%y %H:%M")
 
 def reformat_user_message(user_message: str, sanitized_results: str) -> str:
     """
@@ -282,7 +245,7 @@ class Pipe:
             new_result = dict()
             if result["type"] == "OCR":
                 new_result["type"] = "OCR"
-                new_result["content"] = remove_names(result["content"]["text"])
+                new_result["content"] = self.remove_names(result["content"]["text"])
                 new_result["app_name"] = result["content"]["app_name"]
                 new_result["window_name"] = result["content"]["window_name"]
             elif result["type"] == "Audio":
@@ -292,7 +255,7 @@ class Pipe:
                 # NOTE: Not removing names from audio transcription
             else:
                 raise ValueError(f"Unknown result type: {result['type']}")
-            new_result["timestamp"] = format_timestamp(
+            new_result["timestamp"] = self.format_timestamp(
                 result["content"]["timestamp"])
             new_results.append(new_result)
         return new_results
@@ -544,28 +507,39 @@ Construct an optimal search filter for the query. When appropriate, create a sea
                 messages=messages_with_screenpipe_data,
             )
             return final_response.choices[0].message.content
+        
+    @staticmethod
+    def remove_names(content: str) -> str:
+        for sensitive_word, replacement in REPLACEMENT_TUPLES:
+            content = content.replace(sensitive_word, replacement)
+        return content
 
-if __name__ == "__main__":
-    pipe = Pipe()
-    stream = True
-    body = {
-        "stream": stream,
-        "messages": [{"role": "user", "content": "Search with a limit of 1, type audio. Search results may be incomplete. Describe their contents regardless."}]
-    }
-    if stream:
-        chunk_count = 0
-        for chunk in pipe.pipe(body):
-            if chunk_count == 0:
-                print("\nStreaming response:")
-            chunk_count += 1
-            if isinstance(chunk, str):
-                print(chunk, end="", flush=True)
-            elif chunk.choices[0].delta.content is not None:
-                print(chunk.choices[0].delta.content, end="", flush=True)
-            else:
-                finish_reason = chunk.choices[0].finish_reason
-                # assert finish_reason is not None, "Finish reason must be present"
-                print(f"\n\nFinish reason: {finish_reason}\n\n")
-    else:
-        print("Non-streaming response:")
-        print(pipe.pipe(body))
+    @staticmethod
+    def format_timestamp(timestamp: str, offset_hours: Optional[float] = DEFAULT_UTC_OFFSET) -> str:
+        """
+        Formats an ISO UTC timestamp string to local time with an optional hour offset.
+        
+        Args:
+            timestamp (str): ISO format UTC timestamp (YYYY-MM-DDTHH:MM:SS.ssssssZ or YYYY-MM-DDTHH:MM:SSZ)
+            offset_hours (Optional[float]): Hours to offset from UTC. Default -7 (PDT).
+                                        Example: -4 for EDT, 5.5 for IST, None for UTC.
+
+        Returns:
+            str: Formatted timestamp as "MM/DD/YY HH:MM" (24-hour format)
+        """
+        if not isinstance(timestamp, str):
+            raise ValueError("Timestamp must be a string")
+
+        try:
+            # Force UTC interpretation by using timezone.utc
+            dt = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
+        except ValueError:
+            try:
+                dt = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+            except ValueError:
+                raise ValueError(f"Invalid timestamp format: {timestamp}")
+
+        if offset_hours is not None:
+            dt = dt + timedelta(hours=offset_hours)
+            
+        return dt.strftime("%m/%d/%y %H:%M")
