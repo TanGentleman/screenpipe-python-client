@@ -164,6 +164,7 @@ def screenpipe_search(
     """
     return {}
 
+SCREENPIPE_SEARCH_TOOL = convert_to_openai_tool(screenpipe_search)
 class Pipe:
     class Valves(BaseModel):
         LLM_API_BASE_URL: str = ""
@@ -189,7 +190,7 @@ class Pipe:
                 "SCREENPIPE_SERVER_URL": self.config.screenpipe_server_url
             }
         )
-        self.tools = [convert_to_openai_tool(screenpipe_search)]
+        self.tools = [SCREENPIPE_SEARCH_TOOL]
 
     def initialize_settings(self):
         base_url = self.valves.LLM_API_BASE_URL or self.config.llm_api_base_url
@@ -293,9 +294,9 @@ class Pipe:
     def parse_tool_or_response_string(self, response_text: str) -> str | dict:
         tool_start_string = "<function=screenpipe_search>"
 
-        def is_tool_condition(text):
+        def is_malformed_tool(text):
             return text.startswith(tool_start_string)
-        if is_tool_condition(response_text):
+        if is_malformed_tool(response_text):
             try:
                 end_index = response_text.rfind("}")
                 if end_index == -1:
@@ -412,7 +413,7 @@ class Pipe:
 
             function_args = parsed_search_schema.model_dump()
             print("Constructed search params:", function_args)
-            search_results = screenpipe_search(**function_args)
+            search_results = self.search_wrapper(**function_args)
             if not search_results:
                 return "No results found"
             if "error" in search_results:
@@ -517,7 +518,7 @@ Construct an optimal search filter for the query. When appropriate, create a sea
         for tool_call in tool_calls:
             if tool_call['function']['name'] == 'screenpipe_search':
                 function_args = json.loads(tool_call['function']['arguments'])
-                search_results = screenpipe_search(**function_args)
+                search_results = self.search_wrapper(**function_args)
                 if not search_results:
                     return "No results found"
                 if "error" in search_results:
