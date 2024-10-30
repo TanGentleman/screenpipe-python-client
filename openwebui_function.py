@@ -18,20 +18,19 @@ from langchain_core.utils.function_calling import convert_to_openai_tool
 from openai import OpenAI
 from pydantic import BaseModel, ValidationError
 
-# Mode configuration for base URL
-SCREENPIPE_MODE = "docker"
-SCREENPIPE_PORT = 3030
-assert SCREENPIPE_MODE in ["docker", "localhost"]
-
-URL_BASE = f"http://localhost" if SCREENPIPE_MODE == "localhost" else f"http://host.docker.internal"
-DEFAULT_SCREENPIPE_BASE_URL = f"{URL_BASE}:{SCREENPIPE_PORT}"
-
 # NOTE: Sensitive - Sanitize before sharing
-
 SENSITIVE_KEY = "api-key"
-
 SENSITIVE_WORD_1, SENSITIVE_REPLACEMENT_1 = "LASTNAME", ""
 SENSITIVE_WORD_2, SENSITIVE_REPLACEMENT_2 = "FIRSTNAME", "NICKNAME"
+# Mode configuration for base URL
+SCRIPT_ORIGIN = "docker"
+SCREENPIPE_PORT = 3030
+assert SCRIPT_ORIGIN in ["docker", "localhost"]
+
+URL_BASE = f"http://localhost" if SCRIPT_ORIGIN == "localhost" else f"http://host.docker.internal"
+DEFAULT_SCREENPIPE_BASE_URL = f"{URL_BASE}:{SCREENPIPE_PORT}"
+
+
 # NOTE: The above are used to remove/replace sensitive keywords
 
 ### IMPORTANT CONFIG ###
