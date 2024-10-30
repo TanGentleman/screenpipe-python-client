@@ -1,6 +1,8 @@
 # screenpipe-python-client
  
-The following is a Python client for the Screenpipe API! Should make it a lot easier for the community to troubleshoot/interact with the Screenpipe API more intuitively. The API reference in docs.md is based on the source code of https://github.com/mediar-ai/screenpipe/blob/main/screenpipe-server/src/server.rs.
+The following is a Python client for the Screenpipe API! Should make it a lot easier for the community to troubleshoot/interact with the Screenpipe API more intuitively. The API reference in docs.md is based on the source code of https://github.com/mediar-ai/screenpipe/blob/main/screenpipe-server/src/server.rs. The screenpipe desktop app is not needed for this project. 
+
+Check INSTRUCTIONS.md for a place to start! For Open WebUI integration, check out the files in the `open-webui-workspace` folder.
 
 For developers, use screenpipe_client.py as an SDK for Python integrations.
 
@@ -9,7 +11,7 @@ For instance, to check screenpipe status:
 cd screenpipe_python_client
 python cli.py health-check
 ```
-(Desktop app is not needed, as long as the server is port 3030, the default)
+The screenpipe desktop app is not needed for this project!
 
 Here's a snippet that should make cli.py easy to use for other commands:
 
