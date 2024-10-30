@@ -30,10 +30,9 @@ SCREENPIPE_PORT = 3030
 assert SCRIPT_ORIGIN in ["docker", "localhost"]
 
 URL_BASE = f"http://localhost" if SCRIPT_ORIGIN == "localhost" else f"http://host.docker.internal"
-DEFAULT_SCREENPIPE_BASE_URL = f"{URL_BASE}:{SCREENPIPE_PORT}"
 
-
-# NOTE: The above are used to remove/replace sensitive keywords
+# NOTE: This is very important! Run test_valves.py to test first!
+SCREENPIPE_BASE_URL = f"{URL_BASE}:{SCREENPIPE_PORT}"
 
 ### IMPORTANT CONFIG ###
 # Change this to any openai compatible endpoint
@@ -59,6 +58,7 @@ DEFAULT_UTC_OFFSET = -7  # PDT
 
 
 class SearchSchema(BaseModel):
+    # TODO: Add descriptions and utilize new format. See Issue #17
     limit: int = 5
     content_type: Literal["ocr", "audio", "all"] = "all"
     search_substring: Optional[str] = ""
@@ -117,7 +117,7 @@ def screenpipe_search(
     params = {key: value for key, value in params.items() if value is not None}
     try:
         response = requests.get(
-            f"{DEFAULT_SCREENPIPE_BASE_URL}/search",
+            f"{SCREENPIPE_BASE_URL}/search",
             params=params)
         response.raise_for_status()
         results = response.json()
@@ -130,14 +130,8 @@ def screenpipe_search(
     print(f"Found {len(results['data'])} results")
     return results
 
-
-def get_current_time() -> str:
-    return datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
 class Pipe:
     class Valves(BaseModel):
-        SCREENPIPE_BASE_URL: str = ""
         LLM_API_BASE_URL: str = ""
         LLM_API_KEY: str = ""
         TOOL_MODEL: str = ""
@@ -150,7 +144,6 @@ class Pipe:
         self.name = "screenpipe_pipeline"
         self.valves = self.Valves(
             **{
-                "SCREENPIPE_BASE_URL": DEFAULT_SCREENPIPE_BASE_URL,
                 "LLM_API_BASE_URL": DEFAULT_LLM_API_BASE_URL,
                 "LLM_API_KEY": DEFAULT_LLM_API_KEY,
                 "TOOL_MODEL": DEFAULT_TOOL_MODEL,
@@ -172,7 +165,6 @@ class Pipe:
         self.final_model = self.valves.FINAL_MODEL or DEFAULT_FINAL_MODEL
         self.local_grammar_model = self.valves.LOCAL_GRAMMAR_MODEL or DEFAULT_LOCAL_GRAMMAR_MODEL
         self.use_grammar = self.valves.USE_GRAMMAR or DEFAULT_USE_GRAMMAR
-        self.screenpipe_base_url = self.valves.SCREENPIPE_BASE_URL or DEFAULT_SCREENPIPE_BASE_URL
         pass
 
     def sanitize_results(self, results: dict) -> list[dict]:
@@ -377,7 +369,7 @@ class Pipe:
         if len(messages) > 2:
             print("Warning! This LLM call does not use past chat history!")
 
-        CURRENT_TIME = get_current_time()
+        CURRENT_TIME = self.get_current_time()
         # NOTE: This overrides valve settings if self.use_grammar is True!!!
         if self.use_grammar:
             system_message = f"""You are a helpful assistant. Create a screenpipe search conforming to the correct schema to search captured data stored in ScreenPipe's local database.
