@@ -1,19 +1,7 @@
 import unittest
 import logging
-from utils.screenpipe_client import (
-    search,
-    list_audio_devices,
-    add_tags_to_content,
-    remove_tags_from_content,
-    download_pipe,
-    run_pipe,
-    stop_pipe,
-    health_check,
-    list_monitors,
-    get_pipe_info,
-    list_pipes,
-    update_pipe_configuration
-)
+# TODO: screenpipe_client is deprecated
+from utils.screenpipe import ScreenpipeClient
 # Third party -- Downloading can be DANGEROUS!
 STREAM_TEXT_URL = "https://github.com/mediar-ai/screenpipe/tree/main/examples/typescript/pipe-screen-time-storyteller"
 PIPE_NAME = "pipe-screen-time-storyteller"
@@ -40,11 +28,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class TestScreenPipeClient(unittest.TestCase):
+class TestScreenpipeClient(unittest.TestCase):
 
     def setUp(self):
-        self.base_url = "http://localhost:3030"
         logger.info('Setting up test case')
+        self.client = ScreenpipeClient()
 
     def test_search(self):
         query = VALID_QUERY
@@ -53,20 +41,16 @@ class TestScreenPipeClient(unittest.TestCase):
         offset = 0
         start_time = VALID_START_TIME
         end_time = VALID_END_TIME
-        include_frames = INCLUDE_FRAMES
 
         logger.info('Testing search functionality')
         try:
-            response = search(
+            response = self.client.search(
                 query=query,
                 content_type=content_type,
                 limit=limit,
                 offset=offset,
                 start_time=start_time,
                 end_time=end_time,
-                app_name=app_name,
-                window_name=window_name,
-                include_frames=include_frames
             )
             logger.info('Search response: %s', response)
             self.assertIsNotNone(response)
@@ -78,7 +62,7 @@ class TestScreenPipeClient(unittest.TestCase):
     def test_list_audio_devices(self):
         logger.info('Testing list audio devices functionality')
         try:
-            response = list_audio_devices()
+            response = self.client.list_audio_devices()
             logger.info('List audio devices response: %s', response)
             self.assertIsNotNone(response)
             self.assertIsInstance(response, list)
@@ -93,7 +77,7 @@ class TestScreenPipeClient(unittest.TestCase):
 
         logger.info('Testing add tags to content functionality')
         try:
-            response = add_tags_to_content(content_type, id, tags)
+            response = self.client.add_tags_to_content(content_type, id, tags)
             logger.info('Add tags to content response: %s', response)
             self.assertIsNotNone(response)
             self.assertIsInstance(response, dict)
@@ -108,7 +92,7 @@ class TestScreenPipeClient(unittest.TestCase):
 
         logger.info('Testing remove tags from content functionality')
         try:
-            response = remove_tags_from_content(content_type, id, tags)
+            response = self.client.remove_tags_from_content(content_type, id, tags)
             logger.info('Remove tags from content response: %s', response)
             self.assertIsNotNone(response)
             self.assertIsInstance(response, dict)
@@ -120,7 +104,7 @@ class TestScreenPipeClient(unittest.TestCase):
         url = STREAM_TEXT_URL
         logger.info('Testing download pipe functionality')
         try:
-            response = download_pipe(url)
+            response = self.client.download_pipe(url)
             logger.info('Download pipe response: %s', response)
             self.assertIsNotNone(response)
             self.assertIsInstance(response, dict)
@@ -133,7 +117,7 @@ class TestScreenPipeClient(unittest.TestCase):
 
         logger.info('Testing run pipe functionality')
         try:
-            response = run_pipe(pipe_id)
+            response = self.client.run_pipe(pipe_id)
             logger.info('Run pipe response: %s', response)
             self.assertIsNotNone(response)
             self.assertIsInstance(response, dict)
@@ -146,7 +130,7 @@ class TestScreenPipeClient(unittest.TestCase):
 
         logger.info('Testing stop pipe functionality')
         try:
-            response = stop_pipe(pipe_id)
+            response = self.client.stop_pipe(pipe_id)
             logger.info('Stop pipe response: %s', response)
             self.assertIsNotNone(response)
             self.assertIsInstance(response, dict)
@@ -157,7 +141,7 @@ class TestScreenPipeClient(unittest.TestCase):
     def test_health_check(self):
         logger.info('Testing health check functionality')
         try:
-            response = health_check()
+            response = self.client.health_check()
             logger.info('Health check response: %s', response)
             self.assertIsNotNone(response)
             self.assertIsInstance(response, dict)
@@ -168,7 +152,7 @@ class TestScreenPipeClient(unittest.TestCase):
     def test_list_monitors(self):
         logger.info('Testing list monitors functionality')
         try:
-            response = list_monitors()
+            response = self.client.list_monitors()
             logger.info('List monitors response: %s', response)
             self.assertIsNotNone(response)
             self.assertIsInstance(response, list)
@@ -181,7 +165,7 @@ class TestScreenPipeClient(unittest.TestCase):
 
         logger.info('Testing get pipe info functionality')
         try:
-            response = get_pipe_info(pipe_id)
+            response = self.client.get_pipe_info(pipe_id)
             logger.info('Get pipe info response: %s', response)
             self.assertIsNotNone(response)
             self.assertIsInstance(response, dict)
@@ -192,7 +176,7 @@ class TestScreenPipeClient(unittest.TestCase):
     def test_list_pipes(self):
         logger.info('Testing list pipes functionality')
         try:
-            response = list_pipes()
+            response = self.client.list_pipes()
             logger.info('List pipes response: %s', response)
             self.assertIsNotNone(response)
             self.assertIsInstance(response, list)
@@ -206,7 +190,7 @@ class TestScreenPipeClient(unittest.TestCase):
 
         logger.info('Testing update pipe configuration functionality')
         try:
-            response = update_pipe_configuration(pipe_id, config)
+            response = self.client.update_pipe_configuration(pipe_id, config)
             logger.info('Update pipe configuration response: %s', response)
             self.assertIsNotNone(response)
             self.assertIsInstance(response, dict)
@@ -247,7 +231,7 @@ def create_test_suite():
     ]
     suite = unittest.TestSuite()
     for test in CURRENT_TESTS:
-        suite.addTest(TestScreenPipeClient(test))
+        suite.addTest(TestScreenpipeClient(test))
     return suite
 
 
@@ -262,4 +246,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    # main()
+    run_tests()
