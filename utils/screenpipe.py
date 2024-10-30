@@ -96,7 +96,7 @@ class ScreenPipeClient:
 
     def list_monitors(self) -> Optional[List]:
         """List all available monitors."""
-        return self._make_request("get", "vision/list")
+        return self._make_request("post", "vision/list")
 
     def _validate_content_type_for_tags(self, content_type: str) -> str:
         """Validate and normalize content type for tag operations."""
