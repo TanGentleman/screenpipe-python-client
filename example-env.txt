@@ -1,0 +1,15 @@
+# API and Endpoint Configuration
+LLM_API_BASE_URL=http://localhost:4000/v1
+LLM_API_KEY=api-key
+SCREENPIPE_PORT=3030
+IS_DOCKER=False
+
+# Model Configuration
+TOOL_MODEL=Llama-3.1-70B
+FINAL_MODEL=lmstudio-Llama-3.2-3B-4bit-MLX
+LOCAL_GRAMMAR_MODEL=lmstudio-Llama-3.2-3B-4bit-MLX
+USE_GRAMMAR=false
+
+# Pipeline Settings
+PREFER_24_HOUR_FORMAT=true
+DEFAULT_UTC_OFFSET=-7

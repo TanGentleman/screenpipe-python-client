@@ -10,7 +10,7 @@ version: 0.8
 # Standard library imports
 import json
 from datetime import datetime, timedelta, timezone
-from typing import Generator, Iterator, List, Literal, Optional, Union
+from typing import Generator, Iterator, List, Literal, Optional, Union, Tuple
 
 # Third-party imports
 import requests
@@ -25,11 +25,10 @@ REPLACEMENT_TUPLES = [
     # ("FIRSTNAME", "NICKNAME")
 ]
 # Mode configuration for base URL
-SCRIPT_ORIGIN = "docker"
+IS_DOCKER = True
 SCREENPIPE_PORT = 3030
-assert SCRIPT_ORIGIN in ["docker", "localhost"]
 
-URL_BASE = f"http://localhost" if SCRIPT_ORIGIN == "localhost" else f"http://host.docker.internal"
+URL_BASE = "http://localhost" if not IS_DOCKER else "http://host.docker.internal"
 
 # NOTE: This is very important! Run test_valves.py to test first!
 SCREENPIPE_BASE_URL = f"{URL_BASE}:{SCREENPIPE_PORT}"
@@ -56,6 +55,80 @@ PREFER_24_HOUR_FORMAT = True
 DEFAULT_UTC_OFFSET = -7  # PDT
 ### HELPER FUNCTIONS ###
 
+"""Configuration management for Screenpipe Pipeline"""
+import os
+from dataclasses import dataclass
+
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    print("Warning: dotenv not found. Using default values.")
+
+@dataclass
+class PipelineConfig:
+    # API and Endpoint Configuration
+    llm_api_base_url: str
+    llm_api_key: str
+    screenpipe_port: int
+    is_docker: bool
+    
+    # Model Configuration
+    tool_model: str
+    final_model: str
+    local_grammar_model: str
+    use_grammar: bool
+    
+    # Pipeline Settings
+    prefer_24_hour_format: bool
+    default_utc_offset: int
+    
+    # Sensitive Data
+    replacement_tuples: List[Tuple[str, str]]
+
+    @classmethod
+    def from_env(cls) -> 'PipelineConfig':
+        """Create configuration from environment variables with fallbacks.
+        
+        Returns:
+            PipelineConfig: Configuration object populated from environment variables,
+            falling back to default values if not set.
+        """
+        load_dotenv()  # Load .env file if it exists
+        
+        def get_bool_env(key: str, default: bool) -> bool:
+            """Helper to consistently parse boolean environment variables"""
+            return os.getenv(key, str(default)).lower() == 'true'
+        
+        def get_int_env(key: str, default: int) -> int:
+            """Helper to consistently parse integer environment variables"""
+            return int(os.getenv(key, default))
+        
+        return cls(
+            # API and Endpoint Configuration
+            llm_api_base_url=os.getenv('LLM_API_BASE_URL', DEFAULT_LLM_API_BASE_URL),
+            llm_api_key=os.getenv('LLM_API_KEY', DEFAULT_LLM_API_KEY),
+            screenpipe_port=get_int_env('SCREENPIPE_PORT', SCREENPIPE_PORT),
+            is_docker=get_bool_env('IS_DOCKER', IS_DOCKER),
+            
+            # Model Configuration
+            tool_model=os.getenv('TOOL_MODEL', DEFAULT_TOOL_MODEL),
+            final_model=os.getenv('FINAL_MODEL', DEFAULT_FINAL_MODEL),
+            local_grammar_model=os.getenv('LOCAL_GRAMMAR_MODEL', DEFAULT_LOCAL_GRAMMAR_MODEL),
+            use_grammar=get_bool_env('USE_GRAMMAR', DEFAULT_USE_GRAMMAR),
+            
+            # Pipeline Settings
+            prefer_24_hour_format=get_bool_env('PREFER_24_HOUR_FORMAT', PREFER_24_HOUR_FORMAT),
+            default_utc_offset=get_int_env('DEFAULT_UTC_OFFSET', DEFAULT_UTC_OFFSET),
+
+            # Sensitive Data
+            replacement_tuples=REPLACEMENT_TUPLES,
+        )
+
+    @property
+    def screenpipe_base_url(self) -> str:
+        """Compute the Screenpipe base URL based on configuration"""
+        url_base = "http://localhost" if not self.is_docker else "http://host.docker.internal"
+        return f"{url_base}:{self.screenpipe_port}"
 
 class SearchSchema(BaseModel):
     # TODO: Add descriptions and utilize new format. See Issue #17
@@ -142,29 +215,30 @@ class Pipe:
     def __init__(self):
         self.type = "pipe"
         self.name = "screenpipe_pipeline"
+        self.config = PipelineConfig.from_env()
         self.valves = self.Valves(
             **{
-                "LLM_API_BASE_URL": DEFAULT_LLM_API_BASE_URL,
-                "LLM_API_KEY": DEFAULT_LLM_API_KEY,
-                "TOOL_MODEL": DEFAULT_TOOL_MODEL,
-                "FINAL_MODEL": DEFAULT_FINAL_MODEL,
-                "LOCAL_GRAMMAR_MODEL": DEFAULT_LOCAL_GRAMMAR_MODEL,
-                "USE_GRAMMAR": DEFAULT_USE_GRAMMAR
+                "LLM_API_BASE_URL": self.config.llm_api_base_url,
+                "LLM_API_KEY": self.config.llm_api_key,
+                "TOOL_MODEL": self.config.tool_model,
+                "FINAL_MODEL": self.config.final_model,
+                "LOCAL_GRAMMAR_MODEL": self.config.local_grammar_model,
+                "USE_GRAMMAR": self.config.use_grammar
             }
         )
         self.tools = [convert_to_openai_tool(screenpipe_search)]
 
     def initialize_settings(self):
-        base_url = self.valves.LLM_API_BASE_URL or DEFAULT_LLM_API_BASE_URL
-        api_key = self.valves.LLM_API_KEY or DEFAULT_LLM_API_KEY
+        base_url = self.valves.LLM_API_BASE_URL or self.config.llm_api_base_url
+        api_key = self.valves.LLM_API_KEY or self.config.llm_api_key
         self.client = OpenAI(
             base_url=base_url,
             api_key=api_key
         )
-        self.tool_model = self.valves.TOOL_MODEL or DEFAULT_TOOL_MODEL
-        self.final_model = self.valves.FINAL_MODEL or DEFAULT_FINAL_MODEL
-        self.local_grammar_model = self.valves.LOCAL_GRAMMAR_MODEL or DEFAULT_LOCAL_GRAMMAR_MODEL
-        self.use_grammar = self.valves.USE_GRAMMAR or DEFAULT_USE_GRAMMAR
+        self.tool_model = self.valves.TOOL_MODEL or self.config.tool_model
+        self.final_model = self.valves.FINAL_MODEL or self.config.final_model
+        self.local_grammar_model = self.valves.LOCAL_GRAMMAR_MODEL or self.config.local_grammar_model
+        self.use_grammar = self.valves.USE_GRAMMAR or self.config.use_grammar
         pass
 
     def sanitize_results(self, results: dict) -> list[dict]:
@@ -372,6 +446,7 @@ class Pipe:
         CURRENT_TIME = self.get_current_time()
         # NOTE: This overrides valve settings if self.use_grammar is True!!!
         if self.use_grammar:
+            # TODO: This will soon follow format from Issue #17
             system_message = f"""You are a helpful assistant. Create a screenpipe search conforming to the correct schema to search captured data stored in ScreenPipe's local database.
 Fields:
 limit (int): The maximum number of results to return. Should be between 1 and 100. Default to 10.
