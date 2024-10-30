@@ -3,7 +3,7 @@ title: Screenpipe Pipeline
 author: TanGentleman
 author_url: https://github.com/TanGentleman
 funding_url: https://github.com/TanGentleman
-version: 0.7
+version: 0.8
 """
 # NOTE: Add pipeline using OpenWebUI > Workspace > Functions > Add Function
 
@@ -20,11 +20,9 @@ from pydantic import BaseModel, ValidationError
 
 # NOTE: Sensitive - Sanitize before sharing
 SENSITIVE_KEY = "api-key"
-SENSITIVE_WORD_1, SENSITIVE_REPLACEMENT_1 = "LASTNAME", ""
-SENSITIVE_WORD_2, SENSITIVE_REPLACEMENT_2 = "FIRSTNAME", "NICKNAME"
 REPLACEMENT_TUPLES = [
-    # (SENSITIVE_WORD_1, SENSITIVE_REPLACEMENT_1),
-    # (SENSITIVE_WORD_2, SENSITIVE_REPLACEMENT_2)
+    # ("LASTNAME", ""),
+    # ("FIRSTNAME", "NICKNAME")
 ]
 # Mode configuration for base URL
 SCRIPT_ORIGIN = "docker"
@@ -63,69 +61,6 @@ class SearchSchema(BaseModel):
     start_time: Optional[str] = "2024-10-01T00:00:00Z"
     end_time: Optional[str] = "2024-10-31T23:59:59Z"
     app_name: Optional[str] = None
-
-def reformat_user_message(user_message: str, sanitized_results: str) -> str:
-    """
-    Reformats the user message by adding context and rules from ScreenPipe search results.
-
-    Args:
-        user_message (str): The original user message.
-
-    Returns:
-        str: A reformatted user message with added context and rules.
-    """
-    assert isinstance(
-        sanitized_results, str), "Sanitized results must be a string"
-    query = user_message
-    context = sanitized_results
-
-    reformatted_message = f"""You are given a user query, context from personal screen and microphone data, and rules, all inside xml tags. Answer the query based on the context while respecting the rules.
-<context>
-{context}
-</context>
-
-<rules>
-- If the context is not relevant to the user query, just say so.
-- If you are not sure, ask for clarification.
-- If the answer is not in the context but you think you know the answer, explain that to the user then answer with your own knowledge.
-- Answer directly and without using xml tags.
-</rules>
-
-<user_query>
-{query}
-</user_query>
-"""
-    return reformatted_message
-
-
-def get_messages_with_screenpipe_data(
-        messages: List[dict],
-        results_as_string: str) -> List[dict]:
-    """
-    Combines the last user message with sanitized ScreenPipe search results.
-
-    Args:
-        messages (List[dict]): Original conversation messages.
-        results_as_string (str): Sanitized ScreenPipe search results.
-
-    Returns:
-        List[dict]: New message list with system message and reformatted user message.
-    """
-    # Replace system message
-    SYSTEM_MESSAGE = "You are a helpful assistant that parses screenpipe search results. Use the search results to answer the user's question as best as possible. If unclear, synthesize the context and provide an explanation."
-    if messages[-1]["role"] != "user":
-        raise ValueError("Last message must be from the user!")
-    if len(messages) > 2:
-        print("Warning! This LLM call does not use past chat history!")
-
-    new_user_message = reformat_user_message(
-        messages[-1]["content"], results_as_string)
-    new_messages = [
-        {"role": "system", "content": SYSTEM_MESSAGE},
-        {"role": "user", "content": new_user_message}
-    ]
-    return new_messages
-
 
 def screenpipe_search(
     search_substring: str = "",
@@ -419,7 +354,7 @@ class Pipe:
         sanitized_results = self.sanitize_results(search_results)
         results_as_string = json.dumps(sanitized_results)
         print("Results as string:", results_as_string)
-        messages_with_screenpipe_data = get_messages_with_screenpipe_data(
+        messages_with_screenpipe_data = self.get_messages_with_screenpipe_data(
             messages,
             results_as_string
         )
@@ -508,6 +443,27 @@ Construct an optimal search filter for the query. When appropriate, create a sea
             )
             return final_response.choices[0].message.content
         
+    def get_messages_with_screenpipe_data(
+            self,
+            messages: List[dict],
+            results_as_string: str) -> List[dict]:
+        """
+        Combines the last user message with sanitized ScreenPipe search results.
+        """
+        SYSTEM_MESSAGE = "You are a helpful assistant that parses screenpipe search results. Use the search results to answer the user's question as best as possible. If unclear, synthesize the context and provide an explanation."
+        if messages[-1]["role"] != "user":
+            raise ValueError("Last message must be from the user!")
+        if len(messages) > 2:
+            print("Warning! This LLM call does not use past chat history!")
+
+        new_user_message = self.reformat_user_message(
+            messages[-1]["content"], results_as_string)
+        new_messages = [
+            {"role": "system", "content": SYSTEM_MESSAGE},
+            {"role": "user", "content": new_user_message}
+        ]
+        return new_messages    
+    
     @staticmethod
     def remove_names(content: str) -> str:
         for sensitive_word, replacement in REPLACEMENT_TUPLES:
@@ -543,3 +499,36 @@ Construct an optimal search filter for the query. When appropriate, create a sea
             dt = dt + timedelta(hours=offset_hours)
             
         return dt.strftime("%m/%d/%y %H:%M")
+
+    @staticmethod
+    def reformat_user_message(user_message: str, sanitized_results: str) -> str:
+        """
+        Reformats the user message by adding context and rules from ScreenPipe search results.
+        """
+        assert isinstance(sanitized_results, str), "Sanitized results must be a string"
+        query = user_message
+        context = sanitized_results
+
+        reformatted_message = f"""You are given a user query, context from personal screen and microphone data, and rules, all inside xml tags. Answer the query based on the context while respecting the rules.
+<context>
+{context}
+</context>
+
+<rules>
+- If the context is not relevant to the user query, just say so.
+- If you are not sure, ask for clarification.
+- If the answer is not in the context but you think you know the answer, explain that to the user then answer with your own knowledge.
+- Answer directly and without using xml tags.
+</rules>
+
+<user_query>
+{query}
+</user_query>
+"""
+        return reformatted_message
+
+    
+
+    @staticmethod
+    def get_current_time() -> str:
+        return datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
