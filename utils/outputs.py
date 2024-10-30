@@ -1,5 +1,5 @@
 from typing import List, Optional
-from utils.sp_utils import convert_to_local_time
+from utils.sp_utils import format_timestamp
 expected_output = {
     "data": [
         {
@@ -61,8 +61,8 @@ class HealthCheck:
             verbose_instructions (str, optional): Optional verbose instructions. Defaults to None.
         """
         self.status = status
-        self.last_frame_timestamp = convert_to_local_time(last_frame_timestamp)
-        self.last_audio_timestamp = convert_to_local_time(last_audio_timestamp)
+        self.last_frame_timestamp = format_timestamp(last_frame_timestamp)
+        self.last_audio_timestamp = format_timestamp(last_audio_timestamp)
         self.frame_status = frame_status
         self.audio_status = audio_status
         self.message = message
@@ -113,7 +113,7 @@ class OCR:
         """
         Cleans the data (converts the timestamp to local time).
         """
-        self.timestamp = convert_to_local_time(self.timestamp)
+        self.timestamp = format_timestamp(self.timestamp)
 
     def _get_frame_as_image(self) -> Optional[bytes]:
         """
@@ -202,7 +202,7 @@ class Audio:
         """
         Cleans the data (converts the timestamp to local time).
         """
-        self.timestamp = convert_to_local_time(self.timestamp)
+        self.timestamp = format_timestamp(self.timestamp)
     
     def __str__(self):
         return f"Audio(chunk_id={self.chunk_id}, transcription={self.transcription}, timestamp={self.timestamp}, file_path={self.file_path}, offset_index={self.offset_index}, tags={self.tags}, device_name={self.device_name}, device_type={self.device_type})"
