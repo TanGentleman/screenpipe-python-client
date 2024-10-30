@@ -2,19 +2,7 @@ import requests
 import logging
 import argparse
 import json
-from utils.screenpipe_client import (
-    search,
-    list_audio_devices,
-    add_tags_to_content,
-    remove_tags_from_content,
-    download_pipe,
-    run_pipe,
-    stop_pipe,
-    health_check,
-    list_monitors,
-    list_pipes,
-    get_pipe_info
-)
+from utils.screenpipe import ScreenpipeClient
 from utils.outputs import SearchOutput, HealthCheck
 
 
@@ -171,8 +159,9 @@ def main():
 
     args = parser.parse_args()
 
+    client = ScreenpipeClient()
     if args.command == "search":
-        results = search(
+        results = client.search(
             query=args.query,
             content_type=args.content_type,
             limit=args.limit,
@@ -193,32 +182,32 @@ def main():
             print(json.dumps(results.__dict__, indent=4))
 
     elif args.command == "list-audio-devices":
-        devices = list_audio_devices()
+        devices = client.list_audio_devices()
         if devices:
             print(json.dumps(devices, indent=4))
 
     elif args.command == "add-tags-to-content":
-        response = add_tags_to_content(args.content_type, args.id, args.tags)
+        response = client.add_tags_to_content(args.content_type, args.id, args.tags)
         if response:
             print(json.dumps(response, indent=4))
 
     elif args.command == "download-pipe":
-        response = download_pipe(args.url)
+        response = client.download_pipe(args.url)
         if response:
             print(json.dumps(response, indent=4))
 
     elif args.command == "run-pipe":
-        response = run_pipe(args.pipe_id)
+        response = client.run_pipe(args.pipe_id)
         if response:
             print(json.dumps(response, indent=4))
 
     elif args.command == "stop-pipe":
-        response = stop_pipe(args.pipe_id)
+        response = client.stop_pipe(args.pipe_id)
         if response:
             print(json.dumps(response, indent=4))
 
     elif args.command == "health-check":
-        status = health_check()
+        status = client.health_check()
         if status:
             try:
                 status = HealthCheck(**status)
@@ -228,22 +217,22 @@ def main():
                 print(json.dumps(status, indent=4))
 
     elif args.command == "list-monitors":
-        monitors = list_monitors()
+        monitors = client.list_monitors()
         if monitors:
             print(json.dumps(monitors, indent=4))
 
     elif args.command == "list-pipes":
-        pipes = list_pipes()
+        pipes = client.list_pipes()
         if pipes:
             print(json.dumps(pipes, indent=4))
 
     elif args.command == "get-pipe-info":
-        info = get_pipe_info(args.pipe_id)
+        info = client.get_pipe_info(args.pipe_id)
         if info:
             print(json.dumps(info, indent=4))
 
     elif args.command == "remove-tags-from-content":
-        response = remove_tags_from_content(
+        response = client.remove_tags_from_content(
             args.content_type, args.id, args.tags)
         if response:
             print(json.dumps(response, indent=4))

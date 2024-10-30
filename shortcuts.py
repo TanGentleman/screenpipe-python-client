@@ -1,6 +1,6 @@
 # Search for the most recent OCR chunk
 from typing import Optional
-from utils.screenpipe_client import search
+from utils.screenpipe import search
 from utils.sp_utils import get_past_time
 from utils.outputs import OCR
 

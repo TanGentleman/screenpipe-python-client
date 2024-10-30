@@ -2,7 +2,7 @@ import logging
 from typing import Dict, List, Literal, Optional
 import requests
 
-class ScreenPipeClient:
+class ScreenpipeClient:
     """Client for interacting with the ScreenPipe API."""
     
     def __init__(self, port: int = 3030, host: str = "localhost"):
