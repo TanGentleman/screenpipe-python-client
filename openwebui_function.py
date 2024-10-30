@@ -3,7 +3,7 @@ title: Screenpipe Pipeline
 author: TanGentleman
 author_url: https://github.com/TanGentleman
 funding_url: https://github.com/TanGentleman
-version: 0.8
+version: 0.9
 """
 # NOTE: Add pipeline using OpenWebUI > Workspace > Functions > Add Function
 
@@ -61,7 +61,7 @@ from dataclasses import dataclass
 
 try:
     from dotenv import load_dotenv
-    print("Loading .env file")
+    print("Loading environment variables.")
 except ImportError:
     print("Warning: dotenv not found. Using default values.")
 
