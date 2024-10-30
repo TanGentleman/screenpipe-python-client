@@ -31,7 +31,7 @@ SCREENPIPE_PORT = 3030
 URL_BASE = "http://localhost" if not IS_DOCKER else "http://host.docker.internal"
 
 # NOTE: This is very important! Run test_valves.py to test first!
-SCREENPIPE_BASE_URL = f"{URL_BASE}:{SCREENPIPE_PORT}"
+SCREENPIPE_SERVER_URL = f"{URL_BASE}:{SCREENPIPE_PORT}"
 
 ### IMPORTANT CONFIG ###
 # Change this to any openai compatible endpoint
@@ -61,6 +61,7 @@ from dataclasses import dataclass
 
 try:
     from dotenv import load_dotenv
+    print("Loading .env file")
 except ImportError:
     print("Warning: dotenv not found. Using default values.")
 
@@ -125,7 +126,7 @@ class PipelineConfig:
         )
 
     @property
-    def screenpipe_base_url(self) -> str:
+    def screenpipe_server_url(self) -> str:
         """Compute the Screenpipe base URL based on configuration"""
         url_base = "http://localhost" if not self.is_docker else "http://host.docker.internal"
         return f"{url_base}:{self.screenpipe_port}"
@@ -161,47 +162,7 @@ def screenpipe_search(
     Returns:
         dict: A dictionary containing an error message or the search results.
     """
-    if isinstance(limit, str):
-        try:
-            limit = int(limit)
-        except ValueError:
-            print(f"Limit must be an integer. Defaulting to 5")
-            limit = 5
-    assert 0 < limit <= 100, "Limit must be between 1 and 100"
-    assert start_time < end_time, "Start time must be before end time"
-
-    if limit > 50:
-        print(
-            f"Warning: Limit is set to {limit}. This may return a large number of results.")
-        print("CHANGING LIMIT TO 40!")
-        limit = 40
-    # Make first letter of app_name uppercase
-    if app_name:
-        app_name = app_name.capitalize()
-    params = {
-        "q": search_substring,
-        "content_type": content_type,
-        "limit": limit,
-        "start_time": start_time,
-        "end_time": end_time,
-        "app_name": app_name
-    }
-    # Remove None values from params dictionary
-    params = {key: value for key, value in params.items() if value is not None}
-    try:
-        response = requests.get(
-            f"{SCREENPIPE_BASE_URL}/search",
-            params=params)
-        response.raise_for_status()
-        results = response.json()
-    except requests.exceptions.RequestException as e:
-        return {"error": f"Screenpipe search failed: {e}"}
-    if results is None:
-        return {"error": "Screenpipe request failed"}
-    if not results["data"]:
-        return {"error": "No results found"}
-    print(f"Found {len(results['data'])} results")
-    return results
+    return {}
 
 class Pipe:
     class Valves(BaseModel):
@@ -211,6 +172,7 @@ class Pipe:
         FINAL_MODEL: str = ""
         LOCAL_GRAMMAR_MODEL: str = ""
         USE_GRAMMAR: bool = False
+        SCREENPIPE_SERVER_URL: str = ""
 
     def __init__(self):
         self.type = "pipe"
@@ -223,7 +185,8 @@ class Pipe:
                 "TOOL_MODEL": self.config.tool_model,
                 "FINAL_MODEL": self.config.final_model,
                 "LOCAL_GRAMMAR_MODEL": self.config.local_grammar_model,
-                "USE_GRAMMAR": self.config.use_grammar
+                "USE_GRAMMAR": self.config.use_grammar,
+                "SCREENPIPE_SERVER_URL": self.config.screenpipe_server_url
             }
         )
         self.tools = [convert_to_openai_tool(screenpipe_search)]
@@ -239,7 +202,65 @@ class Pipe:
         self.final_model = self.valves.FINAL_MODEL or self.config.final_model
         self.local_grammar_model = self.valves.LOCAL_GRAMMAR_MODEL or self.config.local_grammar_model
         self.use_grammar = self.valves.USE_GRAMMAR or self.config.use_grammar
+        self.screenpipe_server_url = self.valves.SCREENPIPE_SERVER_URL or self.config.screenpipe_server_url
         pass
+
+    def search_wrapper(
+        self,
+        search_substring: str = "",
+        content_type: Literal["ocr", "audio", "all"] = "all",
+        start_time: str = "2024-10-01T00:00:00Z",
+        end_time: str = "2024-10-31T23:59:59Z",
+        limit: int = 5,
+        app_name: Optional[str] = None
+    ) -> dict:
+        """
+        Wrapper for screenpipe_search to handle errors and limit.
+
+        Returns:
+            dict: A dictionary containing an error message or the search results.
+        """
+        if isinstance(limit, str):
+            try:
+                limit = int(limit)
+            except ValueError:
+                print(f"Limit must be an integer. Defaulting to 5")
+                limit = 5
+        assert 0 < limit <= 100, "Limit must be between 1 and 100"
+        assert start_time < end_time, "Start time must be before end time"
+
+        if limit > 50:
+            print(
+                f"Warning: Limit is set to {limit}. This may return a large number of results.")
+            print("CHANGING LIMIT TO 40!")
+            limit = 40
+        # Make first letter of app_name uppercase
+        if app_name:
+            app_name = app_name.capitalize()
+        params = {
+            "q": search_substring,
+            "content_type": content_type,
+            "limit": limit,
+            "start_time": start_time,
+            "end_time": end_time,
+            "app_name": app_name
+        }
+        # Remove None values from params dictionary
+        params = {key: value for key, value in params.items() if value is not None}
+        try:
+            response = requests.get(
+                f"{self.screenpipe_server_url}/search",
+                params=params)
+            response.raise_for_status()
+            results = response.json()
+        except requests.exceptions.RequestException as e:
+            return {"error": f"Screenpipe search failed: {e}"}
+        if results is None:
+            return {"error": "Screenpipe request failed"}
+        if not results["data"]:
+            return {"error": "No results found"}
+        print(f"Found {len(results['data'])} results")
+        return results
 
     def sanitize_results(self, results: dict) -> list[dict]:
         """
