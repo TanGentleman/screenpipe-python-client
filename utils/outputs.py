@@ -66,7 +66,8 @@ class HealthCheck:
         self.frame_status = frame_status
         self.audio_status = audio_status
         self.message = message
-        self.verbose_instructions = verbose_instructions
+        if verbose_instructions:
+            self.verbose_instructions = verbose_instructions
 
     def to_dict(self):
         return self.__dict__
@@ -79,10 +80,10 @@ class OCR:
             text: str,
             timestamp: str,
             file_path: str,
-            offset_index: int,
             app_name: str,
             window_name: str,
             tags: List[str],
+            offset_index: Optional[int] = None,
             frame: Optional[str] = None):
         """
         Represents an OCR (Optical Character Recognition) output.
@@ -100,21 +101,29 @@ class OCR:
         """
         self.frame_id = frame_id
         self.text = text
-        self.timestamp = timestamp
+        self.original_timestamp = timestamp
         self.file_path = file_path
-        self.offset_index = offset_index
         self.app_name = app_name
         self.window_name = window_name
         self.tags = tags
         self.frame = frame
 
-        self._clean_data()
+        self.ignored_fields = {
+            "offset_index": offset_index
+        }
+
+        CLEAN_DATA = True
+        if CLEAN_DATA:
+            self._clean_data()
+        else:
+            self.timestamp = self.original_timestamp
 
     def _clean_data(self):
         """
         Cleans the data (converts the timestamp to local time).
         """
-        self.timestamp = format_timestamp(self.timestamp)
+        self.timestamp = format_timestamp(self.original_timestamp)
+        self.ignored_fields = {}
 
     def _get_frame_as_image(self) -> Optional[bytes]:
         """
@@ -140,32 +149,18 @@ class OCR:
             file.write(frame_data)
         print(f"Frame saved as: {output_path}")
 
-    def _convert_to_string(
-            self,
-            truncate: int = 50,
-            trim_fields: bool = True) -> str:
-        """
-        Convert the OCR output to a string representation.
-
-        Args:
-            truncate (int, optional): The number of characters to truncate the text to. Defaults to 50.
-            clean (bool, optional): If True, the output will be cleaned (without file path and tags). Defaults to True.
-
-        Returns:
-            str: _description_
-        """
-        # NOTE: Should I remove the file path?
-        # I'm removing tags for now too.
-        if trim_fields:
-            return f"OCR(frame_id={self.frame_id}, text={self.text[:truncate]}..., timestamp={self.timestamp}, app_name={self.app_name}, window_name={self.window_name})"
-        else:
-            return f"OCR(frame_id={self.frame_id}, text={self.text[:truncate]}..., timestamp={self.timestamp}, file_path={self.file_path}, app_name={self.app_name}, window_name={self.window_name}, tags={self.tags})"
+    def __repr__(self):
+        tags_str = f", tags={self.tags}" if self.tags else ""
+        return (
+            f"OCR(frame_id={self.frame_id}, "
+            f"app='{self.app_name}' ({self.window_name}), "
+            f"timestamp='{self.timestamp}', "
+            f"text='{self.text[:50]}{'...' if len(self.text) > 50 else ''}'"
+            f"{tags_str})"
+        )
 
     def __str__(self):
-        return self._convert_to_string()
-
-    def __repr__(self):
-        return self._convert_to_string(truncate=10)
+        return self.__repr__()
 
 
 class Audio:
@@ -174,11 +169,11 @@ class Audio:
             chunk_id: int,
             transcription: str,
             timestamp: str,
-            file_path: str,
-            offset_index: int,
             tags: List[str],
             device_name: str,
-            device_type: str):
+            device_type: str,
+            file_path: Optional[str] = None,
+            offset_index: Optional[int] = None):
         """
         Represents an audio output.
 
@@ -187,46 +182,73 @@ class Audio:
             transcription (str): The transcribed text.
             timestamp (str): The timestamp of the audio output in PST timezone.
             file_path (str): The file path of the audio output.
-            offset_index (int): The offset index.
+            offset_index (int): The offset index. Ignored.
             tags (List[str]): The list of tags associated with the audio output.
             device_name (str): The name of the device.
             device_type (str): The type of the device.
         """
         self.chunk_id = chunk_id
         self.transcription = transcription
-        self.timestamp = timestamp
-        self.file_path = file_path
-        self.offset_index = offset_index
+        self.original_timestamp = timestamp
         self.tags = tags
         self.device_name = device_name
         self.device_type = device_type
 
-        self._clean_data()
+        self.ignored_fields = {
+            "file_path": file_path,
+            "offset_index": offset_index
+        }
+
+        CLEAN_DATA = True
+        if CLEAN_DATA:
+            self._clean_data()
+        else:
+            self.timestamp = self.original_timestamp
 
     def _clean_data(self):
         """
         Cleans the data (converts the timestamp to local time).
         """
-        self.timestamp = format_timestamp(self.timestamp)
+        self.timestamp = format_timestamp(self.original_timestamp)
+        self.ignored_fields = {}
 
+    def __repr__(self):
+        tags_str = f", tags={self.tags}" if self.tags else ""
+        return (
+            f"Audio(chunk_id={self.chunk_id}, "
+            f"device='{self.device_name}' ({self.device_type}), "
+            f"timestamp='{self.timestamp}', "
+            f"transcription='{self.transcription[:50]}{'...' if len(self.transcription) > 50 else ''}'"
+            f"{tags_str}"
+        )
+    
     def __str__(self):
-        return f"Audio(chunk_id={self.chunk_id}, transcription={self.transcription}, timestamp={self.timestamp}, file_path={self.file_path}, offset_index={self.offset_index}, tags={self.tags}, device_name={self.device_name}, device_type={self.device_type})"
+        return self.__repr__()
 
 
 class SearchOutput:
-    def __init__(self, data: List[dict], pagination: dict | None = None):
+    def __init__(self, response_object: dict,
+                 data: Optional[List[dict]] = None,
+                 pagination: Optional[dict] = None):
         """
-        Represents the search output.
+        Represents the search output from the Screenpipe API.
 
         Args:
-            data (List[dict]): The list of data items.
-            pagination (dict): The pagination information.
+            response_object (dict): The raw API response object
+            data (List[dict], optional): The list of data items containing OCR and Audio content
+            pagination (dict, optional): The pagination information including limit, offset and total
         """
-        self.data = data
-        self.pagination = pagination
-        self.validate_data()
+        self.data = data or response_object.get('data', [])
+        self.chunks = []
+        self.pagination = pagination or response_object.get('pagination')
 
-    def validate_data(self):
+        INITIALIZE_DATA_OBJECTS = True
+        if INITIALIZE_DATA_OBJECTS:
+            self.initialize_data_objects()
+        else:
+            self.validate_data_dicts()
+
+    def validate_data_dicts(self):
         """
         Validates the data items and pagination information.
         Raises a ValueError if the data is invalid.
@@ -243,3 +265,34 @@ class SearchOutput:
             assert isinstance(self.pagination["limit"], int)
             assert isinstance(self.pagination["offset"], int)
             assert isinstance(self.pagination["total"], int)
+    
+    def initialize_data_objects(self):
+        """
+        Initializes OCR and Audio data objects from the raw data.
+        
+        Raises:
+            ValueError: If an invalid data type is encountered
+        """
+        ocr_count = 0
+        audio_count = 0
+        
+        for item in self.data:
+            if item["type"] == "OCR":
+                self.chunks.append(OCR(**item["content"]))
+                ocr_count += 1
+            elif item["type"] == "Audio":
+                self.chunks.append(Audio(**item["content"]))
+                audio_count += 1
+            else:
+                raise ValueError(f"Invalid data type: {item['type']}")
+                
+        print(
+            f"Initialized {ocr_count + audio_count} data objects "
+            f"({ocr_count} OCR, {audio_count} Audio)"
+        )
+    
+    def __repr__(self):
+        return f"SearchOutput(data={self.data}" if not self.chunks else f"SearchOutput(chunks={self.chunks})"
+
+    def __str__(self):
+        return self.__repr__()
