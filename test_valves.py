@@ -1,4 +1,4 @@
-from openwebui_function import Pipe
+from open_webui_workspace.screenpipe_search_function import Pipe
 from utils.secrets import LLM_API_KEY
 
 CUSTOM_VALVES = {
