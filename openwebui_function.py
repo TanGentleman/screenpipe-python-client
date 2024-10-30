@@ -7,7 +7,13 @@ version: 0.9
 """
 # NOTE: Add pipeline using OpenWebUI > Workspace > Functions > Add Function
 
+# NOTE: This is a work in progress! Ideally, the config, helper functions
+# and the tools should be separated. This is for convenient copy-pasting
+# to OWUI.
+
 # Standard library imports
+from dataclasses import dataclass
+import os
 import json
 from datetime import datetime, timedelta, timezone
 from typing import Generator, Iterator, List, Literal, Optional, Union, Tuple
@@ -26,12 +32,10 @@ REPLACEMENT_TUPLES = [
 ]
 # Mode configuration for base URL
 IS_DOCKER = True
-SCREENPIPE_PORT = 3030
+DEFAULT_SCREENPIPE_PORT = 3030
 
 URL_BASE = "http://localhost" if not IS_DOCKER else "http://host.docker.internal"
 
-# NOTE: This is very important! Run test_valves.py to test first!
-SCREENPIPE_SERVER_URL = f"{URL_BASE}:{SCREENPIPE_PORT}"
 
 ### IMPORTANT CONFIG ###
 # Change this to any openai compatible endpoint
@@ -50,20 +54,18 @@ DEFAULT_LOCAL_GRAMMAR_MODEL = "lmstudio-Llama-3.2-3B-4bit-MLX"
 # NOTE: Model name must be valid for the endpoint:
 # {DEFAULT_LLM_API_BASE_URL}/v1/chat/completions
 
-MAX_TOOL_CALLS = 1
 PREFER_24_HOUR_FORMAT = True
 DEFAULT_UTC_OFFSET = -7  # PDT
 ### HELPER FUNCTIONS ###
 
 """Configuration management for Screenpipe Pipeline"""
-import os
-from dataclasses import dataclass
 
 try:
     from dotenv import load_dotenv
     print("Loading environment variables.")
 except ImportError:
     print("Warning: dotenv not found. Using default values.")
+
 
 @dataclass
 class PipelineConfig:
@@ -72,54 +74,59 @@ class PipelineConfig:
     llm_api_key: str
     screenpipe_port: int
     is_docker: bool
-    
+
     # Model Configuration
     tool_model: str
     final_model: str
     local_grammar_model: str
     use_grammar: bool
-    
+
     # Pipeline Settings
     prefer_24_hour_format: bool
     default_utc_offset: int
-    
+
     # Sensitive Data
     replacement_tuples: List[Tuple[str, str]]
 
     @classmethod
     def from_env(cls) -> 'PipelineConfig':
         """Create configuration from environment variables with fallbacks.
-        
+
         Returns:
             PipelineConfig: Configuration object populated from environment variables,
             falling back to default values if not set.
         """
         load_dotenv()  # Load .env file if it exists
-        
+
         def get_bool_env(key: str, default: bool) -> bool:
             """Helper to consistently parse boolean environment variables"""
             return os.getenv(key, str(default)).lower() == 'true'
-        
+
         def get_int_env(key: str, default: int) -> int:
             """Helper to consistently parse integer environment variables"""
             return int(os.getenv(key, default))
-        
+
         return cls(
             # API and Endpoint Configuration
-            llm_api_base_url=os.getenv('LLM_API_BASE_URL', DEFAULT_LLM_API_BASE_URL),
+            llm_api_base_url=os.getenv(
+                'LLM_API_BASE_URL', DEFAULT_LLM_API_BASE_URL),
             llm_api_key=os.getenv('LLM_API_KEY', DEFAULT_LLM_API_KEY),
-            screenpipe_port=get_int_env('SCREENPIPE_PORT', SCREENPIPE_PORT),
+            screenpipe_port=get_int_env(
+                'SCREENPIPE_PORT', DEFAULT_SCREENPIPE_PORT),
             is_docker=get_bool_env('IS_DOCKER', IS_DOCKER),
-            
+
             # Model Configuration
             tool_model=os.getenv('TOOL_MODEL', DEFAULT_TOOL_MODEL),
             final_model=os.getenv('FINAL_MODEL', DEFAULT_FINAL_MODEL),
-            local_grammar_model=os.getenv('LOCAL_GRAMMAR_MODEL', DEFAULT_LOCAL_GRAMMAR_MODEL),
+            local_grammar_model=os.getenv(
+                'LOCAL_GRAMMAR_MODEL', DEFAULT_LOCAL_GRAMMAR_MODEL),
             use_grammar=get_bool_env('USE_GRAMMAR', DEFAULT_USE_GRAMMAR),
-            
+
             # Pipeline Settings
-            prefer_24_hour_format=get_bool_env('PREFER_24_HOUR_FORMAT', PREFER_24_HOUR_FORMAT),
-            default_utc_offset=get_int_env('DEFAULT_UTC_OFFSET', DEFAULT_UTC_OFFSET),
+            prefer_24_hour_format=get_bool_env(
+                'PREFER_24_HOUR_FORMAT', PREFER_24_HOUR_FORMAT),
+            default_utc_offset=get_int_env(
+                'DEFAULT_UTC_OFFSET', DEFAULT_UTC_OFFSET),
 
             # Sensitive Data
             replacement_tuples=REPLACEMENT_TUPLES,
@@ -130,6 +137,7 @@ class PipelineConfig:
         """Compute the Screenpipe base URL based on configuration"""
         url_base = "http://localhost" if not self.is_docker else "http://host.docker.internal"
         return f"{url_base}:{self.screenpipe_port}"
+
 
 class SearchSchema(BaseModel):
     # TODO: Add descriptions and utilize new format. See Issue #17
@@ -164,7 +172,7 @@ def screenpipe_search(
     """
     return {}
 
-SCREENPIPE_SEARCH_TOOL = convert_to_openai_tool(screenpipe_search)
+
 class Pipe:
     class Valves(BaseModel):
         LLM_API_BASE_URL: str = ""
@@ -190,7 +198,8 @@ class Pipe:
                 "SCREENPIPE_SERVER_URL": self.config.screenpipe_server_url
             }
         )
-        self.tools = [SCREENPIPE_SEARCH_TOOL]
+        screenpipe_search_tool = convert_to_openai_tool(screenpipe_search)
+        self.tools = [screenpipe_search_tool]
 
     def initialize_settings(self):
         base_url = self.valves.LLM_API_BASE_URL or self.config.llm_api_base_url
@@ -247,7 +256,9 @@ class Pipe:
             "app_name": app_name
         }
         # Remove None values from params dictionary
-        params = {key: value for key, value in params.items() if value is not None}
+        params = {
+            key: value for key,
+            value in params.items() if value is not None}
         try:
             response = requests.get(
                 f"{self.screenpipe_server_url}/search",
@@ -508,6 +519,7 @@ Construct an optimal search filter for the query. When appropriate, create a sea
     def _limit_tool_calls(self, tool_calls):
         if not tool_calls:
             raise ValueError("No tool calls found")
+        MAX_TOOL_CALLS = 1
         if len(tool_calls) > MAX_TOOL_CALLS:
             print(
                 f"Warning: More than {MAX_TOOL_CALLS} tool calls found. Only the first {MAX_TOOL_CALLS} tool calls will be processed.")
