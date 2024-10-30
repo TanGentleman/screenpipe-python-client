@@ -5,3 +5,6 @@ __pycache__/cli.cpython-311.pyc
 outdated/
 output_log_dump.log
 __pycache__/
+.venv/
+ocr_screenies/
+.env
