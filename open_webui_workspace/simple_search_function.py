@@ -16,13 +16,13 @@ from dataclasses import dataclass
 import os
 import json
 from datetime import datetime, timedelta, timezone
-from typing import Generator, Iterator, List, Literal, Optional, Union, Tuple
+from typing import Generator, Iterator, List, Literal, Optional, Union, Tuple, Annotated
 
 # Third-party imports
 import requests
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from openai import OpenAI
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, Field, ValidationError
 
 # NOTE: Sensitive - Sanitize before sharing
 SENSITIVE_KEY = "api-key"
@@ -169,6 +169,32 @@ def screenpipe_search(
     """
     return {}
 
+class SearchParameters(BaseModel):
+    limit: Annotated[int, Field(ge=1, le=100)] = Field(
+        default=10,
+        description="The maximum number of results to return (1-100)"
+    )
+    content_type: Literal["ocr", "audio", "all"] = Field(
+        default="all",
+        description="The type of content to search"
+    )
+    search_substring: Optional[str] = Field(
+        default=None,
+        description="Optional search term to filter results"
+    )
+    start_time: Optional[str] = Field(
+        default="2024-10-01T00:00:00Z",
+        description="Start timestamp for search range (ISO format)"
+    )
+    end_time: Optional[str] = Field(
+        default="2024-10-31T23:59:59Z", 
+        description="End timestamp for search range (ISO format)"
+    )
+    app_name: Optional[str] = Field(
+        default=None,
+        description="Optional app name to filter results"
+    )
+
 
 class Pipe:
     class Valves(BaseModel):
@@ -211,11 +237,11 @@ class Pipe:
 
     def search_wrapper(
         self,
-        search_substring: str = "",
-        content_type: Literal["ocr", "audio", "all"] = "all",
-        start_time: str = "2024-10-01T00:00:00Z",
-        end_time: str = "2024-10-31T23:59:59Z",
-        limit: int = 5,
+        search_substring: Optional[str] = None,
+        content_type: Optional[Literal["ocr", "audio", "all"]] = None,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
+        limit: Optional[int] = None,
         app_name: Optional[str] = None
     ) -> dict:
         """
@@ -224,22 +250,21 @@ class Pipe:
         Returns:
             dict: A dictionary containing an error message or the search results.
         """
-        if isinstance(limit, str):
-            try:
-                limit = int(limit)
-            except ValueError:
-                print(f"Limit must be an integer. Defaulting to 5")
-                limit = 5
-        assert 0 < limit <= 100, "Limit must be between 1 and 100"
-        assert start_time < end_time, "Start time must be before end time"
-
-        if limit > 50:
-            print(
-                f"Warning: Limit is set to {limit}. This may return a large number of results.")
-            print("CHANGING LIMIT TO 40!")
-            limit = 40
+        if limit:
+            if isinstance(limit, str):
+                try:
+                    limit = int(limit)
+                except ValueError:
+                    print(f"Limit must be an integer. Defaulting to 5")
+                    limit = 5
+            if limit > 50:
+                print(
+                    f"Warning: Limit is set to {limit}. This may return a large number of results.")
+                print("CHANGING LIMIT TO 40!")
+                limit = 40
         # Make first letter of app_name uppercase
         if app_name:
+            print("Capitalizing app_name!")
             app_name = app_name.capitalize()
         params = {
             "q": search_substring,
@@ -467,27 +492,23 @@ class Pipe:
             print("System message is being replaced!")
         if len(messages) > 2:
             print("Warning! This LLM call does not use past chat history!")
-
         CURRENT_TIME = self.get_current_time()
+        JSON_SYSTEM_MESSAGE = f"""You are a helpful assistant. Create a screenpipe search conforming to the correct schema to search captured data stored in ScreenPipe's local database.
+
+Ensure your response follows this schema:
+{SearchParameters.model_json_schema()}
+
+If the time range is not relevant, use None for the start_time and end_time fields. Otherwise, they must be in ISO format matching the current time: {CURRENT_TIME}.
+
+Construct an optimal search filter for the query. When appropriate, create a search_substring to narrow down the search results. Set a limit based on the user's request, or default to 5."""
+        TOOL_SYSTEM_MESSAGE = f"""You are a helpful assistant that can access external functions. When performing searches, consider the current date and time, which is {CURRENT_TIME}. When appropriate, create a short search_substring to narrow down the search results."""
+
         # NOTE: This overrides valve settings if self.use_grammar is True!!!
         if self.use_grammar:
             # TODO: This will soon follow format from Issue #17
-            system_message = f"""You are a helpful assistant. Create a screenpipe search conforming to the correct schema to search captured data stored in ScreenPipe's local database.
-Fields:
-limit (int): The maximum number of results to return. Should be between 1 and 100. Default to 10.
-content_type (Literal["ocr", "audio", "all"]): The type of content to search. Default to "all".
-search_substring (Optional[str]): The optional search term.
-start_time (Optional[str]): The start timestamp for the search range. Defaults to "2024-10-01T00:00:00Z".
-end_time (Optional[str]): The end timestamp for the search range. Defaults to "2024-10-31T23:59:59Z".
-app_name (Optional[str]): The name of the app to search in. Defaults to None.
-
-The start_time and end_time fields must be in the same format as the current time.
-Current time: {CURRENT_TIME}.
-
-Construct an optimal search filter for the query. When appropriate, create a search_substring to narrow down the search results. Do not include unnecessary fields.
-"""
+            system_message = JSON_SYSTEM_MESSAGE
         else:
-            system_message = f"You are a helpful assistant that can access external functions. When performing searches, consider the current date and time, which is {CURRENT_TIME}. When appropriate, create a short search_substring to narrow down the search results."
+            system_message = TOOL_SYSTEM_MESSAGE
         new_messages = [
             {"role": "system", "content": system_message},
             {"role": "user", "content": messages[-1]["content"]}
@@ -603,3 +624,19 @@ Construct an optimal search filter for the query. When appropriate, create a sea
     @staticmethod
     def get_current_time() -> str:
         return datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
+
+# NOTE Change to an f-string when we have a CURRENT_TIME variable
+DEPRECATED_SYSTEM_MESSAGE = """You are a helpful assistant. Create a screenpipe search conforming to the correct schema to search captured data stored in ScreenPipe's local database.
+Fields:
+limit (int): The maximum number of results to return. Should be between 1 and 100. Default to 10.
+content_type (Literal["ocr", "audio", "all"]): The type of content to search. Default to "all".
+search_substring (Optional[str]): The optional search term.
+start_time (Optional[str]): The start timestamp for the search range. Defaults to "2024-10-01T00:00:00Z".
+end_time (Optional[str]): The end timestamp for the search range. Defaults to "2024-10-31T23:59:59Z".
+app_name (Optional[str]): The name of the app to search in. Defaults to None.
+
+The start_time and end_time fields must be in the same format as the current time.
+Current time: {CURRENT_TIME}.
+
+Construct an optimal search filter for the query. When appropriate, create a search_substring to narrow down the search results. Do not include unnecessary fields.
+"""
