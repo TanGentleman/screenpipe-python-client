@@ -154,6 +154,17 @@ class SearchParameters(BaseModel):
         default=None,
         description="Optional app name to filter results"
     )
+EXAMPLE_SEARCH_JSON = """\
+{
+    "limit": 2,
+    "content_type": "audio",
+}
+{
+    "limit": 1,
+    "content_type": "all",
+    "start_time": "2024-10-01T00:00:00Z",
+    "end_time": "2024-11-01T23:59:59Z",
+}"""
 
 def screenpipe_search(
     search_substring: str = "",
@@ -273,7 +284,7 @@ class PipeUtils:
                     raise ValueError(f"Unknown result type: {result['type']}")
                 
                 sanitized.append(sanitized_result)
-                
+
             return sanitized
             
         except Exception as e:
@@ -335,6 +346,40 @@ class PipeUtils:
         except Exception as e:
             print(f"Error parsing tool response: {e}")
             return "Failed to process function call"
+    
+    @staticmethod
+    def form_final_user_message(
+            user_message: str,
+            sanitized_results: str) -> str:
+        """
+        Reformats the user message by adding context and rules from ScreenPipe search results.
+        """
+        assert isinstance(
+            sanitized_results, str), "Sanitized results must be a string"
+        query = user_message
+        context = sanitized_results
+
+        reformatted_message = f"""You are given a user query, context from personal screen and microphone data, and rules, all inside xml tags. Answer the query based on the context while respecting the rules.
+<context>
+{context}
+</context>
+
+<rules>
+- If the context is not relevant to the user query, just say so.
+- If you are not sure, ask for clarification.
+- If the answer is not in the context but you think you know the answer, explain that to the user then answer with your own knowledge.
+- Answer directly and without using xml tags.
+</rules>
+
+<user_query>
+{query}
+</user_query>
+"""
+        return reformatted_message
+
+    @staticmethod
+    def get_current_time() -> str:
+        return datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
 
 class PipeBase:
     """Base class for Pipe functionality"""
@@ -394,7 +439,7 @@ class Pipe(PipeBase):
         """Main pipeline processing method"""
         try:
             self.initialize_settings()
-            messages = self._prepare_messages(body["messages"])
+            messages = self._prepare_initial_messages(body["messages"])
             
             # Get search results
             results = (self._grammar_response_as_results_or_str(messages) 
@@ -406,6 +451,7 @@ class Pipe(PipeBase):
                 
             # Process results
             sanitized_results = PipeUtils.sanitize_results(results, self.replacement_tuples)
+            print("Sanitized results:", sanitized_results)
             messages_with_data = self.get_messages_with_screenpipe_data(
                 messages,
                 json.dumps(sanitized_results)
@@ -436,21 +482,25 @@ class Pipe(PipeBase):
         self.use_grammar = self.valves.USE_GRAMMAR # or self.config.use_grammar
 
 
-    def _prepare_messages(self, messages):
+    def _prepare_initial_messages(self, messages):
         assert messages[-1]["role"] == "user", "Last message must be from the user!"
         if messages[0]["role"] == "system":
             print("System message is being replaced!")
         if len(messages) > 2:
             print("Warning! This LLM call does not use past chat history!")
-        CURRENT_TIME = self.get_current_time()
-        JSON_SYSTEM_MESSAGE = f"""You are a helpful assistant. Create a screenpipe search conforming to the correct schema to search captured data stored in ScreenPipe's local database.
+        CURRENT_TIME = PipeUtils.get_current_time()
+        JSON_SYSTEM_MESSAGE = f"""You are a helpful assistant. Create a screenpipe search conforming to the correct JSON schema to search captured data stored in ScreenPipe's local database.
 
-Ensure your response follows this schema:
+Create a JSON object for the properties field of the search parameters:
 {SearchParameters.model_json_schema()}
 
 If the time range is not relevant, use None for the start_time and end_time fields. Otherwise, they must be in ISO format matching the current time: {CURRENT_TIME}.
 
-Construct an optimal search filter for the query. When appropriate, create a search_substring to narrow down the search results. Set a limit based on the user's request, or default to 5."""
+Construct an optimal search filter for the query. When appropriate, create a search_substring to narrow down the search results. Set a limit based on the user's request, or default to 5.
+
+Example search JSON objects:
+{EXAMPLE_SEARCH_JSON}
+"""
         # TODO: Add an example search JSON object in the system message.
         TOOL_SYSTEM_MESSAGE = f"""You are a helpful assistant that can access external functions. When performing searches, consider the current date and time, which is {CURRENT_TIME}. When appropriate, create a short search_substring to narrow down the search results."""
 
@@ -504,7 +554,7 @@ Construct an optimal search filter for the query. When appropriate, create a sea
                 }
             }
         # OpenAI format, but doesn't allow a forced schema
-        # NOTE: Confirm Ollama + OpenAI compatibility
+        # TODO: Confirm Ollama + OpenAI compatibility
         else:
             return {
                 "type": "json_object",
@@ -589,47 +639,13 @@ Construct an optimal search filter for the query. When appropriate, create a sea
         if len(messages) > 2:
             print("Warning! This LLM call does not use past chat history!")
 
-        new_user_message = self.reformat_user_message(
+        new_user_message = PipeUtils.form_final_user_message(
             messages[-1]["content"], results_as_string)
         new_messages = [
             {"role": "system", "content": SYSTEM_MESSAGE},
             {"role": "user", "content": new_user_message}
         ]
         return new_messages
-
-    @staticmethod
-    def reformat_user_message(
-            user_message: str,
-            sanitized_results: str) -> str:
-        """
-        Reformats the user message by adding context and rules from ScreenPipe search results.
-        """
-        assert isinstance(
-            sanitized_results, str), "Sanitized results must be a string"
-        query = user_message
-        context = sanitized_results
-
-        reformatted_message = f"""You are given a user query, context from personal screen and microphone data, and rules, all inside xml tags. Answer the query based on the context while respecting the rules.
-<context>
-{context}
-</context>
-
-<rules>
-- If the context is not relevant to the user query, just say so.
-- If you are not sure, ask for clarification.
-- If the answer is not in the context but you think you know the answer, explain that to the user then answer with your own knowledge.
-- Answer directly and without using xml tags.
-</rules>
-
-<user_query>
-{query}
-</user_query>
-"""
-        return reformatted_message
-
-    @staticmethod
-    def get_current_time() -> str:
-        return datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
 
 def load_environment_variables():
     try:
