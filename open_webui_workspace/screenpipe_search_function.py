@@ -74,6 +74,9 @@ Example search JSON objects:
 
 FINAL_SYSTEM_MESSAGE = """You are a helpful assistant that parses screenpipe search results. Use the search results to answer the user's question as best as possible. If unclear, synthesize the context and provide an explanation."""
 
+### 3. CONFIGURATION CLASS ###
+
+
 @dataclass
 class PipelineConfig:
     """Configuration management for Screenpipe Pipeline"""
@@ -145,6 +148,7 @@ class PipelineConfig:
         url_base = "http://localhost" if not self.is_docker else "http://host.docker.internal"
         return f"{url_base}:{self.screenpipe_port}"
 
+
 EXAMPLE_SEARCH_JSON = """\
 {
     "limit": 2,
@@ -156,6 +160,7 @@ EXAMPLE_SEARCH_JSON = """\
     "start_time": "2024-10-01T00:00:00Z",
     "end_time": "2024-11-01T23:59:59Z",
 }"""
+
 
 class SearchParameters(BaseModel):
     """Search parameters for the Screenpipe Pipeline"""
@@ -176,7 +181,7 @@ class SearchParameters(BaseModel):
         description="Start timestamp for search range (ISO format)"
     )
     end_time: Optional[str] = Field(
-        default="2024-10-31T23:59:59Z", 
+        default="2024-10-31T23:59:59Z",
         description="End timestamp for search range (ISO format)"
     )
     app_name: Optional[str] = Field(
@@ -208,15 +213,18 @@ def screenpipe_search(
     """
     return {}
 
+
 class PipeSearch:
     """Search-related functionality for the Pipe class"""
     # Add default values for other search parameters
 
     def __init__(self, default_dict: dict = {}):
         self.default_dict = default_dict
-        self.screenpipe_server_url = self.default_dict.get("screenpipe_server_url", "")
+        self.screenpipe_server_url = self.default_dict.get(
+            "screenpipe_server_url", "")
         if not self.screenpipe_server_url:
-            logging.warning("ScreenPipe server URL not set in PipeSearch initialization")
+            logging.warning(
+                "ScreenPipe server URL not set in PipeSearch initialization")
 
     def search(self, **kwargs) -> dict:
         """Enhanced search wrapper with better error handling"""
@@ -226,7 +234,7 @@ class PipeSearch:
         try:
             # Validate and process search parameters
             params = self._process_search_params(kwargs)
-            
+
             response = requests.get(
                 f"{self.screenpipe_server_url}/search",
                 params=params,
@@ -234,9 +242,10 @@ class PipeSearch:
             )
             response.raise_for_status()
             results = response.json()
-            
-            return results if results.get("data") else {"error": "No results found"}
-            
+
+            return results if results.get("data") else {
+                "error": "No results found"}
+
         except requests.exceptions.RequestException as e:
             logging.error(f"Search request failed: {e}")
             return {"error": f"Search failed: {str(e)}"}
@@ -247,41 +256,49 @@ class PipeSearch:
     def _process_search_params(self, params: dict) -> dict:
         """Process and validate search parameters"""
         processed = {k: v for k, v in params.items() if v is not None}
-        
+
         if 'limit' in processed:
             processed['limit'] = min(int(processed['limit']), 40)
-        
+
         if 'app_name' in processed and processed['app_name']:
             processed['app_name'] = processed['app_name'].capitalize()
 
         return processed
 
+
 class PipeUtils:
     """Utility methods for the Pipe class"""
-    #TODO Add other response related methods here
+    # TODO Add other response related methods here
 
     @staticmethod
-    def remove_names(content: str, replacement_tuples: List[Tuple[str, str]] = []) -> str:
+    def remove_names(
+            content: str, replacement_tuples: List[Tuple[str, str]] = []) -> str:
         for sensitive_word, replacement in replacement_tuples:
             content = content.replace(sensitive_word, replacement)
         return content
-    
+
     @staticmethod
-    def format_timestamp(timestamp: str, offset_hours: Optional[float] = -7) -> str:
+    def format_timestamp(
+            timestamp: str,
+            offset_hours: Optional[float] = -
+            7) -> str:
         """Formats UTC timestamp to local time with optional offset (default -7 PDT)"""
         if not isinstance(timestamp, str):
             raise ValueError("Timestamp must be a string")
 
         try:
-            dt = datetime.strptime(timestamp.split('.')[0] + 'Z', "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+            dt = datetime.strptime(timestamp.split(
+                '.')[0] + 'Z', "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
             if offset_hours is not None:
                 dt = dt + timedelta(hours=offset_hours)
             return dt.strftime("%m/%d/%y %H:%M")
         except ValueError:
             raise ValueError(f"Invalid timestamp format: {timestamp}")
-    
+
     @staticmethod
-    def sanitize_results(results: dict, replacement_tuples: List[Tuple[str, str]] = []) -> list[dict]:
+    def sanitize_results(results: dict,
+                         replacement_tuples: List[Tuple[str,
+                                                        str]] = []) -> list[dict]:
         """Sanitize search results with improved error handling"""
         try:
             if not isinstance(results, dict) or "data" not in results:
@@ -290,10 +307,10 @@ class PipeUtils:
             sanitized = []
             for result in results["data"]:
                 sanitized_result = {
-                    "timestamp": PipeUtils.format_timestamp(result["content"]["timestamp"]),
-                    "type": result["type"]
-                }
-                
+                    "timestamp": PipeUtils.format_timestamp(
+                        result["content"]["timestamp"]),
+                    "type": result["type"]}
+
                 if result["type"] == "OCR":
                     sanitized_result.update({
                         "content": PipeUtils.remove_names(result["content"]["text"], replacement_tuples),
@@ -307,19 +324,19 @@ class PipeUtils:
                     })
                 else:
                     raise ValueError(f"Unknown result type: {result['type']}")
-                
+
                 sanitized.append(sanitized_result)
 
             return sanitized
-            
+
         except Exception as e:
             logging.error(f"Error sanitizing results: {str(e)}")
             return []
-        
+
     @staticmethod
     def parse_schema_from_response(
-        response_text: str,
-        target_schema) -> dict | str:
+            response_text: str,
+            target_schema) -> dict | str:
         """
         Parses the response text into a dictionary using the provided Pydantic schema.
 
@@ -330,7 +347,8 @@ class PipeUtils:
         Returns:
             dict: The parsed and validated data as a dictionary. If parsing fails, returns an empty dictionary.
         """
-        assert issubclass(target_schema, BaseModel), "Schema must be a Pydantic BaseModel"
+        assert issubclass(
+            target_schema, BaseModel), "Schema must be a Pydantic BaseModel"
         try:
             response_object = json.loads(response_text)
             pydantic_object = target_schema(**response_object)
@@ -338,40 +356,40 @@ class PipeUtils:
         except (json.JSONDecodeError, ValidationError) as e:
             print(f"Error: {e}")
             return response_text
-        
+
     @staticmethod
     def catch_malformed_tool(response_text: str) -> str | dict:
         """Parse response text to extract tool call if present, otherwise return original text."""
         TOOL_PREFIX = "<function=screenpipe_search>"
-        
+
         if not response_text.startswith(TOOL_PREFIX):
             return response_text
-            
+
         try:
             end_index = response_text.rfind("}")
             if end_index == -1:
                 logging.warning("Warning: Malformed tool unable to be parsed!")
                 return response_text
-                
+
             # Extract and validate JSON arguments
             args_str = response_text[len(TOOL_PREFIX):end_index + 1]
             json.loads(args_str)  # Validate JSON format
-            
+
             return {
-                "id": f"call_{len(args_str)}", 
+                "id": f"call_{len(args_str)}",
                 "type": "function",
                 "function": {
                     "name": "screenpipe_search",
                     "arguments": args_str
                 }
             }
-            
+
         except json.JSONDecodeError:
             return response_text
         except Exception as e:
             print(f"Error parsing tool response: {e}")
             return "Failed to process function call"
-    
+
     @staticmethod
     def form_final_user_message(
             user_message: str,
@@ -406,9 +424,10 @@ class PipeUtils:
     def get_current_time() -> str:
         return datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
 
+
 class PipeBase:
     """Base class for Pipe functionality"""
-    
+
     class Valves(BaseModel):
         """Valve settings for the Pipe"""
         LLM_API_BASE_URL: str = Field(
@@ -457,36 +476,39 @@ class PipeBase:
             }
         )
 
+
 class Pipe(PipeBase):
     """Main Pipe class implementing the pipeline functionality"""
-    
+
     def pipe(self, body: dict) -> Union[str, Generator, Iterator]:
         """Main pipeline processing method"""
         try:
             self.initialize_settings()
             messages = self._prepare_initial_messages(body["messages"])
-            
+
             # Get search results
-            results = (self._grammar_response_as_results_or_str(messages) 
-                      if self.use_grammar 
-                      else self._tool_response_as_results_or_str(messages))
-            
+            results = (self._grammar_response_as_results_or_str(messages)
+                       if self.use_grammar
+                       else self._tool_response_as_results_or_str(messages))
+
             if isinstance(results, str):
                 return results
-                
+
             # Process results
-            sanitized_results = PipeUtils.sanitize_results(results, self.replacement_tuples)
+            sanitized_results = PipeUtils.sanitize_results(
+                results, self.replacement_tuples)
             print("Sanitized results:", sanitized_results)
             messages_with_data = self.get_messages_with_screenpipe_data(
                 messages,
                 json.dumps(sanitized_results)
             )
-            
+
             # Generate final response
             return self._generate_final_response(body, messages_with_data)
-            
+
         except Exception as e:
             logging.error(f"Pipeline error: {str(e)}")
+            # TODO: Add safe error handling like Filter.safe_log_error
             return f"An error occurred: {str(e)}"
 
     def initialize_settings(self):
@@ -521,7 +543,7 @@ class Pipe(PipeBase):
         """Prepare initial messages for the pipeline"""
         if not messages or messages[-1]["role"] != "user":
             raise ValueError("Last message must be from the user!")
-            
+
         current_time = PipeUtils.get_current_time()
         system_message = self._get_system_message(current_time)
 
@@ -544,7 +566,8 @@ class Pipe(PipeBase):
         try:
             response = self._make_tool_api_call(messages)
             # Extract tool calls
-            tool_calls = response.choices[0].message.model_dump().get('tool_calls', [])
+            tool_calls = response.choices[0].message.model_dump().get(
+                'tool_calls', [])
         except Exception:
             return "Failed tool api call."
 
@@ -619,7 +642,6 @@ class Pipe(PipeBase):
             stream=False
         )
 
-
     def _process_tool_calls(self, tool_calls) -> dict | str:
         for tool_call in tool_calls:
             if tool_call['function']['name'] == 'screenpipe_search':
@@ -667,6 +689,7 @@ class Pipe(PipeBase):
         ]
         return new_messages
 
+
 def load_environment_variables():
     try:
         from dotenv import load_dotenv
@@ -674,7 +697,8 @@ def load_environment_variables():
     except ImportError:
         print("Warning: dotenv not found. Using default values.")
 
-def main(prompt: str = "Create a search for audio content with a limit of 2."): 
+
+def main(prompt: str = "Create a search for audio content with a limit of 2."):
     pipe = Pipe()
     stream = False
     # pipe.valves = pipe.Valves(**CUSTOM_VALVES)
@@ -683,6 +707,7 @@ def main(prompt: str = "Create a search for audio content with a limit of 2."):
     if not stream:
         print("Non-streaming response:")
         print(pipe.pipe(body))
+
 
 if __name__ == "__main__":
     load_environment_variables()

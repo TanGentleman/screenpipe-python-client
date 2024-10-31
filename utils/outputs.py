@@ -158,7 +158,7 @@ class OCR:
             f"text='{self.text[:50]}{'...' if len(self.text) > 50 else ''}'"
             f"{tags_str})"
         )
-    
+
     def to_dict(self):
         return {
             "type": "OCR",
@@ -225,16 +225,15 @@ class Audio:
             f"device='{self.device_name}' ({self.device_type}), "
             f"timestamp='{self.timestamp}', "
             f"transcription='{self.transcription[:50]}{'...' if len(self.transcription) > 50 else ''}'"
-            f"{tags_str}"
-        )
-    
+            f"{tags_str}")
+
     def to_dict(self):
         return {
             "type": "Audio",
             "content": self.__dict__
             # NOTE: Should I show original_timestamp?
         }
-    
+
     def __str__(self):
         return self.__repr__()
 
@@ -278,17 +277,17 @@ class SearchOutput:
             assert isinstance(self.pagination["limit"], int)
             assert isinstance(self.pagination["offset"], int)
             assert isinstance(self.pagination["total"], int)
-    
+
     def initialize_data_objects(self):
         """
         Initializes OCR and Audio data objects from the raw data.
-        
+
         Raises:
             ValueError: If an invalid data type is encountered
         """
         ocr_count = 0
         audio_count = 0
-        
+
         for item in self.data:
             if item["type"] == "OCR":
                 self.chunks.append(OCR(**item["content"]))
@@ -298,18 +297,18 @@ class SearchOutput:
                 audio_count += 1
             else:
                 raise ValueError(f"Invalid data type: {item['type']}")
-                
+
         print(
             f"Initialized {ocr_count + audio_count} data objects "
             f"({ocr_count} OCR, {audio_count} Audio)"
         )
-    
+
     def __repr__(self):
         return f"SearchOutput(data={self.data}" if not self.chunks else f"SearchOutput(chunks={self.chunks})"
 
     def __str__(self):
         return self.__repr__()
-    
+
     def to_dict(self):
         return {
             "data": [chunk.to_dict() for chunk in self.chunks],

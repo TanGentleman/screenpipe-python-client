@@ -22,8 +22,8 @@ class Filter:
             default=0, description="Priority level for the filter operations."
         )
         sanitized_results: Optional[str] = Field(
-            default=None, description="Storage for sanitized results between inlet and outlet"
-        )
+            default=None,
+            description="Storage for sanitized results between inlet and outlet")
 
     def __init__(self):
         self.valves = self.Valves()
@@ -55,7 +55,7 @@ class Filter:
         """
         REPLACEMENT_STRING = "[MODIFIED INPUT]"
         return text
-    
+
     def refactor_output_text(self, text: str) -> str:
         REPLACEMENT_STRING = "[REDACTED OUTPUT]"
         return text
@@ -70,14 +70,15 @@ class Filter:
         """Sanitizes the results similar to Pipe class logic."""
         if not isinstance(results, dict) or "data" not in results:
             return []
-            
+
         results = results["data"]
         new_results = []
         for result in results:
             new_result = dict()
             if result["type"] == "OCR":
                 new_result["type"] = "OCR"
-                new_result["content"] = self.remove_names(result["content"]["text"])
+                new_result["content"] = self.remove_names(
+                    result["content"]["text"])
                 new_result["app_name"] = result["content"]["app_name"]
                 new_result["window_name"] = result["content"]["window_name"]
             elif result["type"] == "Audio":
@@ -99,12 +100,12 @@ class Filter:
                 if message.get("role") == "user":
                     content = message.get("content", "")
                     message["content"] = self.refactor_input_text(content)
-            
+
             # Handle results if present in the body
             if "results" in body:
                 sanitized_results = self.sanitize_results(body["results"])
                 self.valves.sanitized_results = json.dumps(sanitized_results)
-                
+
         except Exception as e:
             self.safe_log_error("Error processing inlet", e)
 
@@ -122,16 +123,16 @@ class Filter:
                 for message in messages:
                     if message.get("role") == "assistant":
                         content = message.get("content", "")
-                        
+
                         # Prepend sanitized results if available
                         if self.valves.sanitized_results:
                             content = f"Sanitized Results: {self.valves.sanitized_results}\n\nResponse: {content}"
-                        
+
                         message["content"] = self.refactor_output_text(content)
-                
+
                 # Clear sanitized results after using them
                 self.valves.sanitized_results = None
-                
+
         except Exception as e:
             self.safe_log_error("Error processing outlet", e)
 

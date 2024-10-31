@@ -187,7 +187,8 @@ def main():
             print(json.dumps(devices, indent=4))
 
     elif args.command == "add-tags-to-content":
-        response = client.add_tags_to_content(args.content_type, args.id, args.tags)
+        response = client.add_tags_to_content(
+            args.content_type, args.id, args.tags)
         if response:
             print(json.dumps(response, indent=4))
 

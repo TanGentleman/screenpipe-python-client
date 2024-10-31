@@ -27,7 +27,8 @@ CUSTOM_VALVES = {
 
 DEFAULT_PROMPT = "Search with a limit of 1, type audio. Search results may be incomplete. Describe their contents regardless."
 
-def main(prompt: str = DEFAULT_PROMPT, stream: bool = True): 
+
+def main(prompt: str = DEFAULT_PROMPT, stream: bool = True):
     pipe = Pipe()
     if isinstance(pipe, SimplePipe):
         stream = False
@@ -48,10 +49,11 @@ def main(prompt: str = DEFAULT_PROMPT, stream: bool = True):
             else:
                 finish_reason = chunk.choices[0].finish_reason
                 # assert finish_reason is not None, "Finish reason must be present"
-                print(f"\n\nFinish reason: {finish_reason}\n\n")
+                print(f"\n\nFinish reason: {finish_reason}\n")
     else:
         print("Non-streaming response:")
         print(pipe.pipe(body))
+
 
 if __name__ == "__main__":
     from sys import argv

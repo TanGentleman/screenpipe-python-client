@@ -167,6 +167,7 @@ def screenpipe_search(
     """
     return {}
 
+
 class SearchParameters(BaseModel):
     limit: Annotated[int, Field(ge=1, le=100)] = Field(
         default=10,
@@ -185,7 +186,7 @@ class SearchParameters(BaseModel):
         description="Start timestamp for search range (ISO format)"
     )
     end_time: Optional[str] = Field(
-        default="2024-10-31T23:59:59Z", 
+        default="2024-10-31T23:59:59Z",
         description="End timestamp for search range (ISO format)"
     )
     app_name: Optional[str] = Field(
@@ -623,6 +624,7 @@ Construct an optimal search filter for the query. When appropriate, create a sea
     @staticmethod
     def get_current_time() -> str:
         return datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
+
 
 # NOTE Change to an f-string when we have a CURRENT_TIME variable
 DEPRECATED_SYSTEM_MESSAGE = """You are a helpful assistant. Create a screenpipe search conforming to the correct schema to search captured data stored in ScreenPipe's local database.

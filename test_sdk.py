@@ -92,7 +92,8 @@ class TestScreenpipeClient(unittest.TestCase):
 
         logger.info('Testing remove tags from content functionality')
         try:
-            response = self.client.remove_tags_from_content(content_type, id, tags)
+            response = self.client.remove_tags_from_content(
+                content_type, id, tags)
             logger.info('Remove tags from content response: %s', response)
             self.assertIsNotNone(response)
             self.assertIsInstance(response, dict)
