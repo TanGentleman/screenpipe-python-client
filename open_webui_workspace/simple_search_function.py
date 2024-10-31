@@ -33,9 +33,7 @@ REPLACEMENT_TUPLES = [
 # Mode configuration for base URL
 IS_DOCKER = True
 DEFAULT_SCREENPIPE_PORT = 3030
-
 URL_BASE = "http://localhost" if not IS_DOCKER else "http://host.docker.internal"
-
 
 ### IMPORTANT CONFIG ###
 # Change this to any openai compatible endpoint
@@ -45,9 +43,8 @@ DEFAULT_USE_GRAMMAR = False
 # If USE_GRAMMAR is True, grammar model is used instead of the tool model
 
 # MODELS
-# This model should support native tool use
+# TOOL model must support native tool use
 DEFAULT_TOOL_MODEL = "Llama-3.1-70B"
-# This model receives private screenpipe data
 DEFAULT_LOCAL_GRAMMAR_MODEL = "lmstudio-Llama-3.2-3B-4bit-MLX"
 
 # NOTE: Model name must be valid for the endpoint:
@@ -136,14 +133,15 @@ class PipelineConfig:
         return f"{url_base}:{self.screenpipe_port}"
 
 
-class SearchSchema(BaseModel):
-    # TODO: Add descriptions and utilize new format. See Issue #17
-    limit: int = 5
-    content_type: Literal["ocr", "audio", "all"] = "all"
-    search_substring: Optional[str] = ""
-    start_time: Optional[str] = "2024-10-01T00:00:00Z"
-    end_time: Optional[str] = "2024-10-31T23:59:59Z"
-    app_name: Optional[str] = None
+# NOTE: Deprecated
+# class SearchSchema(BaseModel):
+#     # TODO: Add descriptions and utilize new format. See Issue #17
+#     limit: int = 5
+#     content_type: Literal["ocr", "audio", "all"] = "all"
+#     search_substring: Optional[str] = ""
+#     start_time: Optional[str] = "2024-10-01T00:00:00Z"
+#     end_time: Optional[str] = "2024-10-31T23:59:59Z"
+#     app_name: Optional[str] = None
 
 
 def screenpipe_search(
@@ -386,7 +384,7 @@ class Pipe:
     def _parse_schema_from_response(
             self,
             response_text: str,
-            target_schema=SearchSchema) -> SearchSchema | str:
+            target_schema=SearchParameters) -> SearchParameters | str:
         """
         Parses the response text into a dictionary using the provided Pydantic schema.
 
@@ -408,7 +406,7 @@ class Pipe:
             return response_text
 
     def _get_response_format(self) -> dict:
-        json_schema = SearchSchema.model_json_schema()
+        json_schema = SearchParameters.model_json_schema()
         allow_condition = "lmstudio" in self.local_grammar_model
         if allow_condition:
             return {
@@ -419,6 +417,7 @@ class Pipe:
                 }
             }
         # OpenAI format, but doesn't allow a forced schema
+        # NOTE: Confirm Ollama + OpenAI compatibility
         else:
             return {
                 "type": "json_object",
