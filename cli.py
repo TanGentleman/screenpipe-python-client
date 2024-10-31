@@ -176,10 +176,10 @@ def main():
         )
         if results:
             try:
-                results = SearchOutput(**results)
+                results = SearchOutput(results)
+                print(json.dumps(results.to_dict(), indent=4))
             except Exception as e:
                 print(f"Error converting results: {e}")
-            print(json.dumps(results.__dict__, indent=4))
 
     elif args.command == "list-audio-devices":
         devices = client.list_audio_devices()
