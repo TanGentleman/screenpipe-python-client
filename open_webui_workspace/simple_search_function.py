@@ -459,16 +459,8 @@ class Pipe:
             search_results)
         # Sanitize results
         sanitized_results = self.sanitize_results(search_results)
-        results_as_string = json.dumps(sanitized_results)
+        results_as_string = json.dumps(sanitized_results, indent=2)
         return results_as_string
-        # print("Results as string:", results_as_string)
-        # messages_with_screenpipe_data = self.get_messages_with_screenpipe_data(
-        #     messages,
-        #     results_as_string
-        # )
-
-        # return self._generate_final_response(
-        #     body, messages_with_screenpipe_data)
 
     def _prepare_messages(self, messages):
         assert messages[-1]["role"] == "user", "Last message must be from the user!"
@@ -538,41 +530,6 @@ Construct an optimal search filter for the query. When appropriate, create a sea
                     return search_results["error"]
                 return search_results
         raise ValueError("No valid tool call found")
-
-    def _generate_final_response(self, body, messages_with_screenpipe_data):
-        if body["stream"]:
-            return self.client.chat.completions.create(
-                model=self.final_model,
-                messages=messages_with_screenpipe_data,
-                stream=True
-            )
-        else:
-            final_response = self.client.chat.completions.create(
-                model=self.final_model,
-                messages=messages_with_screenpipe_data,
-            )
-            return final_response.choices[0].message.content
-
-    def get_messages_with_screenpipe_data(
-            self,
-            messages: List[dict],
-            results_as_string: str) -> List[dict]:
-        """
-        Combines the last user message with sanitized ScreenPipe search results.
-        """
-        SYSTEM_MESSAGE = "You are a helpful assistant that parses screenpipe search results. Use the search results to answer the user's question as best as possible. If unclear, synthesize the context and provide an explanation."
-        if messages[-1]["role"] != "user":
-            raise ValueError("Last message must be from the user!")
-        if len(messages) > 2:
-            print("Warning! This LLM call does not use past chat history!")
-
-        new_user_message = self.reformat_user_message(
-            messages[-1]["content"], results_as_string)
-        new_messages = [
-            {"role": "system", "content": SYSTEM_MESSAGE},
-            {"role": "user", "content": new_user_message}
-        ]
-        return new_messages
 
     @staticmethod
     def remove_names(content: str) -> str:
