@@ -48,7 +48,6 @@ DEFAULT_USE_GRAMMAR = False
 # This model should support native tool use
 DEFAULT_TOOL_MODEL = "Llama-3.1-70B"
 # This model receives private screenpipe data
-DEFAULT_FINAL_MODEL = "lmstudio-Llama-3.2-3B-4bit-MLX"
 DEFAULT_LOCAL_GRAMMAR_MODEL = "lmstudio-Llama-3.2-3B-4bit-MLX"
 
 # NOTE: Model name must be valid for the endpoint:
@@ -77,7 +76,6 @@ class PipelineConfig:
 
     # Model Configuration
     tool_model: str
-    final_model: str
     local_grammar_model: str
     use_grammar: bool
 
@@ -117,7 +115,6 @@ class PipelineConfig:
 
             # Model Configuration
             tool_model=os.getenv('TOOL_MODEL', DEFAULT_TOOL_MODEL),
-            final_model=os.getenv('FINAL_MODEL', DEFAULT_FINAL_MODEL),
             local_grammar_model=os.getenv(
                 'LOCAL_GRAMMAR_MODEL', DEFAULT_LOCAL_GRAMMAR_MODEL),
             use_grammar=get_bool_env('USE_GRAMMAR', DEFAULT_USE_GRAMMAR),
@@ -178,7 +175,6 @@ class Pipe:
         LLM_API_BASE_URL: str = ""
         LLM_API_KEY: str = ""
         TOOL_MODEL: str = ""
-        FINAL_MODEL: str = ""
         LOCAL_GRAMMAR_MODEL: str = ""
         USE_GRAMMAR: bool = False
         SCREENPIPE_SERVER_URL: str = ""
@@ -192,7 +188,6 @@ class Pipe:
                 "LLM_API_BASE_URL": self.config.llm_api_base_url,
                 "LLM_API_KEY": self.config.llm_api_key,
                 "TOOL_MODEL": self.config.tool_model,
-                "FINAL_MODEL": self.config.final_model,
                 "LOCAL_GRAMMAR_MODEL": self.config.local_grammar_model,
                 "USE_GRAMMAR": self.config.use_grammar,
                 "SCREENPIPE_SERVER_URL": self.config.screenpipe_server_url
@@ -209,7 +204,6 @@ class Pipe:
             api_key=api_key
         )
         self.tool_model = self.valves.TOOL_MODEL or self.config.tool_model
-        self.final_model = self.valves.FINAL_MODEL or self.config.final_model
         self.local_grammar_model = self.valves.LOCAL_GRAMMAR_MODEL or self.config.local_grammar_model
         self.use_grammar = self.valves.USE_GRAMMAR or self.config.use_grammar
         self.screenpipe_server_url = self.valves.SCREENPIPE_SERVER_URL or self.config.screenpipe_server_url
@@ -434,7 +428,12 @@ class Pipe:
             return "Failed grammar api call."
 
     def _prologue_from_search_results(self, search_results: dict) -> str:
-        return f"Found {len(search_results)} results"
+        assert "data" in search_results, "Search results must have a 'data' key"
+        if len(search_results["data"]) == 1:
+            result_string = "result"
+        else:
+            result_string = "results"
+        return f"Found {len(search_results['data'])} {result_string}."
 
     def pipe(
         self, body: dict
@@ -460,7 +459,7 @@ class Pipe:
         # Sanitize results
         sanitized_results = self.sanitize_results(search_results)
         results_as_string = json.dumps(sanitized_results, indent=2)
-        return results_as_string
+        return final_response_prologue + "\n\n" + results_as_string
 
     def _prepare_messages(self, messages):
         assert messages[-1]["role"] == "user", "Last message must be from the user!"
