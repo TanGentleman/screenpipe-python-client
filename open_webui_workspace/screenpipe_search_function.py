@@ -434,7 +434,8 @@ class Pipe:
             return "Failed grammar api call."
 
     def _prologue_from_search_results(self, search_results: dict) -> str:
-        return f"Found {len(search_results)} results"
+        assert "data" in search_results, "Search results must have a 'data' key"
+        return f"Found {len(search_results['data'])} results."
 
     def pipe(
         self, body: dict
