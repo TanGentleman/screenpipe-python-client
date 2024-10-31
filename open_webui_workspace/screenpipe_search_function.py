@@ -11,6 +11,7 @@ version: 0.9
 # and the tools should be separated. This is for convenient copy-pasting
 # to OWUI.
 
+### 1. IMPORTS ###
 # Standard library imports
 import logging
 from dataclasses import dataclass
@@ -25,26 +26,25 @@ from langchain_core.utils.function_calling import convert_to_openai_tool
 from openai import OpenAI
 from pydantic import BaseModel, Field, ValidationError
 
+### 2. CONFIGURATION CONSTANTS ###
 # NOTE: Sensitive - Sanitize before sharing
 SENSITIVE_KEY = "api-key"
 REPLACEMENT_TUPLES = [
     # ("LASTNAME", ""),
     # ("FIRSTNAME", "NICKNAME")
 ]
-# Mode configuration for base URL
+# URL and Port Configuration
 IS_DOCKER = True
 DEFAULT_SCREENPIPE_PORT = 3030
 URL_BASE = "http://localhost" if not IS_DOCKER else "http://host.docker.internal"
 
-### IMPORTANT CONFIG ###
-# Change this to any openai compatible endpoint
+# LLM Configuration (openai compatible)
 DEFAULT_LLM_API_BASE_URL = f"{URL_BASE}:4000/v1"
 DEFAULT_LLM_API_KEY = SENSITIVE_KEY
 DEFAULT_USE_GRAMMAR = False
 # If USE_GRAMMAR is True, grammar model is used instead of the tool model
 
-# MODELS
-# TOOL model must support native tool use
+# Model Configuration
 DEFAULT_TOOL_MODEL = "Llama-3.1-70B"
 DEFAULT_LOCAL_GRAMMAR_MODEL = "lmstudio-Llama-3.2-3B-4bit-MLX"
 DEFAULT_FINAL_MODEL = "lmstudio-Llama-3.2-3B-4bit-MLX"
@@ -52,9 +52,9 @@ DEFAULT_FINAL_MODEL = "lmstudio-Llama-3.2-3B-4bit-MLX"
 # NOTE: Model name must be valid for the endpoint:
 # {DEFAULT_LLM_API_BASE_URL}/v1/chat/completions
 
+# Time Configuration
 PREFER_24_HOUR_FORMAT = True
 DEFAULT_UTC_OFFSET = -7  # PDT
-### HELPER FUNCTIONS ###
 
 @dataclass
 class PipelineConfig:
@@ -86,7 +86,6 @@ class PipelineConfig:
             PipelineConfig: Configuration object populated from environment variables,
             falling back to default values if not set.
         """
-        load_dotenv()  # Load .env file if it exists
 
         def get_bool_env(key: str, default: bool) -> bool:
             """Helper to consistently parse boolean environment variables"""
@@ -128,12 +127,6 @@ class PipelineConfig:
         url_base = "http://localhost" if not self.is_docker else "http://host.docker.internal"
         return f"{url_base}:{self.screenpipe_port}"
 
-try:
-    from dotenv import load_dotenv
-    print("Loading environment variables.")
-except ImportError:
-    print("Warning: dotenv not found. Using default values.")
-DEFAULT_CONFIG = PipelineConfig.from_env()
 
 class SearchParameters(BaseModel):
     """Search parameters for the Screenpipe Pipeline"""
@@ -373,7 +366,7 @@ class PipeBase:
     def __init__(self):
         self.type = "pipe"
         self.name = "screenpipe_pipeline"
-        self.config = DEFAULT_CONFIG
+        self.config = PipelineConfig.from_env()
         self.tools = [convert_to_openai_tool(screenpipe_search)]
         self.json_schema = SearchParameters.model_json_schema()
         self.replacement_tuples = self.config.replacement_tuples
@@ -458,6 +451,7 @@ Ensure your response follows this schema:
 If the time range is not relevant, use None for the start_time and end_time fields. Otherwise, they must be in ISO format matching the current time: {CURRENT_TIME}.
 
 Construct an optimal search filter for the query. When appropriate, create a search_substring to narrow down the search results. Set a limit based on the user's request, or default to 5."""
+        # TODO: Add an example search JSON object in the system message.
         TOOL_SYSTEM_MESSAGE = f"""You are a helpful assistant that can access external functions. When performing searches, consider the current date and time, which is {CURRENT_TIME}. When appropriate, create a short search_substring to narrow down the search results."""
 
         # NOTE: This overrides valve settings if self.use_grammar is True!!!
@@ -636,3 +630,24 @@ Construct an optimal search filter for the query. When appropriate, create a sea
     @staticmethod
     def get_current_time() -> str:
         return datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
+
+def load_environment_variables():
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+    except ImportError:
+        print("Warning: dotenv not found. Using default values.")
+
+def main(prompt: str = "Create a search for audio content with a limit of 2."): 
+    pipe = Pipe()
+    stream = False
+    # pipe.valves = pipe.Valves(**CUSTOM_VALVES)
+    body = {"stream": stream, "messages": [
+        {"role": "user", "content": prompt}]}
+    if not stream:
+        print("Non-streaming response:")
+        print(pipe.pipe(body))
+
+if __name__ == "__main__":
+    load_environment_variables()
+    main()
