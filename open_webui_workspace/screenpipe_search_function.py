@@ -3,7 +3,7 @@ title: Screenpipe Pipeline
 author: TanGentleman
 author_url: https://github.com/TanGentleman
 funding_url: https://github.com/TanGentleman
-version: 0.9
+version: 1.0
 """
 # NOTE: Add pipeline using OpenWebUI > Workspace > Functions > Add Function
 
@@ -55,6 +55,24 @@ DEFAULT_FINAL_MODEL = "lmstudio-Llama-3.2-3B-4bit-MLX"
 # Time Configuration
 PREFER_24_HOUR_FORMAT = True
 DEFAULT_UTC_OFFSET = -7  # PDT
+
+# System Messages
+TOOL_SYSTEM_MESSAGE = """You are a helpful assistant that can access external functions. When performing searches, consider the current date and time, which is {current_time}. When appropriate, create a short search_substring to narrow down the search results."""
+
+JSON_SYSTEM_MESSAGE = """You are a helpful assistant. Create a screenpipe search conforming to the correct JSON schema to search captured data stored in ScreenPipe's local database.
+
+Create a JSON object for the properties field of the search parameters:
+{schema}
+
+If the time range is not relevant, use None for the start_time and end_time fields. Otherwise, they must be in ISO format matching the current time: {current_time}.
+
+Construct an optimal search filter for the query. When appropriate, create a search_substring to narrow down the search results. Set a limit based on the user's request, or default to 5.
+
+Example search JSON objects:
+{examples}
+"""
+
+FINAL_SYSTEM_MESSAGE = """You are a helpful assistant that parses screenpipe search results. Use the search results to answer the user's question as best as possible. If unclear, synthesize the context and provide an explanation."""
 
 @dataclass
 class PipelineConfig:
@@ -127,6 +145,17 @@ class PipelineConfig:
         url_base = "http://localhost" if not self.is_docker else "http://host.docker.internal"
         return f"{url_base}:{self.screenpipe_port}"
 
+EXAMPLE_SEARCH_JSON = """\
+{
+    "limit": 2,
+    "content_type": "audio",
+}
+{
+    "limit": 1,
+    "content_type": "all",
+    "start_time": "2024-10-01T00:00:00Z",
+    "end_time": "2024-11-01T23:59:59Z",
+}"""
 
 class SearchParameters(BaseModel):
     """Search parameters for the Screenpipe Pipeline"""
@@ -154,17 +183,7 @@ class SearchParameters(BaseModel):
         default=None,
         description="Optional app name to filter results"
     )
-EXAMPLE_SEARCH_JSON = """\
-{
-    "limit": 2,
-    "content_type": "audio",
-}
-{
-    "limit": 1,
-    "content_type": "all",
-    "start_time": "2024-10-01T00:00:00Z",
-    "end_time": "2024-11-01T23:59:59Z",
-}"""
+
 
 def screenpipe_search(
     search_substring: str = "",
@@ -196,40 +215,46 @@ class PipeSearch:
     def __init__(self, default_dict: dict = {}):
         self.default_dict = default_dict
         self.screenpipe_server_url = self.default_dict.get("screenpipe_server_url", "")
+        if not self.screenpipe_server_url:
+            logging.warning("ScreenPipe server URL not set in PipeSearch initialization")
 
     def search(self, **kwargs) -> dict:
         """Enhanced search wrapper with better error handling"""
         if not self.screenpipe_server_url:
-            raise ValueError("ScreenPipe server URL is not set")
+            return {"error": "ScreenPipe server URL is not set"}
+
         try:
             # Validate and process search parameters
-            params = {k: v for k, v in kwargs.items() if v is not None}
+            params = self._process_search_params(kwargs)
             
-            if 'limit' in params:
-                params['limit'] = min(int(params['limit']), 40)
-            
-            if 'app_name' in params and params['app_name']:
-                params['app_name'] = params['app_name'].capitalize()
-
-            #TODO: Add other fields from default_dict
             response = requests.get(
                 f"{self.screenpipe_server_url}/search",
                 params=params,
-                timeout=10  # Add timeout
+                timeout=10
             )
             response.raise_for_status()
             results = response.json()
             
-            if not results.get("data"):
-                return {"error": "No results found"}
-                
-            return results
+            return results if results.get("data") else {"error": "No results found"}
             
         except requests.exceptions.RequestException as e:
+            logging.error(f"Search request failed: {e}")
             return {"error": f"Search failed: {str(e)}"}
         except Exception as e:
+            logging.error(f"Unexpected error in search: {e}")
             return {"error": f"Unexpected error: {str(e)}"}
 
+    def _process_search_params(self, params: dict) -> dict:
+        """Process and validate search parameters"""
+        processed = {k: v for k, v in params.items() if v is not None}
+        
+        if 'limit' in processed:
+            processed['limit'] = min(int(processed['limit']), 40)
+        
+        if 'app_name' in processed and processed['app_name']:
+            processed['app_name'] = processed['app_name'].capitalize()
+
+        return processed
 
 class PipeUtils:
     """Utility methods for the Pipe class"""
@@ -465,56 +490,55 @@ class Pipe(PipeBase):
             return f"An error occurred: {str(e)}"
 
     def initialize_settings(self):
+        """Initialize all pipeline settings"""
+        self._initialize_client()
+        self._initialize_searcher()
+        self._initialize_models()
+
+    def _initialize_client(self):
+        """Initialize OpenAI client"""
         base_url = self.valves.LLM_API_BASE_URL or self.config.llm_api_base_url
         api_key = self.valves.LLM_API_KEY or self.config.llm_api_key
         self.client = OpenAI(
             base_url=base_url,
             api_key=api_key
         )
+
+    def _initialize_searcher(self):
+        """Initialize PipeSearch instance"""
         screenpipe_server_url = self.valves.SCREENPIPE_SERVER_URL or self.config.screenpipe_server_url
-        # TODO: Add other default params to default_dict (I like a valve for app name!)
         default_dict = {"screenpipe_server_url": screenpipe_server_url}
         self.searcher = PipeSearch(default_dict)
 
+    def _initialize_models(self):
+        """Initialize model settings"""
         self.tool_model = self.valves.TOOL_MODEL or self.config.tool_model
         self.final_model = self.valves.FINAL_MODEL or self.config.final_model
         self.local_grammar_model = self.valves.LOCAL_GRAMMAR_MODEL or self.config.local_grammar_model
-        self.use_grammar = self.valves.USE_GRAMMAR # or self.config.use_grammar
-
+        self.use_grammar = self.valves.USE_GRAMMAR
 
     def _prepare_initial_messages(self, messages):
-        assert messages[-1]["role"] == "user", "Last message must be from the user!"
-        if messages[0]["role"] == "system":
-            print("System message is being replaced!")
-        if len(messages) > 2:
-            print("Warning! This LLM call does not use past chat history!")
-        CURRENT_TIME = PipeUtils.get_current_time()
-        JSON_SYSTEM_MESSAGE = f"""You are a helpful assistant. Create a screenpipe search conforming to the correct JSON schema to search captured data stored in ScreenPipe's local database.
+        """Prepare initial messages for the pipeline"""
+        if not messages or messages[-1]["role"] != "user":
+            raise ValueError("Last message must be from the user!")
+            
+        current_time = PipeUtils.get_current_time()
+        system_message = self._get_system_message(current_time)
 
-Create a JSON object for the properties field of the search parameters:
-{SearchParameters.model_json_schema()}
-
-If the time range is not relevant, use None for the start_time and end_time fields. Otherwise, they must be in ISO format matching the current time: {CURRENT_TIME}.
-
-Construct an optimal search filter for the query. When appropriate, create a search_substring to narrow down the search results. Set a limit based on the user's request, or default to 5.
-
-Example search JSON objects:
-{EXAMPLE_SEARCH_JSON}
-"""
-        # TODO: Add an example search JSON object in the system message.
-        TOOL_SYSTEM_MESSAGE = f"""You are a helpful assistant that can access external functions. When performing searches, consider the current date and time, which is {CURRENT_TIME}. When appropriate, create a short search_substring to narrow down the search results."""
-
-        # NOTE: This overrides valve settings if self.use_grammar is True!!!
-        if self.use_grammar:
-            # TODO: This will soon follow format from Issue #17
-            system_message = JSON_SYSTEM_MESSAGE
-        else:
-            system_message = TOOL_SYSTEM_MESSAGE
-        new_messages = [
+        return [
             {"role": "system", "content": system_message},
             {"role": "user", "content": messages[-1]["content"]}
         ]
-        return new_messages
+
+    def _get_system_message(self, current_time: str) -> str:
+        """Get appropriate system message based on configuration"""
+        if self.use_grammar:
+            return JSON_SYSTEM_MESSAGE.format(
+                schema=self.json_schema,
+                current_time=current_time,
+                examples=EXAMPLE_SEARCH_JSON
+            )
+        return TOOL_SYSTEM_MESSAGE.format(current_time=current_time)
 
     def _tool_response_as_results_or_str(self, messages: list) -> str | dict:
         try:
@@ -542,10 +566,10 @@ Example search JSON objects:
         # Can be a string or search_results dict
         return results
 
-    def _get_response_format(self) -> dict:
+    def _get_json_response_format(self) -> dict:
         json_schema = self.json_schema
-        allow_condition = "lmstudio" in self.local_grammar_model
-        if allow_condition:
+        lm_studio_condition = self.local_grammar_model.startswith("lmstudio")
+        if lm_studio_condition:
             return {
                 "type": "json_schema",
                 "json_schema": {
@@ -553,12 +577,8 @@ Example search JSON objects:
                     "schema": json_schema
                 }
             }
-        # OpenAI format, but doesn't allow a forced schema
-        # TODO: Confirm Ollama + OpenAI compatibility
-        else:
-            return {
-                "type": "json_object",
-            }
+        # Note: Ollama + OpenAI compatible
+        return {"type": "json_object"}
 
     def _grammar_response_as_results_or_str(
             self, messages: list) -> str | dict:
@@ -569,7 +589,7 @@ Example search JSON objects:
             response = self.client.chat.completions.create(
                 model=self.local_grammar_model,
                 messages=messages,
-                response_format=self._get_response_format(),
+                response_format=self._get_json_response_format(),
             )
             response_text = response.choices[0].message.content
             parsed_search_schema = PipeUtils.parse_schema_from_response(
