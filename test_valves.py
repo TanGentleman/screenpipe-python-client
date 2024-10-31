@@ -1,14 +1,17 @@
-# from open_webui_workspace.screenpipe_search_function import Pipe
-from open_webui_workspace.simple_search_function import Pipe
+from open_webui_workspace.screenpipe_search_function import Pipe
+from open_webui_workspace.simple_search_function import Pipe as SimplePipe
 from utils.secrets import LLM_API_KEY
+from dotenv import load_dotenv
+
+load_dotenv()
 
 CUSTOM_VALVES = {
     "LLM_API_BASE_URL": "http://localhost:4000/v1",
     "LLM_API_KEY": LLM_API_KEY,
-    "TOOL_MODEL": "gpt-4o-mini",
+    "TOOL_MODEL": "Llama-3.1-70B",
     "FINAL_MODEL": "Qwen2.5-72B",
     "LOCAL_GRAMMAR_MODEL": "lmstudio-qwen2.5-14b",
-    "USE_GRAMMAR": True,
+    "USE_GRAMMAR": False,
     "SCREENPIPE_SERVER_URL": "http://localhost:3030"
 }
 
@@ -16,7 +19,9 @@ DEFAULT_PROMPT = "Search with a limit of 1, type audio. Search results may be in
 
 def main(prompt: str = DEFAULT_PROMPT, stream: bool = True): 
     pipe = Pipe()
-    pipe.valves = pipe.Valves(**CUSTOM_VALVES)
+    if isinstance(pipe, SimplePipe):
+        stream = False
+    # pipe.valves = pipe.Valves(**CUSTOM_VALVES)
     body = {"stream": stream, "messages": [
         {"role": "user", "content": prompt}]}
     if stream:
