@@ -1,4 +1,5 @@
-from open_webui_workspace.screenpipe_search_function import Pipe
+# from open_webui_workspace.screenpipe_search_function import Pipe
+from open_webui_workspace.simple_search_function import Pipe
 from utils.secrets import LLM_API_KEY
 
 CUSTOM_VALVES = {
@@ -6,18 +7,18 @@ CUSTOM_VALVES = {
     "LLM_API_KEY": LLM_API_KEY,
     "TOOL_MODEL": "gpt-4o-mini",
     "FINAL_MODEL": "Qwen2.5-72B",
-    "LOCAL_GRAMMAR_MODEL": "lmstudio-nemo",
-    "USE_GRAMMAR": False,
+    "LOCAL_GRAMMAR_MODEL": "lmstudio-qwen2.5-14b",
+    "USE_GRAMMAR": True,
     "SCREENPIPE_SERVER_URL": "http://localhost:3030"
 }
 
+DEFAULT_PROMPT = "Search with a limit of 1, type audio. Search results may be incomplete. Describe their contents regardless."
 
-if __name__ == "__main__":
+def main(prompt: str = DEFAULT_PROMPT, stream: bool = True): 
     pipe = Pipe()
     pipe.valves = pipe.Valves(**CUSTOM_VALVES)
-    stream = True
     body = {"stream": stream, "messages": [
-        {"role": "user", "content": "Search with a limit of 1, type audio. Search results may be incomplete. Describe their contents regardless."}]}
+        {"role": "user", "content": prompt}]}
     if stream:
         chunk_count = 0
         for chunk in pipe.pipe(body):
@@ -35,3 +36,11 @@ if __name__ == "__main__":
     else:
         print("Non-streaming response:")
         print(pipe.pipe(body))
+
+if __name__ == "__main__":
+    from sys import argv
+    # TODO: Add arg for prompt
+    if len(argv) > 1:
+        main(prompt=argv[1])
+    else:
+        main()
