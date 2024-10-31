@@ -12,6 +12,7 @@ version: 0.9
 # to OWUI.
 
 # Standard library imports
+import logging
 from dataclasses import dataclass
 import os
 import json
@@ -33,9 +34,7 @@ REPLACEMENT_TUPLES = [
 # Mode configuration for base URL
 IS_DOCKER = True
 DEFAULT_SCREENPIPE_PORT = 3030
-
 URL_BASE = "http://localhost" if not IS_DOCKER else "http://host.docker.internal"
-
 
 ### IMPORTANT CONFIG ###
 # Change this to any openai compatible endpoint
@@ -45,11 +44,10 @@ DEFAULT_USE_GRAMMAR = False
 # If USE_GRAMMAR is True, grammar model is used instead of the tool model
 
 # MODELS
-# This model should support native tool use
+# TOOL model must support native tool use
 DEFAULT_TOOL_MODEL = "Llama-3.1-70B"
-# This model receives private screenpipe data
-DEFAULT_FINAL_MODEL = "lmstudio-Llama-3.2-3B-4bit-MLX"
 DEFAULT_LOCAL_GRAMMAR_MODEL = "lmstudio-Llama-3.2-3B-4bit-MLX"
+DEFAULT_FINAL_MODEL = "lmstudio-Llama-3.2-3B-4bit-MLX"
 
 # NOTE: Model name must be valid for the endpoint:
 # {DEFAULT_LLM_API_BASE_URL}/v1/chat/completions
@@ -58,17 +56,9 @@ PREFER_24_HOUR_FORMAT = True
 DEFAULT_UTC_OFFSET = -7  # PDT
 ### HELPER FUNCTIONS ###
 
-"""Configuration management for Screenpipe Pipeline"""
-
-try:
-    from dotenv import load_dotenv
-    print("Loading environment variables.")
-except ImportError:
-    print("Warning: dotenv not found. Using default values.")
-
-
 @dataclass
 class PipelineConfig:
+    """Configuration management for Screenpipe Pipeline"""
     # API and Endpoint Configuration
     llm_api_base_url: str
     llm_api_key: str
@@ -138,7 +128,15 @@ class PipelineConfig:
         url_base = "http://localhost" if not self.is_docker else "http://host.docker.internal"
         return f"{url_base}:{self.screenpipe_port}"
 
+try:
+    from dotenv import load_dotenv
+    print("Loading environment variables.")
+except ImportError:
+    print("Warning: dotenv not found. Using default values.")
+DEFAULT_CONFIG = PipelineConfig.from_env()
+
 class SearchParameters(BaseModel):
+    """Search parameters for the Screenpipe Pipeline"""
     limit: Annotated[int, Field(ge=1, le=100)] = Field(
         default=10,
         description="The maximum number of results to return (1-100)"
@@ -164,17 +162,6 @@ class SearchParameters(BaseModel):
         description="Optional app name to filter results"
     )
 
-
-class SearchSchema(BaseModel):
-    # TODO: Add descriptions and utilize new format. See Issue #17
-    limit: int = 5
-    content_type: Literal["ocr", "audio", "all"] = "all"
-    search_substring: Optional[str] = ""
-    start_time: Optional[str] = "2024-10-01T00:00:00Z"
-    end_time: Optional[str] = "2024-10-31T23:59:59Z"
-    app_name: Optional[str] = None
-
-
 def screenpipe_search(
     search_substring: str = "",
     content_type: Literal["ocr", "audio", "all"] = "all",
@@ -198,201 +185,112 @@ def screenpipe_search(
     """
     return {}
 
+class PipeSearch:
+    """Search-related functionality for the Pipe class"""
+    # Add default values for other search parameters
 
-class Pipe:
-    class Valves(BaseModel):
-        LLM_API_BASE_URL: str = ""
-        LLM_API_KEY: str = ""
-        TOOL_MODEL: str = ""
-        FINAL_MODEL: str = ""
-        LOCAL_GRAMMAR_MODEL: str = ""
-        USE_GRAMMAR: bool = False
-        SCREENPIPE_SERVER_URL: str = ""
+    def __init__(self, default_dict: dict = {}):
+        self.default_dict = default_dict
+        self.screenpipe_server_url = self.default_dict.get("screenpipe_server_url", "")
 
-    def __init__(self):
-        self.type = "pipe"
-        self.name = "screenpipe_pipeline"
-        self.config = PipelineConfig.from_env()
-        self.valves = self.Valves(
-            **{
-                "LLM_API_BASE_URL": self.config.llm_api_base_url,
-                "LLM_API_KEY": self.config.llm_api_key,
-                "TOOL_MODEL": self.config.tool_model,
-                "FINAL_MODEL": self.config.final_model,
-                "LOCAL_GRAMMAR_MODEL": self.config.local_grammar_model,
-                "USE_GRAMMAR": self.config.use_grammar,
-                "SCREENPIPE_SERVER_URL": self.config.screenpipe_server_url
-            }
-        )
-        screenpipe_search_tool = convert_to_openai_tool(screenpipe_search)
-        self.tools = [screenpipe_search_tool]
-
-    def initialize_settings(self):
-        base_url = self.valves.LLM_API_BASE_URL or self.config.llm_api_base_url
-        api_key = self.valves.LLM_API_KEY or self.config.llm_api_key
-        self.client = OpenAI(
-            base_url=base_url,
-            api_key=api_key
-        )
-        self.tool_model = self.valves.TOOL_MODEL or self.config.tool_model
-        self.final_model = self.valves.FINAL_MODEL or self.config.final_model
-        self.local_grammar_model = self.valves.LOCAL_GRAMMAR_MODEL or self.config.local_grammar_model
-        self.use_grammar = self.valves.USE_GRAMMAR or self.config.use_grammar
-        self.screenpipe_server_url = self.valves.SCREENPIPE_SERVER_URL or self.config.screenpipe_server_url
-        pass
-
-    def search_wrapper(
-        self,
-        search_substring: Optional[str] = None,
-        content_type: Optional[Literal["ocr", "audio", "all"]] = None,
-        start_time: Optional[str] = None,
-        end_time: Optional[str] = None,
-        limit: Optional[int] = None,
-        app_name: Optional[str] = None
-    ) -> dict:
-        """
-        Wrapper for screenpipe_search to handle errors and limit.
-
-        Returns:
-            dict: A dictionary containing an error message or the search results.
-        """
-        if limit:
-            if isinstance(limit, str):
-                try:
-                    limit = int(limit)
-                except ValueError:
-                    print(f"Limit must be an integer. Defaulting to 5")
-                    limit = 5
-            if limit > 50:
-                print(
-                    f"Warning: Limit is set to {limit}. This may return a large number of results.")
-                print("CHANGING LIMIT TO 40!")
-                limit = 40
-        # Make first letter of app_name uppercase
-        if app_name:
-            print("Capitalizing app_name!")
-            app_name = app_name.capitalize()
-        params = {
-            "q": search_substring,
-            "content_type": content_type,
-            "limit": limit,
-            "start_time": start_time,
-            "end_time": end_time,
-            "app_name": app_name
-        }
-        # Remove None values from params dictionary
-        params = {
-            key: value for key,
-            value in params.items() if value is not None}
+    def search(self, **kwargs) -> dict:
+        """Enhanced search wrapper with better error handling"""
+        if not self.screenpipe_server_url:
+            raise ValueError("ScreenPipe server URL is not set")
         try:
+            # Validate and process search parameters
+            params = {k: v for k, v in kwargs.items() if v is not None}
+            
+            if 'limit' in params:
+                params['limit'] = min(int(params['limit']), 40)
+            
+            if 'app_name' in params and params['app_name']:
+                params['app_name'] = params['app_name'].capitalize()
+
+            #TODO: Add other fields from default_dict
             response = requests.get(
                 f"{self.screenpipe_server_url}/search",
-                params=params)
+                params=params,
+                timeout=10  # Add timeout
+            )
             response.raise_for_status()
             results = response.json()
+            
+            if not results.get("data"):
+                return {"error": "No results found"}
+                
+            return results
+            
         except requests.exceptions.RequestException as e:
-            return {"error": f"Screenpipe search failed: {e}"}
-        if results is None:
-            return {"error": "Screenpipe request failed"}
-        if not results["data"]:
-            return {"error": "No results found"}
-        print(f"Found {len(results['data'])} results")
-        return results
+            return {"error": f"Search failed: {str(e)}"}
+        except Exception as e:
+            return {"error": f"Unexpected error: {str(e)}"}
 
-    def sanitize_results(self, results: dict) -> list[dict]:
-        """
-        Sanitizes the results from the screenpipe_search function.
-        """
-        assert isinstance(results, dict) and results.get(
-            "data"), "Result dictionary must match schema of screenpipe search results"
-        results = results["data"]
-        new_results = []
-        for result in results:
-            new_result = dict()
-            if result["type"] == "OCR":
-                new_result["type"] = "OCR"
-                new_result["content"] = self.remove_names(
-                    result["content"]["text"])
-                new_result["app_name"] = result["content"]["app_name"]
-                new_result["window_name"] = result["content"]["window_name"]
-            elif result["type"] == "Audio":
-                new_result["type"] = "Audio"
-                new_result["content"] = result["content"]["transcription"]
-                new_result["device_name"] = result["content"]["device_name"]
-                # NOTE: Not removing names from audio transcription
-            else:
-                raise ValueError(f"Unknown result type: {result['type']}")
-            new_result["timestamp"] = self.format_timestamp(
-                result["content"]["timestamp"])
-            new_results.append(new_result)
-        return new_results
 
-    def parse_tool_or_response_string(self, response_text: str) -> str | dict:
-        tool_start_string = "<function=screenpipe_search>"
+class PipeUtils:
+    """Utility methods for the Pipe class"""
+    #TODO Add other response related methods here
 
-        def is_malformed_tool(text):
-            return text.startswith(tool_start_string)
-        if is_malformed_tool(response_text):
-            try:
-                end_index = response_text.rfind("}")
-                if end_index == -1:
-                    print("Closing bracket not found in response text")
-                    return response_text
+    @staticmethod
+    def remove_names(content: str, replacement_tuples: List[Tuple[str, str]] = []) -> str:
+        for sensitive_word, replacement in replacement_tuples:
+            content = content.replace(sensitive_word, replacement)
+        return content
+    
+    @staticmethod
+    def format_timestamp(timestamp: str, offset_hours: Optional[float] = -7) -> str:
+        """Formats UTC timestamp to local time with optional offset (default -7 PDT)"""
+        if not isinstance(timestamp, str):
+            raise ValueError("Timestamp must be a string")
 
-                function_args_str = response_text[len(
-                    tool_start_string):end_index + 1]
-
-                # Validate JSON structure
-                # This will raise JSONDecodeError if invalid
-                json.loads(function_args_str)
-                # TODO: Avoid duplicate json.loads call
-                # by storing the object and skipping json.loads if isinstance(arguments, dict)
-                # Append new tool call for screenpipe_search
-                new_tool_call = {
-                    "id": f"call_{len(function_args_str)}",
-                    "type": "function",
-                    "function": {
-                        "name": "screenpipe_search",
-                        "arguments": function_args_str
-                    }
-                }
-                return new_tool_call
-            except json.JSONDecodeError:
-                print("Error: Invalid JSON in function arguments")
-                return response_text
-            except Exception as e:
-                print(f"Unexpected error: {str(e)}")
-                return "An unexpected error occurred while processing the function call"
-        else:
-            return response_text
-
-    def _tool_response_as_results_or_str(self, messages: list) -> str | dict:
         try:
-            response = self._make_tool_api_call(messages)
-        except Exception:
-            return "Failed tool api call."
+            dt = datetime.strptime(timestamp.split('.')[0] + 'Z', "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+            if offset_hours is not None:
+                dt = dt + timedelta(hours=offset_hours)
+            return dt.strftime("%m/%d/%y %H:%M")
+        except ValueError:
+            raise ValueError(f"Invalid timestamp format: {timestamp}")
+    
+    @staticmethod
+    def sanitize_results(results: dict, replacement_tuples: List[Tuple[str, str]] = []) -> list[dict]:
+        """Sanitize search results with improved error handling"""
+        try:
+            if not isinstance(results, dict) or "data" not in results:
+                raise ValueError("Invalid results format")
 
-        tool_calls = self._extract_tool_calls(response)
-
-        if not tool_calls:
-            response_text = response.choices[0].message.content
-            parsed_response = self.parse_tool_or_response_string(response_text)
-            if isinstance(parsed_response, str):
-                return parsed_response
-            parsed_tool_call = parsed_response
-            assert isinstance(
-                parsed_tool_call, dict), "Parsed tool must be dict"
-            # RESPONSE is a tool
-            tool_calls = [parsed_tool_call]
-
-        tool_calls = self._limit_tool_calls(tool_calls)
-        search_results = self._process_tool_calls(tool_calls)
-        return search_results
-
-    def _parse_schema_from_response(
-            self,
-            response_text: str,
-            target_schema=SearchSchema) -> SearchSchema | str:
+            sanitized = []
+            for result in results["data"]:
+                sanitized_result = {
+                    "timestamp": PipeUtils.format_timestamp(result["content"]["timestamp"]),
+                    "type": result["type"]
+                }
+                
+                if result["type"] == "OCR":
+                    sanitized_result.update({
+                        "content": PipeUtils.remove_names(result["content"]["text"], replacement_tuples),
+                        "app_name": result["content"]["app_name"],
+                        "window_name": result["content"]["window_name"]
+                    })
+                elif result["type"] == "Audio":
+                    sanitized_result.update({
+                        "content": result["content"]["transcription"],
+                        "device_name": result["content"]["device_name"]
+                    })
+                else:
+                    raise ValueError(f"Unknown result type: {result['type']}")
+                
+                sanitized.append(sanitized_result)
+                
+            return sanitized
+            
+        except Exception as e:
+            logging.error(f"Error sanitizing results: {str(e)}")
+            return []
+        
+    @staticmethod
+    def parse_schema_from_response(
+        response_text: str,
+        target_schema) -> dict | str:
         """
         Parses the response text into a dictionary using the provided Pydantic schema.
 
@@ -403,97 +301,147 @@ class Pipe:
         Returns:
             dict: The parsed and validated data as a dictionary. If parsing fails, returns an empty dictionary.
         """
-        assert issubclass(
-            target_schema, BaseModel), "Schema must be a Pydantic BaseModel"
+        assert issubclass(target_schema, BaseModel), "Schema must be a Pydantic BaseModel"
         try:
             response_object = json.loads(response_text)
             pydantic_object = target_schema(**response_object)
-            return pydantic_object
+            return pydantic_object.model_dump()
         except (json.JSONDecodeError, ValidationError) as e:
             print(f"Error: {e}")
             return response_text
-
-    def _get_response_format(self) -> dict:
-        json_schema = SearchSchema.model_json_schema()
-        allow_condition = "lmstudio" in self.local_grammar_model
-        if allow_condition:
+        
+    @staticmethod
+    def catch_malformed_tool(response_text: str) -> str | dict:
+        """Parse response text to extract tool call if present, otherwise return original text."""
+        TOOL_PREFIX = "<function=screenpipe_search>"
+        
+        if not response_text.startswith(TOOL_PREFIX):
+            return response_text
+            
+        try:
+            end_index = response_text.rfind("}")
+            if end_index == -1:
+                logging.warning("Warning: Malformed tool unable to be parsed!")
+                return response_text
+                
+            # Extract and validate JSON arguments
+            args_str = response_text[len(TOOL_PREFIX):end_index + 1]
+            json.loads(args_str)  # Validate JSON format
+            
             return {
-                "type": "json_schema",
-                "json_schema": {
-                    "strict": True,
-                    "schema": json_schema
+                "id": f"call_{len(args_str)}", 
+                "type": "function",
+                "function": {
+                    "name": "screenpipe_search",
+                    "arguments": args_str
                 }
             }
-        # OpenAI format, but doesn't allow a forced schema
-        else:
-            return {
-                "type": "json_object",
-            }
+            
+        except json.JSONDecodeError:
+            return response_text
+        except Exception as e:
+            print(f"Error parsing tool response: {e}")
+            return "Failed to process function call"
 
-    def _grammar_response_as_results_or_str(
-            self, messages: list) -> str | dict:
-        # Replace system message
-        assert messages[0]["role"] == "system", "There should be a system message here!"
-        # NOTE: Response format varies by provider
-        try:
-            response = self.client.chat.completions.create(
-                model=self.local_grammar_model,
-                messages=messages,
-                response_format=self._get_response_format(),
-            )
-            response_text = response.choices[0].message.content
-            parsed_search_schema = self._parse_schema_from_response(
-                response_text)
-            if isinstance(parsed_search_schema, str):
-                return response_text
-
-            function_args = parsed_search_schema.model_dump()
-            print("Constructed search params:", function_args)
-            search_results = self.search_wrapper(**function_args)
-            if not search_results:
-                return "No results found"
-            if "error" in search_results:
-                return search_results["error"]
-            return search_results
-        except Exception:
-            return "Failed grammar api call."
-
-    def _prologue_from_search_results(self, search_results: dict) -> str:
-        assert "data" in search_results, "Search results must have a 'data' key"
-        return f"Found {len(search_results['data'])} results."
-
-    def pipe(
-        self, body: dict
-    ) -> Union[str, Generator, Iterator]:
-        print(f"pipe:{__name__}")
-        print("Now piping body:", body)
-        assert "messages" in body and "stream" in body, "Body must have keys 'messages' and 'stream'"
-
-        print("Valves:", self.valves)
-        self.initialize_settings()
-        messages = self._prepare_messages(body["messages"])
-
-        if self.use_grammar:
-            parsed_results = self._grammar_response_as_results_or_str(messages)
-        else:
-            parsed_results = self._tool_response_as_results_or_str(messages)
-        if isinstance(parsed_results, str):
-            return parsed_results
-        search_results = parsed_results
-        # Get Final Response Prologue
-        final_response_prologue = self._prologue_from_search_results(
-            search_results)
-        # Sanitize results
-        sanitized_results = self.sanitize_results(search_results)
-        results_as_string = json.dumps(sanitized_results)
-        print("Results as string:", results_as_string)
-        messages_with_screenpipe_data = self.get_messages_with_screenpipe_data(
-            messages,
-            results_as_string
+class PipeBase:
+    """Base class for Pipe functionality"""
+    
+    class Valves(BaseModel):
+        """Valve settings for the Pipe"""
+        LLM_API_BASE_URL: str = Field(
+            default="", description="Base URL for the LLM API"
+        )
+        LLM_API_KEY: str = Field(
+            default="", description="API key for LLM access"
+        )
+        TOOL_MODEL: str = Field(
+            default="", description="Model to use for tool calls"
+        )
+        FINAL_MODEL: str = Field(
+            default="", description="Model to use for final response"
+        )
+        LOCAL_GRAMMAR_MODEL: Optional[str] = Field(
+            default=None, description="Local grammar model path"
+        )
+        USE_GRAMMAR: bool = Field(
+            default=False, description="Whether to use grammar checking"
+        )
+        SCREENPIPE_SERVER_URL: str = Field(
+            default="", description="URL for the ScreenPipe server"
         )
 
-        return self._generate_final_response(
-            body, messages_with_screenpipe_data)
+    def __init__(self):
+        self.type = "pipe"
+        self.name = "screenpipe_pipeline"
+        self.config = DEFAULT_CONFIG
+        self.tools = [convert_to_openai_tool(screenpipe_search)]
+        self.json_schema = SearchParameters.model_json_schema()
+        self.replacement_tuples = self.config.replacement_tuples
+        self.client = None
+        self.initialize_valves()
+
+    def initialize_valves(self):
+        """Initialize valve settings"""
+        self.valves = self.Valves(
+            **{
+                "LLM_API_BASE_URL": self.config.llm_api_base_url,
+                "LLM_API_KEY": self.config.llm_api_key,
+                "TOOL_MODEL": self.config.tool_model,
+                "FINAL_MODEL": self.config.final_model,
+                "LOCAL_GRAMMAR_MODEL": self.config.local_grammar_model,
+                "USE_GRAMMAR": self.config.use_grammar,
+                "SCREENPIPE_SERVER_URL": self.config.screenpipe_server_url,
+            }
+        )
+
+class Pipe(PipeBase):
+    """Main Pipe class implementing the pipeline functionality"""
+    
+    def pipe(self, body: dict) -> Union[str, Generator, Iterator]:
+        """Main pipeline processing method"""
+        try:
+            self.initialize_settings()
+            messages = self._prepare_messages(body["messages"])
+            
+            # Get search results
+            results = (self._grammar_response_as_results_or_str(messages) 
+                      if self.use_grammar 
+                      else self._tool_response_as_results_or_str(messages))
+            
+            if isinstance(results, str):
+                return results
+                
+            # Process results
+            sanitized_results = PipeUtils.sanitize_results(results, self.replacement_tuples)
+            messages_with_data = self.get_messages_with_screenpipe_data(
+                messages,
+                json.dumps(sanitized_results)
+            )
+            
+            # Generate final response
+            return self._generate_final_response(body, messages_with_data)
+            
+        except Exception as e:
+            logging.error(f"Pipeline error: {str(e)}")
+            return f"An error occurred: {str(e)}"
+
+    def initialize_settings(self):
+        base_url = self.valves.LLM_API_BASE_URL or self.config.llm_api_base_url
+        api_key = self.valves.LLM_API_KEY or self.config.llm_api_key
+        self.client = OpenAI(
+            base_url=base_url,
+            api_key=api_key
+        )
+        screenpipe_server_url = self.valves.SCREENPIPE_SERVER_URL or self.config.screenpipe_server_url
+        # TODO: Add other default params to default_dict (I like a valve for app name!)
+        default_dict = {"screenpipe_server_url": screenpipe_server_url}
+        self.searcher = PipeSearch(default_dict)
+
+        self.tool_model = self.valves.TOOL_MODEL or self.config.tool_model
+        self.final_model = self.valves.FINAL_MODEL or self.config.final_model
+        self.local_grammar_model = self.valves.LOCAL_GRAMMAR_MODEL or self.config.local_grammar_model
+        self.use_grammar = self.valves.USE_GRAMMAR # or self.config.use_grammar
+
 
     def _prepare_messages(self, messages):
         assert messages[-1]["role"] == "user", "Last message must be from the user!"
@@ -524,6 +472,78 @@ Construct an optimal search filter for the query. When appropriate, create a sea
         ]
         return new_messages
 
+    def _tool_response_as_results_or_str(self, messages: list) -> str | dict:
+        try:
+            response = self._make_tool_api_call(messages)
+            # Extract tool calls
+            tool_calls = response.choices[0].message.model_dump().get('tool_calls', [])
+        except Exception:
+            return "Failed tool api call."
+
+        if not tool_calls:
+            response_text = response.choices[0].message.content
+            parsed_response = PipeUtils.catch_malformed_tool(response_text)
+            if isinstance(parsed_response, str):
+                return parsed_response
+            parsed_tool_call = parsed_response
+            assert isinstance(
+                parsed_tool_call, dict), "Parsed tool must be dict"
+            # RESPONSE is a tool
+            tool_calls = [parsed_tool_call]
+
+        if len(tool_calls) > 1:
+            print("Max tool calls exceeded! Only the first tool call will be processed.")
+            tool_calls = tool_calls[:1]
+        results = self._process_tool_calls(tool_calls)
+        # Can be a string or search_results dict
+        return results
+
+    def _get_response_format(self) -> dict:
+        json_schema = self.json_schema
+        allow_condition = "lmstudio" in self.local_grammar_model
+        if allow_condition:
+            return {
+                "type": "json_schema",
+                "json_schema": {
+                    "strict": True,
+                    "schema": json_schema
+                }
+            }
+        # OpenAI format, but doesn't allow a forced schema
+        # NOTE: Confirm Ollama + OpenAI compatibility
+        else:
+            return {
+                "type": "json_object",
+            }
+
+    def _grammar_response_as_results_or_str(
+            self, messages: list) -> str | dict:
+        # Replace system message
+        assert messages[0]["role"] == "system", "There should be a system message here!"
+        # NOTE: Response format varies by provider
+        try:
+            response = self.client.chat.completions.create(
+                model=self.local_grammar_model,
+                messages=messages,
+                response_format=self._get_response_format(),
+            )
+            response_text = response.choices[0].message.content
+            parsed_search_schema = PipeUtils.parse_schema_from_response(
+                response_text, SearchParameters)
+            if isinstance(parsed_search_schema, str):
+                return response_text
+
+            function_args = parsed_search_schema
+            print("Constructed search params:", function_args)
+            search_results = self.searcher.search(**function_args)
+            if not search_results:
+                return "No results found"
+            if "error" in search_results:
+                return search_results["error"]
+            return search_results
+        except Exception:
+            return "Failed grammar api call."
+
     def _make_tool_api_call(self, messages):
         tool_model = self.tool_model
         print("Using tool model:", tool_model)
@@ -535,24 +555,12 @@ Construct an optimal search filter for the query. When appropriate, create a sea
             stream=False
         )
 
-    def _extract_tool_calls(self, response):
-        return response.choices[0].message.model_dump().get('tool_calls', [])
-
-    def _limit_tool_calls(self, tool_calls):
-        if not tool_calls:
-            raise ValueError("No tool calls found")
-        MAX_TOOL_CALLS = 1
-        if len(tool_calls) > MAX_TOOL_CALLS:
-            print(
-                f"Warning: More than {MAX_TOOL_CALLS} tool calls found. Only the first {MAX_TOOL_CALLS} tool calls will be processed.")
-            return tool_calls[:MAX_TOOL_CALLS]
-        return tool_calls
 
     def _process_tool_calls(self, tool_calls) -> dict | str:
         for tool_call in tool_calls:
             if tool_call['function']['name'] == 'screenpipe_search':
                 function_args = json.loads(tool_call['function']['arguments'])
-                search_results = self.search_wrapper(**function_args)
+                search_results = self.searcher.search(**function_args)
                 if not search_results:
                     return "No results found"
                 if "error" in search_results:
@@ -594,46 +602,6 @@ Construct an optimal search filter for the query. When appropriate, create a sea
             {"role": "user", "content": new_user_message}
         ]
         return new_messages
-
-    @staticmethod
-    def remove_names(content: str) -> str:
-        for sensitive_word, replacement in REPLACEMENT_TUPLES:
-            content = content.replace(sensitive_word, replacement)
-        return content
-
-    @staticmethod
-    def format_timestamp(
-            timestamp: str,
-            offset_hours: Optional[float] = DEFAULT_UTC_OFFSET) -> str:
-        """
-        Formats an ISO UTC timestamp string to local time with an optional hour offset.
-
-        Args:
-            timestamp (str): ISO format UTC timestamp (YYYY-MM-DDTHH:MM:SS.ssssssZ or YYYY-MM-DDTHH:MM:SSZ)
-            offset_hours (Optional[float]): Hours to offset from UTC. Default -7 (PDT).
-                                        Example: -4 for EDT, 5.5 for IST, None for UTC.
-
-        Returns:
-            str: Formatted timestamp as "MM/DD/YY HH:MM" (24-hour format)
-        """
-        if not isinstance(timestamp, str):
-            raise ValueError("Timestamp must be a string")
-
-        try:
-            # Force UTC interpretation by using timezone.utc
-            dt = datetime.strptime(
-                timestamp, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
-        except ValueError:
-            try:
-                dt = datetime.strptime(
-                    timestamp, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
-            except ValueError:
-                raise ValueError(f"Invalid timestamp format: {timestamp}")
-
-        if offset_hours is not None:
-            dt = dt + timedelta(hours=offset_hours)
-
-        return dt.strftime("%m/%d/%y %H:%M")
 
     @staticmethod
     def reformat_user_message(
