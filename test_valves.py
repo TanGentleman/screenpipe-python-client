@@ -14,6 +14,16 @@ CUSTOM_VALVES = {
     "USE_GRAMMAR": False,
     "SCREENPIPE_SERVER_URL": "http://localhost:3030"
 }
+# OLLAMA TESTING
+# CUSTOM_VALVES = {
+#     "LLM_API_BASE_URL": "http://localhost:11434/v1",
+#     "LLM_API_KEY": LLM_API_KEY,
+#     "TOOL_MODEL": "Llama-3.1-70B",
+#     "FINAL_MODEL": "mistral:7b-instruct-v0.3-q6_K",
+#     "LOCAL_GRAMMAR_MODEL": "mistral:7b-instruct-v0.3-q6_K",
+#     "USE_GRAMMAR": True,
+#     "SCREENPIPE_SERVER_URL": "http://localhost:3030"
+# }
 
 DEFAULT_PROMPT = "Search with a limit of 1, type audio. Search results may be incomplete. Describe their contents regardless."
 
@@ -21,7 +31,8 @@ def main(prompt: str = DEFAULT_PROMPT, stream: bool = True):
     pipe = Pipe()
     if isinstance(pipe, SimplePipe):
         stream = False
-    # pipe.valves = pipe.Valves(**CUSTOM_VALVES)
+    pipe.valves = pipe.Valves(**CUSTOM_VALVES)
+    print("Valves:", pipe.valves)
     body = {"stream": stream, "messages": [
         {"role": "user", "content": prompt}]}
     if stream:
