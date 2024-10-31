@@ -158,6 +158,12 @@ class OCR:
             f"text='{self.text[:50]}{'...' if len(self.text) > 50 else ''}'"
             f"{tags_str})"
         )
+    
+    def to_dict(self):
+        return {
+            "type": "OCR",
+            "content": self.__dict__
+        }
 
     def __str__(self):
         return self.__repr__()
@@ -221,6 +227,13 @@ class Audio:
             f"transcription='{self.transcription[:50]}{'...' if len(self.transcription) > 50 else ''}'"
             f"{tags_str}"
         )
+    
+    def to_dict(self):
+        return {
+            "type": "Audio",
+            "content": self.__dict__
+            # NOTE: Should I show original_timestamp?
+        }
     
     def __str__(self):
         return self.__repr__()
@@ -296,3 +309,9 @@ class SearchOutput:
 
     def __str__(self):
         return self.__repr__()
+    
+    def to_dict(self):
+        return {
+            "data": [chunk.to_dict() for chunk in self.chunks],
+            "pagination": self.pagination
+        }
