@@ -235,6 +235,7 @@ class PipeSearch:
         try:
             # Validate and process search parameters
             params = self._process_search_params(kwargs)
+            print("Params:", params)
 
             response = requests.get(
                 f"{self.screenpipe_server_url}/search",
@@ -256,6 +257,8 @@ class PipeSearch:
 
     def _process_search_params(self, params: dict) -> dict:
         """Process and validate search parameters"""
+        if 'search_substring' in params:
+            params['q'] = params.pop('search_substring')
         processed = {k: v for k, v in params.items() if v is not None}
 
         if 'limit' in processed:
@@ -609,6 +612,7 @@ class Pipe(PipeBase):
         # Replace system message
         assert messages[0]["role"] == "system", "There should be a system message here!"
         # NOTE: Response format varies by provider
+        print("Using json model:", self.json_model)
         try:
             response = self.client.chat.completions.create(
                 model=self.json_model,
@@ -633,10 +637,9 @@ class Pipe(PipeBase):
             return f"Failed json api call with {self.json_model}."
 
     def _make_tool_api_call(self, messages):
-        tool_model = self.tool_model
-        print("Using tool model:", tool_model)
+        print("Using tool model:", self.tool_model)
         return self.client.chat.completions.create(
-            model=tool_model,
+            model=self.tool_model,
             messages=messages,
             tools=self.tools,
             tool_choice="auto",
