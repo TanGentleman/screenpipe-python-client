@@ -60,7 +60,7 @@ TOOL_SYSTEM_MESSAGE = """You are a helpful assistant that can access external fu
 
 JSON_SYSTEM_MESSAGE = """You are a helpful assistant. Create a screenpipe search conforming to the correct JSON schema to search captured data stored in ScreenPipe's local database.
 
-Create a JSON object for the properties field of the search parameters:
+Create a JSON object ONLY for the properties field of the search parameters:
 {schema}
 
 If the time range is not relevant, use None for the start_time and end_time fields. Otherwise, they must be in ISO format matching the current time: {current_time}.
@@ -69,6 +69,8 @@ Construct an optimal search filter for the query. When appropriate, create a sea
 
 Example search JSON objects:
 {examples}
+
+ONLY Output the search JSON object, nothing else.
 """
 
 @dataclass
@@ -248,8 +250,9 @@ class PipeSearch:
 
     def _process_search_params(self, params: dict) -> dict:
         """Process and validate search parameters"""
-        if 'search_substring' in params:
-            params['q'] = params.pop('search_substring')
+        query = params.pop('search_substring', '')
+        if query:
+            params['q'] = query.strip() or None
         processed = {k: v for k, v in params.items() if v is not None}
 
         if 'limit' in processed:
