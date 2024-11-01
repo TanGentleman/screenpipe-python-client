@@ -39,14 +39,14 @@ DEFAULT_SCREENPIPE_PORT = 3030
 URL_BASE = "http://localhost" if not IS_DOCKER else "http://host.docker.internal"
 
 # LLM Configuration (openai compatible)
-DEFAULT_LLM_API_BASE_URL = f"{URL_BASE}:4000/v1"
+DEFAULT_LLM_API_BASE_URL = f"{URL_BASE}:11434/v1"
 DEFAULT_LLM_API_KEY = SENSITIVE_KEY
-DEFAULT_USE_GRAMMAR = False
-# If USE_GRAMMAR is True, grammar model is used instead of the tool model
+DEFAULT_NATIVE_TOOL_CALLING = False
+# NOTE: If NATIVE_TOOL_CALLING is True, tool model is used instead of the json model
 
 # Model Configuration
 DEFAULT_TOOL_MODEL = "Llama-3.1-70B"
-DEFAULT_LOCAL_GRAMMAR_MODEL = "lmstudio-Llama-3.2-3B-4bit-MLX"
+DEFAULT_JSON_MODEL = "lmstudio-Llama-3.2-3B-4bit-MLX"
 DEFAULT_FINAL_MODEL = "lmstudio-Llama-3.2-3B-4bit-MLX"
 
 # NOTE: Model name must be valid for the endpoint:
@@ -89,8 +89,8 @@ class PipelineConfig:
     # Model Configuration
     tool_model: str
     final_model: str
-    local_grammar_model: str
-    use_grammar: bool
+    json_model: str
+    native_tool_calling: bool
 
     # Pipeline Settings
     prefer_24_hour_format: bool
@@ -128,9 +128,10 @@ class PipelineConfig:
             # Model Configuration
             tool_model=os.getenv('TOOL_MODEL', DEFAULT_TOOL_MODEL),
             final_model=os.getenv('FINAL_MODEL', DEFAULT_FINAL_MODEL),
-            local_grammar_model=os.getenv(
-                'LOCAL_GRAMMAR_MODEL', DEFAULT_LOCAL_GRAMMAR_MODEL),
-            use_grammar=get_bool_env('USE_GRAMMAR', DEFAULT_USE_GRAMMAR),
+            json_model=os.getenv(
+                'JSON_MODEL', DEFAULT_JSON_MODEL),
+            native_tool_calling=get_bool_env(
+                'NATIVE_TOOL_CALLING', DEFAULT_NATIVE_TOOL_CALLING),
 
             # Pipeline Settings
             prefer_24_hour_format=get_bool_env(
@@ -442,11 +443,11 @@ class PipeBase:
         FINAL_MODEL: str = Field(
             default="", description="Model to use for final response"
         )
-        LOCAL_GRAMMAR_MODEL: Optional[str] = Field(
-            default=None, description="Local grammar model path"
+        JSON_MODEL: Optional[str] = Field(
+            default=None, description="Local json model path"
         )
-        USE_GRAMMAR: bool = Field(
-            default=False, description="Whether to use grammar checking"
+        NATIVE_TOOL_CALLING: bool = Field(
+            default=False, description="Whether to use tool calling"
         )
         SCREENPIPE_SERVER_URL: str = Field(
             default="", description="URL for the ScreenPipe server"
@@ -470,8 +471,8 @@ class PipeBase:
                 "LLM_API_KEY": self.config.llm_api_key,
                 "TOOL_MODEL": self.config.tool_model,
                 "FINAL_MODEL": self.config.final_model,
-                "LOCAL_GRAMMAR_MODEL": self.config.local_grammar_model,
-                "USE_GRAMMAR": self.config.use_grammar,
+                "JSON_MODEL": self.config.json_model,
+                "NATIVE_TOOL_CALLING": self.config.native_tool_calling,
                 "SCREENPIPE_SERVER_URL": self.config.screenpipe_server_url,
             }
         )
@@ -487,9 +488,9 @@ class Pipe(PipeBase):
             messages = self._prepare_initial_messages(body["messages"])
 
             # Get search results
-            results = (self._grammar_response_as_results_or_str(messages)
-                       if self.use_grammar
-                       else self._tool_response_as_results_or_str(messages))
+            results = (self._tool_response_as_results_or_str(messages)  
+                       if self.native_tool_calling
+                       else self._json_response_as_results_or_str(messages))
 
             if isinstance(results, str):
                 return results
@@ -536,8 +537,8 @@ class Pipe(PipeBase):
         """Initialize model settings"""
         self.tool_model = self.valves.TOOL_MODEL or self.config.tool_model
         self.final_model = self.valves.FINAL_MODEL or self.config.final_model
-        self.local_grammar_model = self.valves.LOCAL_GRAMMAR_MODEL or self.config.local_grammar_model
-        self.use_grammar = self.valves.USE_GRAMMAR
+        self.json_model = self.valves.JSON_MODEL or self.config.json_model
+        self.native_tool_calling = self.valves.NATIVE_TOOL_CALLING
 
     def _prepare_initial_messages(self, messages):
         """Prepare initial messages for the pipeline"""
@@ -554,13 +555,13 @@ class Pipe(PipeBase):
 
     def _get_system_message(self, current_time: str) -> str:
         """Get appropriate system message based on configuration"""
-        if self.use_grammar:
-            return JSON_SYSTEM_MESSAGE.format(
-                schema=self.json_schema,
-                current_time=current_time,
-                examples=EXAMPLE_SEARCH_JSON
-            )
-        return TOOL_SYSTEM_MESSAGE.format(current_time=current_time)
+        if self.native_tool_calling:
+            return TOOL_SYSTEM_MESSAGE.format(current_time=current_time)
+        return JSON_SYSTEM_MESSAGE.format(
+            schema=self.json_schema,
+            current_time=current_time,
+            examples=EXAMPLE_SEARCH_JSON
+        )
 
     def _tool_response_as_results_or_str(self, messages: list) -> str | dict:
         try:
@@ -569,7 +570,7 @@ class Pipe(PipeBase):
             tool_calls = response.choices[0].message.model_dump().get(
                 'tool_calls', [])
         except Exception:
-            return "Failed tool api call."
+            return f"Failed tool api call with {self.tool_model}."
 
         if not tool_calls:
             response_text = response.choices[0].message.content
@@ -591,7 +592,7 @@ class Pipe(PipeBase):
 
     def _get_json_response_format(self) -> dict:
         json_schema = self.json_schema
-        lm_studio_condition = self.local_grammar_model.startswith("lmstudio")
+        lm_studio_condition = self.json_model.startswith("lmstudio")
         if lm_studio_condition:
             return {
                 "type": "json_schema",
@@ -603,14 +604,14 @@ class Pipe(PipeBase):
         # Note: Ollama + OpenAI compatible
         return {"type": "json_object"}
 
-    def _grammar_response_as_results_or_str(
+    def _json_response_as_results_or_str(
             self, messages: list) -> str | dict:
         # Replace system message
         assert messages[0]["role"] == "system", "There should be a system message here!"
         # NOTE: Response format varies by provider
         try:
             response = self.client.chat.completions.create(
-                model=self.local_grammar_model,
+                model=self.json_model,
                 messages=messages,
                 response_format=self._get_json_response_format(),
             )
@@ -629,7 +630,7 @@ class Pipe(PipeBase):
                 return search_results["error"]
             return search_results
         except Exception:
-            return "Failed grammar api call."
+            return f"Failed json api call with {self.json_model}."
 
     def _make_tool_api_call(self, messages):
         tool_model = self.tool_model
@@ -701,7 +702,6 @@ def load_environment_variables():
 def main(prompt: str = "Create a search for audio content with a limit of 2."):
     pipe = Pipe()
     stream = False
-    # pipe.valves = pipe.Valves(**CUSTOM_VALVES)
     body = {"stream": stream, "messages": [
         {"role": "user", "content": prompt}]}
     if not stream:
