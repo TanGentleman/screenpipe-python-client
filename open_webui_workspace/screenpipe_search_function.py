@@ -395,6 +395,7 @@ class PipeUtils:
             return response_text
         except Exception as e:
             print(f"Error parsing tool response: {e}")
+            # NOTE: Maybe this should be {"error": "Failed to process function call"}
             return "Failed to process function call"
 
     @staticmethod
@@ -494,9 +495,9 @@ class Pipe(PipeBase):
             messages = self._prepare_initial_messages(body["messages"])
 
             # Get search results
-            results = (self._tool_response_as_results_or_str(messages)  
+            results = (self._process_tool_response(messages)  
                        if self.native_tool_calling
-                       else self._json_response_as_results_or_str(messages))
+                       else self._process_json_response(messages))
 
             if isinstance(results, str):
                 return results
@@ -568,11 +569,18 @@ class Pipe(PipeBase):
             current_time=current_time,
             examples=EXAMPLE_SEARCH_JSON
         )
-
-    def _tool_response_as_results_or_str(self, messages: list) -> str | dict:
+    
+    def _extract_tool_calls(self, messages: list) -> Union[str, List[dict]]:
+        """Extract tool calls from API response, handling errors and malformed responses.
+        
+        Args:
+            messages: List of chat messages to send to API
+            
+        Returns:
+            Either error string or list of valid tool call dictionaries
+        """
         try:
             response = self._make_tool_api_call(messages)
-            # Extract tool calls
             tool_calls = response.choices[0].message.model_dump().get(
                 'tool_calls', [])
         except Exception:
@@ -586,20 +594,34 @@ class Pipe(PipeBase):
             parsed_tool_call = parsed_response
             assert isinstance(
                 parsed_tool_call, dict), "Parsed tool must be dict"
-            # RESPONSE is a tool
             tool_calls = [parsed_tool_call]
 
         if len(tool_calls) > 1:
             print("Max tool calls exceeded! Only the first tool call will be processed.")
             tool_calls = tool_calls[:1]
-        results = self._process_tool_calls(tool_calls)
-        # Can be a string or search_results dict
-        return results
 
+        return tool_calls
+
+    def _process_tool_response(self, messages: list) -> Union[str, dict]:
+        """Process tool API response into search results.
+        
+        Args:
+            messages: List of chat messages to send to API
+            
+        Returns:
+            Either error string or search results dictionary
+        """
+        tool_calls = self._extract_tool_calls(messages)
+        if isinstance(tool_calls, str):
+            return tool_calls
+        results = self._process_tool_calls(tool_calls)
+        return results
+    
     def _get_json_response_format(self) -> dict:
         json_schema = self.json_schema
         lm_studio_condition = self.json_model.startswith("lmstudio")
         if lm_studio_condition:
+            print("Using strict schema response format")
             return {
                 "type": "json_schema",
                 "json_schema": {
@@ -610,12 +632,15 @@ class Pipe(PipeBase):
         # Note: Ollama + OpenAI compatible
         return {"type": "json_object"}
 
-    def _json_response_as_results_or_str(
-            self, messages: list) -> str | dict:
-        # Replace system message
-        assert messages[0]["role"] == "system", "There should be a system message here!"
-        # NOTE: Response format varies by provider
-        print("Using json model:", self.json_model)
+    def _extract_json_parameters(self, messages: list) -> Union[str, dict]:
+        """Extract search parameters from JSON API response.
+        
+        Args:
+            messages: List of chat messages to send to API
+            
+        Returns:
+            Either error string or valid search parameters dictionary
+        """
         try:
             response = self.client.chat.completions.create(
                 model=self.json_model,
@@ -627,17 +652,30 @@ class Pipe(PipeBase):
                 response_text, SearchParameters)
             if isinstance(parsed_search_schema, str):
                 return response_text
-
-            function_args = parsed_search_schema
-            print("Constructed search params:", function_args)
-            search_results = self.searcher.search(**function_args)
-            if not search_results:
-                return "No results found"
-            if "error" in search_results:
-                return search_results["error"]
-            return search_results
+            return parsed_search_schema
         except Exception:
             return f"Failed json api call with {self.json_model}."
+
+    def _process_json_response(self, messages: list) -> Union[str, dict]:
+        """Process JSON API response into search results.
+        
+        Args:
+            messages: List of chat messages to send to API
+            
+        Returns:
+            Either error string or search results dictionary
+        """
+        function_args = self._extract_json_parameters(messages)
+        if isinstance(function_args, str):
+            return function_args
+            
+        print("Constructed search params:", function_args)
+        search_results = self.searcher.search(**function_args)
+        if not search_results:
+            return "No results found"
+        if "error" in search_results:
+            return search_results["error"]
+        return search_results
 
     def _make_tool_api_call(self, messages):
         print("Using tool model:", self.tool_model)
