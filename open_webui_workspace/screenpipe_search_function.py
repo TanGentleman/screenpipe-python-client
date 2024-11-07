@@ -156,19 +156,21 @@ EXAMPLE_SEARCH_JSON = """\
 {
     "limit": 2,
     "content_type": "audio",
+    "start_time": null,
+    "end_time": null
 }
 {
     "limit": 1,
     "content_type": "all",
-    "start_time": "2024-10-01T00:00:00Z",
-    "end_time": "2024-11-01T23:59:59Z",
+    "start_time": "2024-03-20T00:00:00Z",
+    "end_time": "2024-03-20T23:59:59Z"
 }"""
 
 
 class SearchParameters(BaseModel):
     """Search parameters for the Screenpipe Pipeline"""
     limit: Annotated[int, Field(ge=1, le=100)] = Field(
-        default=10,
+        default=5,
         description="The maximum number of results to return (1-100)"
     )
     content_type: Literal["ocr", "audio", "all"] = Field(
@@ -180,42 +182,40 @@ class SearchParameters(BaseModel):
         description="Optional search term to filter results"
     )
     start_time: Optional[str] = Field(
-        default="2024-10-01T00:00:00Z",
-        description="Start timestamp for search range (ISO format)"
+        default=None,
+        description="Start timestamp for search range (ISO format, e.g., 2024-03-20T00:00:00Z)"
     )
     end_time: Optional[str] = Field(
-        default="2024-10-31T23:59:59Z",
-        description="End timestamp for search range (ISO format)"
+        default=None,
+        description="End timestamp for search range (ISO format, e.g., 2024-03-20T23:59:59Z)"
     )
     app_name: Optional[str] = Field(
         default=None,
         description="Optional app name to filter results"
     )
 
-
 def screenpipe_search(
-    search_substring: str = "",
-    content_type: Literal["ocr", "audio", "all"] = "all",
-    start_time: str = "2024-10-01T00:00:00Z",
-    end_time: str = "2024-10-31T23:59:59Z",
     limit: int = 5,
+    content_type: Literal["ocr", "audio", "all"] = "all",
+    search_substring: str = "",
+    start_time: Optional[str] = None,
+    end_time: Optional[str] = None,
     app_name: Optional[str] = None,
 ) -> dict:
-    """Searches captured data stored in ScreenPipe's local database based on filters such as content type and timestamps.
+    """Searches captured data stored in ScreenPipe's local database.
 
     Args:
-        search_substring: The search term. Defaults to "".
+        search_substring: Optional search term to filter results. Defaults to "".
         content_type: The type of content to search. Must be one of "ocr", "audio", or "all". Defaults to "all".
-        start_time: The start timestamp for the search range. Defaults to "2024-10-01T00:00:00Z".
-        end_time: The end timestamp for the search range. Defaults to "2024-10-31T23:59:59Z".
-        limit: The maximum number of results to return. Defaults to 5. Should be between 1 and 100.
-        app_name: The name of the app to search in. Defaults to None.
+        start_time: Start timestamp for search range (ISO format, e.g., 2024-03-20T00:00:00Z). Defaults to None.
+        end_time: End timestamp for search range (ISO format, e.g., 2024-03-20T23:59:59Z). Defaults to None.
+        limit: The maximum number of results to return (1-100). Defaults to 5.
+        app_name: Optional app name to filter results. Defaults to None.
 
     Returns:
-        dict: A dictionary containing an error message or the search results.
+        dict: A dictionary containing the search results or an error message.
     """
     return {}
-
 
 class PipeSearch:
     """Search-related functionality for the Pipe class"""

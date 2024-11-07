@@ -188,11 +188,11 @@ class SearchParameters(BaseModel):
     )
 
 def screenpipe_search(
-    search_substring: str = "",
+    limit: int = 5,
     content_type: Literal["ocr", "audio", "all"] = "all",
+    search_substring: str = "",
     start_time: Optional[str] = None,
     end_time: Optional[str] = None,
-    limit: int = 5,
     app_name: Optional[str] = None,
 ) -> dict:
     """Searches captured data stored in ScreenPipe's local database.
