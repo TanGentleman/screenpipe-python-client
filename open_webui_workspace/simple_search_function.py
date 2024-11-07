@@ -28,7 +28,9 @@ from pydantic import BaseModel, Field, ValidationError
 
 ### 2. CONFIGURATION CONSTANTS ###
 # NOTE: Sensitive - Sanitize before sharing
-SENSITIVE_KEY = "api-key"
+SENSITIVE_KEY = os.getenv('LITELLM_API_KEY', '')
+if not SENSITIVE_KEY:
+    raise ValueError("LITELLM_API_KEY environment variable is not set!")
 REPLACEMENT_TUPLES = [
     # ("LASTNAME", ""),
     # ("FIRSTNAME", "NICKNAME")
@@ -147,19 +149,21 @@ EXAMPLE_SEARCH_JSON = """\
 {
     "limit": 2,
     "content_type": "audio",
+    "start_time": null,
+    "end_time": null
 }
 {
     "limit": 1,
     "content_type": "all",
-    "start_time": "2024-10-01T00:00:00Z",
-    "end_time": "2024-11-01T23:59:59Z",
+    "start_time": "2024-03-20T00:00:00Z",
+    "end_time": "2024-03-20T23:59:59Z"
 }"""
 
 
 class SearchParameters(BaseModel):
     """Search parameters for the Screenpipe Pipeline"""
     limit: Annotated[int, Field(ge=1, le=100)] = Field(
-        default=10,
+        default=5,
         description="The maximum number of results to return (1-100)"
     )
     content_type: Literal["ocr", "audio", "all"] = Field(
@@ -171,39 +175,38 @@ class SearchParameters(BaseModel):
         description="Optional search term to filter results"
     )
     start_time: Optional[str] = Field(
-        default="2024-10-01T00:00:00Z",
-        description="Start timestamp for search range (ISO format)"
+        default=None,
+        description="Start timestamp for search range (ISO format, e.g., 2024-03-20T00:00:00Z)"
     )
     end_time: Optional[str] = Field(
-        default="2024-10-31T23:59:59Z",
-        description="End timestamp for search range (ISO format)"
+        default=None,
+        description="End timestamp for search range (ISO format, e.g., 2024-03-20T23:59:59Z)"
     )
     app_name: Optional[str] = Field(
         default=None,
         description="Optional app name to filter results"
     )
 
-
 def screenpipe_search(
     search_substring: str = "",
     content_type: Literal["ocr", "audio", "all"] = "all",
-    start_time: str = "2024-10-01T00:00:00Z",
-    end_time: str = "2024-10-31T23:59:59Z",
+    start_time: Optional[str] = None,
+    end_time: Optional[str] = None,
     limit: int = 5,
     app_name: Optional[str] = None,
 ) -> dict:
-    """Searches captured data stored in ScreenPipe's local database based on filters such as content type and timestamps.
+    """Searches captured data stored in ScreenPipe's local database.
 
     Args:
-        search_substring: The search term. Defaults to "".
+        search_substring: Optional search term to filter results. Defaults to "".
         content_type: The type of content to search. Must be one of "ocr", "audio", or "all". Defaults to "all".
-        start_time: The start timestamp for the search range. Defaults to "2024-10-01T00:00:00Z".
-        end_time: The end timestamp for the search range. Defaults to "2024-10-31T23:59:59Z".
-        limit: The maximum number of results to return. Defaults to 5. Should be between 1 and 100.
-        app_name: The name of the app to search in. Defaults to None.
+        start_time: Start timestamp for search range (ISO format, e.g., 2024-03-20T00:00:00Z). Defaults to None.
+        end_time: End timestamp for search range (ISO format, e.g., 2024-03-20T23:59:59Z). Defaults to None.
+        limit: The maximum number of results to return (1-100). Defaults to 5.
+        app_name: Optional app name to filter results. Defaults to None.
 
     Returns:
-        dict: A dictionary containing an error message or the search results.
+        dict: A dictionary containing the search results or an error message.
     """
     return {}
 
@@ -250,14 +253,19 @@ class PipeSearch:
 
     def _process_search_params(self, params: dict) -> dict:
         """Process and validate search parameters"""
+        # Extract and process search substring
         query = params.pop('search_substring', '')
         if query:
             params['q'] = query.strip() or None
+
+        # Remove None values and process remaining parameters
         processed = {k: v for k, v in params.items() if v is not None}
 
+        # Validate limit
         if 'limit' in processed:
             processed['limit'] = min(int(processed['limit']), 40)
 
+        # Capitalize app name if present
         if 'app_name' in processed and processed['app_name']:
             processed['app_name'] = processed['app_name'].capitalize()
 
