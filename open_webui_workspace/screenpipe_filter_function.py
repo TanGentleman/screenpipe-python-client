@@ -3,7 +3,7 @@ title: Screenpipe Filter
 author: TanGentleman
 author_url: https://github.com/TanGentleman
 funding_url: https://github.com/TanGentleman
-version: 0.3
+version: 0.4
 """
 
 ### 1. IMPORTS ###
@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 # Local imports
 from utils.configuration import PipelineConfig
 from utils.constants import EXAMPLE_SEARCH_JSON, JSON_SYSTEM_MESSAGE, TOOL_SYSTEM_MESSAGE
-from utils.pipeline_utils import screenpipe_search, SearchParameters, PipeSearch, PipeUtils
+from utils.pipeline_utils import screenpipe_search, SearchParameters, PipeSearch, FilterUtils
 
 class FilterBase:
     """Base class for Filter functionality"""
@@ -113,7 +113,7 @@ class Filter(FilterBase):
 
     def _get_system_message(self) -> str:
         """Get appropriate system message based on configuration"""
-        current_time = PipeUtils.get_current_time()
+        current_time = FilterUtils.get_current_time()
         if self.native_tool_calling:
             return TOOL_SYSTEM_MESSAGE.format(current_time=current_time)
         return JSON_SYSTEM_MESSAGE.format(
@@ -133,7 +133,7 @@ class Filter(FilterBase):
 
         if not tool_calls:
             response_text = response.choices[0].message.content
-            parsed_response = PipeUtils.catch_malformed_tool(response_text)
+            parsed_response = FilterUtils.catch_malformed_tool(response_text)
             if isinstance(parsed_response, str):
                 return parsed_response
             parsed_tool_call = parsed_response
@@ -176,7 +176,7 @@ class Filter(FilterBase):
                 response_format=self._get_json_response_format(),
             )
             response_text = response.choices[0].message.content
-            parsed_search_schema = PipeUtils.parse_schema_from_response(
+            parsed_search_schema = FilterUtils.parse_schema_from_response(
                 response_text, SearchParameters)
             if isinstance(parsed_search_schema, str):
                 return response_text
@@ -227,12 +227,8 @@ class Filter(FilterBase):
         try:
             # Initialize settings and prepare messages
             self.initialize_settings()
-            body["get_response"] = self.get_response
-            body["response_model"] = self.response_model
-            body["client"] = self.client
-
             system_message = self._get_system_message()
-            messages = PipeUtils._prepare_initial_messages(original_messages, system_message)
+            messages = FilterUtils._prepare_initial_messages(original_messages, system_message)
             # Get search results
             results = (self._tool_response_as_results_or_str(messages)
                        if self.native_tool_calling
@@ -247,7 +243,7 @@ class Filter(FilterBase):
             body["search_params"] = self.search_params
 
             # Sanitize and store results
-            sanitized_results = PipeUtils.sanitize_results(
+            sanitized_results = FilterUtils.sanitize_results(
                 results, self.replacement_tuples)
             body["search_results"] = sanitized_results
 
