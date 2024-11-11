@@ -1,27 +1,23 @@
 # Search for the most recent OCR chunk
 from typing import Optional
-from utils.screenpipe import search
-from utils.sp_utils import get_past_time
+from utils.screenpipe import ScreenpipeClient
 from utils.outputs import OCR
 
 
 def get_most_recent_ocr_chunk(
-        hours_ago: int = 1,
         save_frame: bool = True,
         image_output_path: str = "last_ocr_chunk.png"):
     """
     Fetches the most recent OCR chunk from the screenpipe server. By default, saves the image.
 
     Args:
-    - days_ago (int): The earliest timestamp to search for OCR chunks. Defaults to 1 day ago.
     - save_frame (bool): If True, the frame will be saved to the specified path. Defaults to True.
     - image_output_path (str): The output path for the frame image. Defaults to "last_ocr_chunk.png".
     """
-    results = search(
+    client = ScreenpipeClient()
+    results = client.search(
         content_type="ocr",
         limit=1,
-        start_time=get_past_time(
-            hours=hours_ago),
         include_frames=True)
     if results and results["data"]:
         ocr_chunk = OCR(**results["data"][0]["content"])
@@ -54,7 +50,8 @@ def get_latest_ocr_chunks(
     Returns:
     - List[OCR]: A list of OCR chunks, truncated at the first duplicate app name and window name if include_dupe is False.
     """
-    results = search(
+    client = ScreenpipeClient()
+    results = client.search(
         content_type="ocr",
         limit=limit,
         min_length=min_length,
