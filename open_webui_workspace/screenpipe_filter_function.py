@@ -45,12 +45,6 @@ class FilterBase:
         SCREENPIPE_SERVER_URL: str = Field(
             default="", description="URL for the ScreenPipe server"
         )
-        GET_RESPONSE: bool = Field(
-            default=False, description="Whether to get a response from the pipe"
-        )
-        RESPONSE_MODEL: str = Field(
-            default="", description="Model to use for response"
-        )
 
     def __init__(self):
         self.name = "screenpipe_pipeline"
@@ -70,8 +64,6 @@ class FilterBase:
                 "TOOL_MODEL": self.config.tool_model,
                 "NATIVE_TOOL_CALLING": self.config.native_tool_calling,
                 "SCREENPIPE_SERVER_URL": self.config.screenpipe_server_url,
-                "GET_RESPONSE": self.config.get_response,
-                "RESPONSE_MODEL": self.config.response_model
             }
         )
 
@@ -95,7 +87,6 @@ class Filter(FilterBase):
             base_url=base_url,
             api_key=api_key
         )
-        self.get_response = self.valves.GET_RESPONSE
 
     def _initialize_searcher(self):
         """Initialize PipeSearch instance"""
@@ -108,7 +99,6 @@ class Filter(FilterBase):
         """Initialize model settings"""
         self.tool_model = self.valves.TOOL_MODEL or self.config.tool_model
         self.json_model = self.valves.JSON_MODEL or self.config.json_model
-        self.response_model = self.valves.RESPONSE_MODEL or self.config.response_model
         self.native_tool_calling = self.valves.NATIVE_TOOL_CALLING
 
     def _get_system_message(self) -> str:
