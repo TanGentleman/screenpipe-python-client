@@ -10,8 +10,8 @@ from typing import Union, Generator, Iterator, List
 import logging
 from openai import OpenAI
 from pydantic import BaseModel, Field
-from utils.configuration import PipelineConfig
-from utils.constants import ALT_FINAL_RESPONSE_SYSTEM_MESSAGE
+from owui_utils.configuration import PipelineConfig
+from owui_utils.constants import ALT_FINAL_RESPONSE_SYSTEM_MESSAGE
 class ResponseUtils:
     """Utility methods for the Pipe class"""
     # TODO Add other response related methods here

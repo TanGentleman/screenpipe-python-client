@@ -18,9 +18,9 @@ from openai import OpenAI
 from pydantic import BaseModel, Field
 
 # Local imports
-from utils.configuration import PipelineConfig
-from utils.constants import EXAMPLE_SEARCH_JSON, JSON_SYSTEM_MESSAGE, TOOL_SYSTEM_MESSAGE
-from utils.pipeline_utils import screenpipe_search, SearchParameters, PipeSearch, FilterUtils
+from utils.owui_utils.configuration import PipelineConfig
+from utils.owui_utils.constants import EXAMPLE_SEARCH_JSON, JSON_SYSTEM_MESSAGE, TOOL_SYSTEM_MESSAGE
+from utils.owui_utils.pipeline_utils import screenpipe_search, SearchParameters, PipeSearch, FilterUtils
 
 class FilterBase:
     """Base class for Filter functionality"""
