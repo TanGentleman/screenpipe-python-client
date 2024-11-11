@@ -1,5 +1,5 @@
 from typing import List, Optional
-from utils.sp_utils import format_timestamp
+from utils.time_utils import format_timestamp
 expected_output = {
     "data": [
         {

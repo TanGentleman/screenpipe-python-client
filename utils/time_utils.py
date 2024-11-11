@@ -3,41 +3,6 @@ from typing import Optional, Union
 
 PREFER_24_HOUR_FORMAT = False
 
-
-def reformat_user_message(user_message: str, sanitized_results: str) -> str:
-    """
-    Reformats the user message by adding context and rules from ScreenPipe search results.
-
-    Args:
-        user_message (str): The original user message.
-
-    Returns:
-        str: A reformatted user message with added context and rules.
-    """
-    assert isinstance(
-        sanitized_results, str), "Sanitized results must be a string"
-    query = user_message
-    context = sanitized_results
-
-    reformatted_message = f"""You are given a user query, context from personal screen and microphone data, and rules, all inside xml tags. Answer the query based on the context while respecting the rules.
-<context>
-{context}
-</context>
-
-<rules>
-- If the context is not relevant to the user query, just say so.
-- If you are not sure, ask for clarification.
-- If the answer is not in the context but you think you know the answer, explain that to the user then answer with your own knowledge.
-- Answer directly and without using xml tags.
-</rules>
-
-<user_query>
-{query}
-</user_query>
-"""
-    return reformatted_message
-
-
 def format_timestamp(
         timestamp: str,
         offset_hours: Optional[float] = None) -> str:
@@ -73,15 +38,6 @@ def format_timestamp(
         dt = dt + timedelta(hours=offset_hours)
 
     return dt.strftime("%m/%d/%y %H:%M")
-
-
-def get_current_time() -> str:
-    """Get the current timestamp in UTC timezone.
-
-    Returns the current timestamp in the format YYYY-MM-DDTHH:MM:SSZ.
-    """
-    return datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
-
 
 def get_past_time(
         days: int = 0,
