@@ -116,9 +116,11 @@ class PipeSearch:
 
         return processed
     
-class PipeUtils:
-    """Utility methods for the Pipe class"""
-    # TODO Add other response related methods here
+class FilterUtils:
+    """Utility methods for the Filter class"""
+    @staticmethod
+    def get_current_time() -> str:
+        return datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
 
     @staticmethod
     def remove_names(
@@ -157,13 +159,13 @@ class PipeUtils:
             sanitized = []
             for result in results["data"]:
                 sanitized_result = {
-                    "timestamp": PipeUtils.format_timestamp(
+                    "timestamp": FilterUtils.format_timestamp(
                         result["content"]["timestamp"]),
                     "type": result["type"]}
 
                 if result["type"] == "OCR":
                     sanitized_result.update({
-                        "content": PipeUtils.remove_names(result["content"]["text"], replacement_tuples),
+                        "content": FilterUtils.remove_names(result["content"]["text"], replacement_tuples),
                         "app_name": result["content"]["app_name"],
                         "window_name": result["content"]["window_name"]
                     })
@@ -240,63 +242,6 @@ class PipeUtils:
             print(f"Error parsing tool response: {e}")
             # NOTE: Maybe this should be {"error": "Failed to process function call"}
             return "Failed to process function call"
-
-    @staticmethod
-    def form_final_user_message(
-            user_message: str,
-            sanitized_results: str) -> str:
-        """
-        Reformats the user message by adding context and rules from ScreenPipe search results.
-        """
-        assert isinstance(
-            sanitized_results, str), "Sanitized results must be a string"
-        assert isinstance(user_message, str), "User message must be a string"
-        query = user_message
-        context = sanitized_results
-
-        reformatted_message = f"""You are given a user query, context from personal screen and microphone data, and rules, all inside xml tags. Answer the query based on the context while respecting the rules.
-<context>
-{context}
-</context>
-
-<rules>
-- If the context is not relevant to the user query, just say so.
-- If you are not sure, ask for clarification.
-- If the answer is not in the context but you think you know the answer, explain that to the user then answer with your own knowledge.
-- Answer directly and without using xml tags.
-</rules>
-
-<user_query>
-{query}
-</user_query>
-"""
-        return reformatted_message
-
-    @staticmethod
-    def get_current_time() -> str:
-        return datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
-
-    @staticmethod
-    def get_messages_with_screenpipe_data(
-            messages: List[dict],
-            results_as_string: str) -> List[dict]:
-        """
-        Combines the last user message with sanitized ScreenPipe search results.
-        """
-        SYSTEM_MESSAGE = "You are a helpful assistant that parses screenpipe search results. Use the search results to answer the user's question as best as possible. If unclear, synthesize the context and provide an explanation."
-        if messages[-1]["role"] != "user":
-            raise ValueError("Last message must be from the user!")
-        if len(messages) > 2:
-            print("Warning! This LLM call does not use past chat history!")
-        
-        assert isinstance(messages[-1]["content"], str), "User message must be a string"
-        new_user_message = PipeUtils.form_final_user_message(
-            messages[-1]["content"], results_as_string)
-        new_messages = [
-            {"role": "system", "content": SYSTEM_MESSAGE},
-            {"role": "user", "content": new_user_message}
-        ]
-        return new_messages
     
     @staticmethod
     def _prepare_initial_messages(messages, system_message: str) -> List[dict]:

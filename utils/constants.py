@@ -16,6 +16,9 @@ Example search JSON objects:
 ONLY Output the search JSON object, nothing else.
 """
 
+FINAL_RESPONSE_SYSTEM_MESSAGE = """You are a helpful assistant that parses screenpipe search results. Use the search results to answer the user's question as best as possible. If unclear, synthesize the context and provide an explanation."""
+ALT_FINAL_RESPONSE_SYSTEM_MESSAGE = """You analyze all types of data from screen recordings and audio transcriptions. The user's query is designed to filter the search results. Provide comprehensive insights of the provided data."""
+
 EXAMPLE_SEARCH_JSON = """\
 {
     "limit": 2,

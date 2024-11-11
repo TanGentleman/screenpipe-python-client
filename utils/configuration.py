@@ -23,7 +23,8 @@ DEFAULT_NATIVE_TOOL_CALLING = False
 
 # Model Configuration
 DEFAULT_TOOL_MODEL = "Llama-3.1-70B"
-DEFAULT_JSON_MODEL = "lmstudio-Llama-3.2-3B-4bit-MLX"
+DEFAULT_JSON_MODEL = "sambanova-llama-8b"
+DEFAULT_RESPONSE_MODEL = "sambanova-llama-8b"
 
 # NOTE: Model name must be valid for the endpoint:
 # {DEFAULT_LLM_API_BASE_URL}/v1/chat/completions
@@ -87,7 +88,7 @@ class PipelineConfig:
                 'JSON_MODEL', DEFAULT_JSON_MODEL),
             native_tool_calling=get_bool_env('NATIVE_TOOL_CALLING', DEFAULT_NATIVE_TOOL_CALLING),
             get_response=get_bool_env('GET_RESPONSE', GET_RESPONSE),
-            response_model=os.getenv('RESPONSE_MODEL', ""),
+            response_model=os.getenv('RESPONSE_MODEL', DEFAULT_RESPONSE_MODEL),
             
             # Pipeline Settings
             prefer_24_hour_format=get_bool_env(
