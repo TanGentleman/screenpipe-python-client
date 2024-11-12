@@ -67,7 +67,7 @@ class Pipe():
         """Valve settings for the Pipe"""
         GET_RESPONSE: bool = Field(
             default=False, description="Whether to get a response from the pipe"
-        )
+        ) # NOTE: Default of False takes precedence over config default for get_response
         RESPONSE_MODEL: str = Field(
             default="", description="Model to use for response"
         )
@@ -89,6 +89,7 @@ class Pipe():
                 "RESPONSE_MODEL": self.config.response_model
             }
         )
+        
     def _initialize_client(self):
         """Initialize OpenAI client"""
         base_url = self.valves.LLM_API_BASE_URL or self.config.llm_api_base_url
@@ -121,7 +122,9 @@ class Pipe():
 
     def pipe(self, body: dict) -> Union[str, Generator, Iterator]:
         """Main pipeline processing method"""
-        self._initialize_client()
+        if self.valves.GET_RESPONSE:
+            self._initialize_client()
+            assert self.get_response is True
         stream = body["stream"]
         messages = body["messages"]
         try:
