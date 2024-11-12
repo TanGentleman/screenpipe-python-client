@@ -125,6 +125,8 @@ class Pipe():
         if self.valves.GET_RESPONSE:
             self._initialize_client()
             assert self.get_response is True
+        else:
+            self.get_response = False
         stream = body["stream"]
         messages = body["messages"]
         try:
@@ -135,7 +137,6 @@ class Pipe():
             assert search_results
             search_results_as_string = str(search_results)
 
-            # if body.get("get_response"):
             if self.get_response:
                 messages_with_data = ResponseUtils.get_messages_with_screenpipe_data(
                     messages,
