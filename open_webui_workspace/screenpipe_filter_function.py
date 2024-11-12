@@ -22,6 +22,13 @@ from utils.owui_utils.configuration import PipelineConfig
 from utils.owui_utils.constants import EXAMPLE_SEARCH_JSON, JSON_SYSTEM_MESSAGE, TOOL_SYSTEM_MESSAGE
 from utils.owui_utils.pipeline_utils import screenpipe_search, SearchParameters, PipeSearch, FilterUtils
 
+try:
+    from utils.baml_utils import construct_search_params
+    ENABLE_BAML = True
+except ImportError:
+    ENABLE_BAML = False
+    construct_search_params = None
+
 class FilterBase:
     """Base class for Filter functionality"""
 
@@ -140,25 +147,44 @@ class Filter(FilterBase):
         return results
 
     def _get_json_response_format(self) -> dict:
-        json_schema = self.json_schema
         lm_studio_condition = self.json_model.startswith("lmstudio")
         if lm_studio_condition:
+            assert self.json_schema is not None
             return {
                 "type": "json_schema",
                 "json_schema": {
                     "strict": True,
-                    "schema": json_schema
+                    "schema": self.json_schema
                 }
             }
         # Note: Ollama + OpenAI compatible
         return {"type": "json_object"}
+
+    def _get_search_results_from_params(self, search_params: dict) -> dict | str:
+        """Execute search using provided parameters and return results.
+        
+        Args:
+            search_params: Dictionary containing search parameters like limit, content_type, etc.
+            
+        Returns:
+            dict: Search results if successful
+            str: Error message if search fails or no results found
+        """
+        # NOTE: validate search_params here
+        print("Constructed search params:", search_params)
+        self.search_params = search_params
+        search_results = self.searcher.search(**search_params)
+        if not search_results:
+            return "No results found"
+        if "error" in search_results:
+            return search_results["error"]
+        return search_results
 
     def _json_response_as_results_or_str(
             self, messages: list) -> str | dict:
         # Replace system message
         assert messages[0]["role"] == "system", "There should be a system message here!"
         # NOTE: Response format varies by provider
-        print("Using json model:", self.json_model)
         try:
             response = self.client.chat.completions.create(
                 model=self.json_model,
@@ -170,16 +196,8 @@ class Filter(FilterBase):
                 response_text, SearchParameters)
             if isinstance(parsed_search_schema, str):
                 return response_text
-
-            function_args = parsed_search_schema
-            self.search_params = function_args
-            print("Constructed search params:", function_args)
-            search_results = self.searcher.search(**function_args)
-            if not search_results:
-                return "No results found"
-            if "error" in search_results:
-                return search_results["error"]
-            return search_results
+            search_params = parsed_search_schema
+            return self._get_search_results_from_params(search_params)
         except Exception:
             return "Failed json mode api call."
 
@@ -197,15 +215,26 @@ class Filter(FilterBase):
         for tool_call in tool_calls:
             if tool_call['function']['name'] == 'screenpipe_search':
                 function_args = json.loads(tool_call['function']['arguments'])
-                self.search_params = function_args
-                print("Constructed search params:", function_args)
-                search_results = self.searcher.search(**function_args)
-                if not search_results:
-                    return "No results found"
-                if "error" in search_results:
-                    return search_results["error"]
-                return search_results
+                search_params = function_args
+                return self._get_search_results_from_params(search_params)
         raise ValueError("No valid tool call found")
+
+    def _get_search_results(self, messages: list[dict]) -> dict:
+        if ENABLE_BAML:
+            raw_query = messages[-1]["content"]
+            current_iso_timestamp = FilterUtils.get_current_time()
+            results =  construct_search_params(raw_query, current_iso_timestamp)
+            if isinstance(results, str):
+                return results
+            search_params = results.model_dump()
+            return self._get_search_results_from_params(search_params)
+
+        system_message = self._get_system_message()
+        messages = FilterUtils._prepare_initial_messages(messages, system_message)
+        if self.native_tool_calling:
+            return self._tool_response_as_results_or_str(messages)
+        else:
+            return self._json_response_as_results_or_str(messages)
 
     def inlet(self, body: dict, __user__: Optional[dict] = None) -> dict:
         """Process incoming messages, performing search and sanitizing results."""
@@ -217,12 +246,10 @@ class Filter(FilterBase):
         try:
             # Initialize settings and prepare messages
             self.initialize_settings()
-            system_message = self._get_system_message()
-            messages = FilterUtils._prepare_initial_messages(original_messages, system_message)
-            # Get search results
-            results = (self._tool_response_as_results_or_str(messages)
-                       if self.native_tool_calling
-                       else self._json_response_as_results_or_str(messages))
+            results = self._get_search_results(original_messages)
+            if not results:
+                body["inlet_error"] = "No results found"
+                return body
             # Handle error case
             if isinstance(results, str):
                 body["inlet_error"] = results
