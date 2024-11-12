@@ -299,9 +299,28 @@ class FilterUtils:
 
     @staticmethod
     def remove_names(
-            content: str, replacement_tuples: List[Tuple[str, str]] = []) -> str:
+            content: str, replacement_tuples: List[Tuple[str, str]] = []) -> str | None:
+        """
+        Remove sensitive names from the content and filter out short "Thank You" messages.
+
+        Args:
+            content (str): The input text content to process.
+            replacement_tuples (List[Tuple[str, str]], optional): List of tuples containing
+                sensitive words and their replacements. Defaults to an empty list.
+
+        Returns:
+            str | None: The processed content with names removed, or None if the content
+            is a short "Thank You" message.
+
+        Note:
+            This function also removes short "Thank You" chunks.
+        """
         for sensitive_word, replacement in replacement_tuples:
             content = content.replace(sensitive_word, replacement)
+        
+        # Remove "Thank You" chunks
+        if len(content) < 20 and "thank you" in content.lower():
+            return None
         return content
 
     @staticmethod
@@ -344,6 +363,10 @@ class FilterUtils:
                         "app_name": result["content"]["app_name"],
                         "window_name": result["content"]["window_name"]
                     })
+                    if sanitized_result["content"] is None:
+                        # Skip rejected chunks
+                        continue
+
                 elif result["type"] == "Audio":
                     sanitized_result.update({
                         "content": result["content"]["transcription"],
