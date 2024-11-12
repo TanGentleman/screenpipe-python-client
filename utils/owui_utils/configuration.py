@@ -2,14 +2,18 @@ import os
 from dataclasses import dataclass
 from typing import List, Tuple
 
-SENSITIVE_KEY = os.getenv('LITELLM_API_KEY', '')
+# NOTE: Base URL and API key can be set in the environment variables file
+# Alternatively, they can be set as Valves in the UI
+
+SENSITIVE_KEY = os.getenv('LLM_API_KEY', '')
 if not SENSITIVE_KEY:
-    raise ValueError("LITELLM_API_KEY environment variable is not set!")
+    print("WARNING: LLM_API_KEY environment variable is not set!")
+    # raise ValueError("LLM_API_KEY environment variable is not set!")
 REPLACEMENT_TUPLES = [
     # ("LASTNAME", ""),
     # ("FIRSTNAME", "NICKNAME")
 ]
-GET_RESPONSE = False
+
 # URL and Port Configuration
 IS_DOCKER = True
 DEFAULT_SCREENPIPE_PORT = 3030
@@ -19,6 +23,8 @@ URL_BASE = "http://localhost" if not IS_DOCKER else "http://host.docker.internal
 DEFAULT_LLM_API_BASE_URL = f"{URL_BASE}:4000/v1"
 DEFAULT_LLM_API_KEY = SENSITIVE_KEY
 DEFAULT_NATIVE_TOOL_CALLING = False
+GET_RESPONSE = False
+
 # NOTE: If NATIVE_TOOL_CALLING is True, tool model is used instead of the json model
 
 # Model Configuration
