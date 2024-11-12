@@ -6,31 +6,41 @@ load_dotenv()
 import os
 
 SAMBANOVA_MODEL = "sambanova-llama-8b"
+LLAMA_MODEL = "Llama-3.1-70B"
 LOCAL_QWEN_MODEL = "qwen2.5-3b"
 LLM_API_KEY = os.getenv("LLM_API_KEY")
 if LLM_API_KEY is None:
     raise ValueError("LLM_API_KEY not set")
 
-CUSTOM_VALVES = {
+CUSTOM_FILTER_VALVES = {
     "LLM_API_BASE_URL": "http://localhost:4000/v1",
     "LLM_API_KEY": LLM_API_KEY,
     "JSON_MODEL": SAMBANOVA_MODEL,
-    "GET_RESPONSE": True,
-    "RESPONSE_MODEL": SAMBANOVA_MODEL,
     "NATIVE_TOOL_CALLING": False,
-    "TOOL_MODEL": "",
+    "TOOL_MODEL": "gpt-4o-mini",
     "SCREENPIPE_SERVER_URL": "http://localhost:3030",
 }
 
-OLLAMA_VALVES = {
+CUSTOM_PIPE_VALVES = {
+    "LLM_API_BASE_URL": "http://localhost:4000/v1",
+    "LLM_API_KEY": LLM_API_KEY,
+    "RESPONSE_MODEL": SAMBANOVA_MODEL,
+    "GET_RESPONSE": True,
+}
+
+OLLAMA_FILTER_VALVES = {
     "LLM_API_BASE_URL": "http://localhost:11434/v1",
     "LLM_API_KEY": "ollama-key",
     "JSON_MODEL": "qwen2.5:3b",
-    "GET_RESPONSE": True,
-    "RESPONSE_MODEL": "qwen2.5:3b",
     "NATIVE_TOOL_CALLING": False,
-    "TOOL_MODEL": "",
     "SCREENPIPE_SERVER_URL": "http://localhost:3030",
+}
+
+OLLAMA_PIPE_VALVES = {
+    "LLM_API_BASE_URL": "http://localhost:11434/v1",
+    "LLM_API_KEY": "ollama-key",
+    "RESPONSE_MODEL": "qwen2.5:3b",
+    "GET_RESPONSE": False,
 }
 
 DEFAULT_PROMPT = "Search: limit of 2, type all. Task: Analyze the output and provide a summary. Search results may be incomplete."
@@ -39,8 +49,10 @@ def test_filter(prompt: str = DEFAULT_PROMPT, stream: bool = False):
     filter = ScreenFilter()
     pipe = ScreenPipe()
     stream = False
-    filter.valves = filter.Valves(**CUSTOM_VALVES)
+    filter.valves = filter.Valves(**CUSTOM_FILTER_VALVES)
+    pipe.valves = pipe.Valves(**CUSTOM_PIPE_VALVES)
     print("Filter valves:", filter.valves)
+    print("Pipe valves:", pipe.valves)
     body = {"messages": [{"role": "user", "content": prompt}], "stream": stream}
     body = filter.inlet(body)
     print("Filter inlet complete. New user message:")
