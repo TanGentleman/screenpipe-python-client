@@ -20,17 +20,17 @@ DEFAULT_SCREENPIPE_PORT = 3030
 URL_BASE = "http://localhost" if not IS_DOCKER else "http://host.docker.internal"
 
 # LLM Configuration (openai compatible)
-DEFAULT_LLM_API_BASE_URL = f"{URL_BASE}:4000/v1"
-DEFAULT_LLM_API_KEY = SENSITIVE_KEY
+DEFAULT_LLM_API_BASE_URL = f"{URL_BASE}:11434/v1"
+DEFAULT_LLM_API_KEY = SENSITIVE_KEY or "API-KEY-HERE"
 DEFAULT_NATIVE_TOOL_CALLING = False
 GET_RESPONSE = False
 
 # NOTE: If NATIVE_TOOL_CALLING is True, tool model is used instead of the json model
 
 # Model Configuration
-DEFAULT_TOOL_MODEL = "Llama-3.1-70B"
-DEFAULT_JSON_MODEL = "sambanova-llama-8b"
-DEFAULT_RESPONSE_MODEL = "sambanova-llama-8b"
+DEFAULT_TOOL_MODEL = "gpt-4o-mini"
+DEFAULT_JSON_MODEL = "qwen2.5:3b"
+DEFAULT_RESPONSE_MODEL = "qwen2.5:3b"
 
 # NOTE: Model name must be valid for the endpoint:
 # {DEFAULT_LLM_API_BASE_URL}/v1/chat/completions
