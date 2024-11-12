@@ -1,5 +1,5 @@
 """
-title: Screenpipe Filter
+title: Screenpipe Pipe
 author: TanGentleman
 author_url: https://github.com/TanGentleman
 funding_url: https://github.com/TanGentleman
