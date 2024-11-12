@@ -29,6 +29,7 @@ except ImportError:
     ENABLE_BAML = False
     construct_search_params = None
 
+
 class FilterBase:
     """Base class for Filter functionality"""
 
@@ -47,8 +48,8 @@ class FilterBase:
             default="", description="Model to use for tool calls"
         )
         NATIVE_TOOL_CALLING: bool = Field(
-            default=False, description="Works best with gpt-4o-mini, use JSON for other models."
-        )
+            default=False,
+            description="Works best with gpt-4o-mini, use JSON for other models.")
         SCREENPIPE_SERVER_URL: str = Field(
             default="", description="URL for the ScreenPipe server"
         )
@@ -73,6 +74,7 @@ class FilterBase:
                 "SCREENPIPE_SERVER_URL": self.config.screenpipe_server_url,
             }
         )
+
 
 class Filter(FilterBase):
     def safe_log_error(self, message: str, error: Exception) -> None:
@@ -160,12 +162,13 @@ class Filter(FilterBase):
         # Note: Ollama + OpenAI compatible
         return {"type": "json_object"}
 
-    def _get_search_results_from_params(self, search_params: dict) -> dict | str:
+    def _get_search_results_from_params(
+            self, search_params: dict) -> dict | str:
         """Execute search using provided parameters and return results.
-        
+
         Args:
             search_params: Dictionary containing search parameters like limit, content_type, etc.
-            
+
         Returns:
             dict: Search results if successful
             str: Error message if search fails or no results found
@@ -223,14 +226,15 @@ class Filter(FilterBase):
         if ENABLE_BAML:
             raw_query = messages[-1]["content"]
             current_iso_timestamp = FilterUtils.get_current_time()
-            results =  construct_search_params(raw_query, current_iso_timestamp)
+            results = construct_search_params(raw_query, current_iso_timestamp)
             if isinstance(results, str):
                 return results
             search_params = results.model_dump()
             return self._get_search_results_from_params(search_params)
 
         system_message = self._get_system_message()
-        messages = FilterUtils._prepare_initial_messages(messages, system_message)
+        messages = FilterUtils._prepare_initial_messages(
+            messages, system_message)
         if self.native_tool_calling:
             return self._tool_response_as_results_or_str(messages)
         else:
@@ -272,7 +276,8 @@ class Filter(FilterBase):
             # Append search params to user message
             search_params_as_string = json.dumps(self.search_params, indent=2)
             prologue = "Search parameters:"
-            new_content = last_message["content"] + "\n\n" + prologue + "\n" + search_params_as_string
+            new_content = last_message["content"] + "\n\n" + \
+                prologue + "\n" + search_params_as_string
             last_message["content"] = new_content
         except Exception as e:
             self.safe_log_error("Error processing inlet", e)

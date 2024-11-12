@@ -1,9 +1,9 @@
+import os
 from open_webui_workspace.screenpipe_function import Pipe as ScreenPipe
 from open_webui_workspace.screenpipe_filter_function import Filter as ScreenFilter
 from dotenv import load_dotenv
 
 load_dotenv()
-import os
 
 SAMBANOVA_MODEL = "sambanova-llama-8b"
 LLAMA_MODEL = "Llama-3.1-70B"
@@ -45,6 +45,7 @@ OLLAMA_PIPE_VALVES = {
 
 DEFAULT_PROMPT = "Search: limit of 2, type all. Task: Analyze the output and provide a summary. Search results may be incomplete."
 
+
 def test_filter(prompt: str = DEFAULT_PROMPT, stream: bool = False):
     filter = ScreenFilter()
     pipe = ScreenPipe()
@@ -53,7 +54,8 @@ def test_filter(prompt: str = DEFAULT_PROMPT, stream: bool = False):
     pipe.valves = pipe.Valves(**CUSTOM_PIPE_VALVES)
     print("Filter valves:", filter.valves)
     print("Pipe valves:", pipe.valves)
-    body = {"messages": [{"role": "user", "content": prompt}], "stream": stream}
+    body = {"messages": [
+        {"role": "user", "content": prompt}], "stream": stream}
     body = filter.inlet(body)
     print("Filter inlet complete. New user message:")
     print(body["messages"][-1]["content"])
@@ -88,8 +90,10 @@ def test_filter(prompt: str = DEFAULT_PROMPT, stream: bool = False):
     body = filter.outlet(body)
     assert "OUTLET active." in body["messages"][-1]["content"], "Outlet should always append 'OUTLET active.'"
 
+
 def main(prompt: str = DEFAULT_PROMPT, stream: bool = True):
     test_filter(prompt=prompt, stream=stream)
+
 
 if __name__ == "__main__":
     from sys import argv

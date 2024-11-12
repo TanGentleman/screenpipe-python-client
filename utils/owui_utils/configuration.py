@@ -25,7 +25,8 @@ DEFAULT_LLM_API_KEY = SENSITIVE_KEY or "API-KEY-HERE"
 DEFAULT_NATIVE_TOOL_CALLING = False
 GET_RESPONSE = False
 
-# NOTE: If NATIVE_TOOL_CALLING is True, tool model is used instead of the json model
+# NOTE: If NATIVE_TOOL_CALLING is True, tool model is used instead of the
+# json model
 
 # Model Configuration
 DEFAULT_TOOL_MODEL = "gpt-4o-mini"
@@ -38,6 +39,7 @@ DEFAULT_RESPONSE_MODEL = "qwen2.5:3b"
 # Time Configuration
 PREFER_24_HOUR_FORMAT = True
 DEFAULT_UTC_OFFSET = -7  # PDT
+
 
 @dataclass
 class PipelineConfig:
@@ -92,10 +94,11 @@ class PipelineConfig:
             tool_model=os.getenv('TOOL_MODEL', DEFAULT_TOOL_MODEL),
             json_model=os.getenv(
                 'JSON_MODEL', DEFAULT_JSON_MODEL),
-            native_tool_calling=get_bool_env('NATIVE_TOOL_CALLING', DEFAULT_NATIVE_TOOL_CALLING),
+            native_tool_calling=get_bool_env(
+                'NATIVE_TOOL_CALLING', DEFAULT_NATIVE_TOOL_CALLING),
             get_response=get_bool_env('GET_RESPONSE', GET_RESPONSE),
             response_model=os.getenv('RESPONSE_MODEL', DEFAULT_RESPONSE_MODEL),
-            
+
             # Pipeline Settings
             prefer_24_hour_format=get_bool_env(
                 'PREFER_24_HOUR_FORMAT', PREFER_24_HOUR_FORMAT),

@@ -11,7 +11,7 @@ import logging
 from openai import OpenAI
 from pydantic import BaseModel, Field
 
-### from utils.owui_utils.configuration import PipelineConfig
+# from utils.owui_utils.configuration import PipelineConfig
 import os
 from dataclasses import dataclass
 from typing import List, Tuple
@@ -39,7 +39,8 @@ DEFAULT_LLM_API_KEY = SENSITIVE_KEY
 DEFAULT_NATIVE_TOOL_CALLING = False
 GET_RESPONSE = False
 
-# NOTE: If NATIVE_TOOL_CALLING is True, tool model is used instead of the json model
+# NOTE: If NATIVE_TOOL_CALLING is True, tool model is used instead of the
+# json model
 
 # Model Configuration
 DEFAULT_TOOL_MODEL = "Llama-3.1-70B"
@@ -52,6 +53,7 @@ DEFAULT_RESPONSE_MODEL = "sambanova-llama-8b"
 # Time Configuration
 PREFER_24_HOUR_FORMAT = True
 DEFAULT_UTC_OFFSET = -7  # PDT
+
 
 @dataclass
 class PipelineConfig:
@@ -106,10 +108,11 @@ class PipelineConfig:
             tool_model=os.getenv('TOOL_MODEL', DEFAULT_TOOL_MODEL),
             json_model=os.getenv(
                 'JSON_MODEL', DEFAULT_JSON_MODEL),
-            native_tool_calling=get_bool_env('NATIVE_TOOL_CALLING', DEFAULT_NATIVE_TOOL_CALLING),
+            native_tool_calling=get_bool_env(
+                'NATIVE_TOOL_CALLING', DEFAULT_NATIVE_TOOL_CALLING),
             get_response=get_bool_env('GET_RESPONSE', GET_RESPONSE),
             response_model=os.getenv('RESPONSE_MODEL', DEFAULT_RESPONSE_MODEL),
-            
+
             # Pipeline Settings
             prefer_24_hour_format=get_bool_env(
                 'PREFER_24_HOUR_FORMAT', PREFER_24_HOUR_FORMAT),
@@ -126,8 +129,10 @@ class PipelineConfig:
         url_base = "http://localhost" if not self.is_docker else "http://host.docker.internal"
         return f"{url_base}:{self.screenpipe_port}"
 
-### from utils.owui_utils.constants import ALT_FINAL_RESPONSE_SYSTEM_MESSAGE
+
+# from utils.owui_utils.constants import ALT_FINAL_RESPONSE_SYSTEM_MESSAGE
 ALT_FINAL_RESPONSE_SYSTEM_MESSAGE = """You analyze all types of data from screen recordings and audio transcriptions. The user's query is designed to filter the search results. Provide comprehensive insights of the provided data."""
+
 
 class ResponseUtils:
     """Utility methods for the Pipe class"""
@@ -166,8 +171,9 @@ class ResponseUtils:
             raise ValueError("Last message must be from the user!")
         if len(messages) > 2:
             print("Warning! This LLM call does not use past chat history!")
-        
-        assert isinstance(messages[-1]["content"], str), "User message must be a string"
+
+        assert isinstance(messages[-1]["content"],
+                          str), "User message must be a string"
         new_user_message = ResponseUtils.form_final_user_message(
             messages[-1]["content"], results_as_string)
         new_messages = [
@@ -175,14 +181,15 @@ class ResponseUtils:
             {"role": "user", "content": new_user_message}
         ]
         return new_messages
-    
+
+
 class Pipe():
     """Pipe class for screenpipe functionality"""
     class Valves(BaseModel):
         """Valve settings for the Pipe"""
         GET_RESPONSE: bool = Field(
             default=False, description="Whether to get a response from the pipe"
-        ) # NOTE: Default of False takes precedence over config default for get_response
+        )  # NOTE: Default of False takes precedence over config default for get_response
         RESPONSE_MODEL: str = Field(
             default="", description="Model to use for response"
         )
@@ -192,6 +199,7 @@ class Pipe():
         LLM_API_KEY: str = Field(
             default="", description="API key for the OpenAI API"
         )
+
     def __init__(self):
         self.type = "pipe"
         self.name = "screenpipe_pipeline"
@@ -204,7 +212,7 @@ class Pipe():
                 "RESPONSE_MODEL": self.config.response_model
             }
         )
-        
+
     def _initialize_client(self):
         """Initialize OpenAI client"""
         base_url = self.valves.LLM_API_BASE_URL or self.config.llm_api_base_url
@@ -220,8 +228,13 @@ class Pipe():
         """Safely log an error without potentially exposing PII."""
         error_type = type(error).__name__
         logging.error(f"{message}: {error_type}")
-    
-    def _generate_final_response(self, client, response_model: str, messages_with_screenpipe_data: List[dict], stream: bool):
+
+    def _generate_final_response(
+            self,
+            client,
+            response_model: str,
+            messages_with_screenpipe_data: List[dict],
+            stream: bool):
         if stream:
             return client.chat.completions.create(
                 model=response_model,
@@ -247,22 +260,20 @@ class Pipe():
         try:
             if body["inlet_error"]:
                 return body["inlet_error"]
-            
+
             search_results = body.get("search_results", [])
             assert search_results
             search_results_as_string = str(search_results)
 
             if self.get_response:
                 messages_with_data = ResponseUtils.get_messages_with_screenpipe_data(
-                    messages,
-                    search_results_as_string
-                )
-                return self._generate_final_response(self.client, self.response_model, messages_with_data, stream)
-            
+                    messages, search_results_as_string)
+                return self._generate_final_response(
+                    self.client, self.response_model, messages_with_data, stream)
+
             epilogue = ""
             return search_results_as_string + epilogue
         except Exception as e:
             print(str(e))
             self.safe_log_error("Error in pipe", e)
             return "An error occurred in the pipe."
-            

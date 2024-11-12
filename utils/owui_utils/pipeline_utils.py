@@ -6,6 +6,7 @@ import requests
 import json
 from pydantic import ValidationError
 
+
 class SearchParameters(BaseModel):
     """Search parameters for the Screenpipe Pipeline"""
     limit: Annotated[int, Field(ge=1, le=100)] = Field(
@@ -33,6 +34,7 @@ class SearchParameters(BaseModel):
         description="Optional app name to filter results"
     )
 
+
 def screenpipe_search(
     limit: int = 5,
     content_type: Literal["ocr", "audio", "all"] = "all",
@@ -55,6 +57,7 @@ def screenpipe_search(
         dict: A dictionary containing the search results or an error message.
     """
     return {}
+
 
 class PipeSearch:
     """Search-related functionality for the Pipe class"""
@@ -115,7 +118,8 @@ class PipeSearch:
             processed['app_name'] = processed['app_name'].capitalize()
 
         return processed
-    
+
+
 class FilterUtils:
     """Utility methods for the Filter class"""
     @staticmethod
@@ -148,11 +152,12 @@ class FilterUtils:
             return dt.strftime("%m/%d/%y %H:%M")
         except ValueError:
             raise ValueError(f"Invalid timestamp format: {timestamp}")
-    
+
     @staticmethod
     def is_chunk_rejected(content: str) -> bool:
         """Returns True if content is empty or a short 'thank you' message."""
-        return not content or (len(content) < 20 and "thank you" in content.lower())
+        return not content or (
+            len(content) < 20 and "thank you" in content.lower())
 
     @staticmethod
     def sanitize_results(results: dict,
@@ -254,9 +259,10 @@ class FilterUtils:
             return response_text
         except Exception as e:
             print(f"Error parsing tool response: {e}")
-            # NOTE: Maybe this should be {"error": "Failed to process function call"}
+            # NOTE: Maybe this should be {"error": "Failed to process function
+            # call"}
             return "Failed to process function call"
-    
+
     @staticmethod
     def _prepare_initial_messages(messages, system_message: str) -> List[dict]:
         """Prepare initial messages for the pipeline"""

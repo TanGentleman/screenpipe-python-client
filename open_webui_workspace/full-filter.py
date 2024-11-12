@@ -10,6 +10,10 @@ version: 0.1
 
 ### 1. IMPORTS ###
 # Standard library imports
+from pydantic import ValidationError
+import requests
+from datetime import datetime, timezone, timedelta
+from typing import Literal, Optional, Annotated, List, Tuple
 import logging
 import json
 from typing import Optional
@@ -19,7 +23,7 @@ from langchain_core.utils.function_calling import convert_to_openai_tool
 from openai import OpenAI
 from pydantic import BaseModel, Field
 
-### from owui_utils.configuration import PipelineConfig
+# from owui_utils.configuration import PipelineConfig
 import os
 from dataclasses import dataclass
 from typing import List, Tuple
@@ -47,7 +51,8 @@ DEFAULT_LLM_API_KEY = SENSITIVE_KEY
 DEFAULT_NATIVE_TOOL_CALLING = False
 GET_RESPONSE = False
 
-# NOTE: If NATIVE_TOOL_CALLING is True, tool model is used instead of the json model
+# NOTE: If NATIVE_TOOL_CALLING is True, tool model is used instead of the
+# json model
 
 # Model Configuration
 DEFAULT_TOOL_MODEL = "Llama-3.1-70B"
@@ -60,6 +65,7 @@ DEFAULT_RESPONSE_MODEL = "sambanova-llama-8b"
 # Time Configuration
 PREFER_24_HOUR_FORMAT = True
 DEFAULT_UTC_OFFSET = -7  # PDT
+
 
 @dataclass
 class PipelineConfig:
@@ -114,10 +120,11 @@ class PipelineConfig:
             tool_model=os.getenv('TOOL_MODEL', DEFAULT_TOOL_MODEL),
             json_model=os.getenv(
                 'JSON_MODEL', DEFAULT_JSON_MODEL),
-            native_tool_calling=get_bool_env('NATIVE_TOOL_CALLING', DEFAULT_NATIVE_TOOL_CALLING),
+            native_tool_calling=get_bool_env(
+                'NATIVE_TOOL_CALLING', DEFAULT_NATIVE_TOOL_CALLING),
             get_response=get_bool_env('GET_RESPONSE', GET_RESPONSE),
             response_model=os.getenv('RESPONSE_MODEL', DEFAULT_RESPONSE_MODEL),
-            
+
             # Pipeline Settings
             prefer_24_hour_format=get_bool_env(
                 'PREFER_24_HOUR_FORMAT', PREFER_24_HOUR_FORMAT),
@@ -135,7 +142,7 @@ class PipelineConfig:
         return f"{url_base}:{self.screenpipe_port}"
 
 
-### from utils.constants import EXAMPLE_SEARCH_JSON, JSON_SYSTEM_MESSAGE, TOOL_SYSTEM_MESSAGE
+# from utils.constants import EXAMPLE_SEARCH_JSON, JSON_SYSTEM_MESSAGE, TOOL_SYSTEM_MESSAGE
 # System Messages
 TOOL_SYSTEM_MESSAGE = """You are a helpful assistant that can access external functions. When performing searches, consider the current date and time, which is {current_time}. When appropriate, create a short search_substring to narrow down the search results."""
 
@@ -172,14 +179,8 @@ EXAMPLE_SEARCH_JSON = """\
 }"""
 
 
-### from owui_utils.pipeline_utils import screenpipe_search, SearchParameters, PipeSearch, PipeUtils
-from pydantic import BaseModel, Field
-from typing import Literal, Optional, Annotated, List, Tuple
-from datetime import datetime, timezone, timedelta
-import logging
-import requests
-import json
-from pydantic import ValidationError
+# from owui_utils.pipeline_utils import screenpipe_search, SearchParameters, PipeSearch, PipeUtils
+
 
 class SearchParameters(BaseModel):
     """Search parameters for the Screenpipe Pipeline"""
@@ -208,6 +209,7 @@ class SearchParameters(BaseModel):
         description="Optional app name to filter results"
     )
 
+
 def screenpipe_search(
     limit: int = 5,
     content_type: Literal["ocr", "audio", "all"] = "all",
@@ -230,6 +232,7 @@ def screenpipe_search(
         dict: A dictionary containing the search results or an error message.
     """
     return {}
+
 
 class PipeSearch:
     """Search-related functionality for the Pipe class"""
@@ -290,7 +293,8 @@ class PipeSearch:
             processed['app_name'] = processed['app_name'].capitalize()
 
         return processed
-    
+
+
 class FilterUtils:
     """Utility methods for the Filter class"""
     @staticmethod
@@ -326,7 +330,8 @@ class FilterUtils:
     @staticmethod
     def is_chunk_rejected(content: str) -> bool:
         """Returns True if content is empty or a short 'thank you' message."""
-        return not content or (len(content) < 20 and "thank you" in content.lower())
+        return not content or (
+            len(content) < 20 and "thank you" in content.lower())
 
     @staticmethod
     def sanitize_results(results: dict,
@@ -428,9 +433,10 @@ class FilterUtils:
             return response_text
         except Exception as e:
             print(f"Error parsing tool response: {e}")
-            # NOTE: Maybe this should be {"error": "Failed to process function call"}
+            # NOTE: Maybe this should be {"error": "Failed to process function
+            # call"}
             return "Failed to process function call"
-    
+
     @staticmethod
     def _prepare_initial_messages(messages, system_message: str) -> List[dict]:
         """Prepare initial messages for the pipeline"""
@@ -445,12 +451,14 @@ class FilterUtils:
             {"role": "user", "content": messages[-1]["content"]}
         ]
 
+
 try:
     from utils.baml_utils import construct_search_params
     ENABLE_BAML = True
 except ImportError:
     ENABLE_BAML = False
     construct_search_params = None
+
 
 class FilterBase:
     """Base class for Filter functionality"""
@@ -470,8 +478,8 @@ class FilterBase:
             default="", description="Model to use for tool calls"
         )
         NATIVE_TOOL_CALLING: bool = Field(
-            default=False, description="Works best with gpt-4o-mini, use JSON for other models."
-        )
+            default=False,
+            description="Works best with gpt-4o-mini, use JSON for other models.")
         SCREENPIPE_SERVER_URL: str = Field(
             default="", description="URL for the ScreenPipe server"
         )
@@ -496,6 +504,7 @@ class FilterBase:
                 "SCREENPIPE_SERVER_URL": self.config.screenpipe_server_url,
             }
         )
+
 
 class Filter(FilterBase):
     def safe_log_error(self, message: str, error: Exception) -> None:
@@ -583,12 +592,13 @@ class Filter(FilterBase):
         # Note: Ollama + OpenAI compatible
         return {"type": "json_object"}
 
-    def _get_search_results_from_params(self, search_params: dict) -> dict | str:
+    def _get_search_results_from_params(
+            self, search_params: dict) -> dict | str:
         """Execute search using provided parameters and return results.
-        
+
         Args:
             search_params: Dictionary containing search parameters like limit, content_type, etc.
-            
+
         Returns:
             dict: Search results if successful
             str: Error message if search fails or no results found
@@ -646,14 +656,15 @@ class Filter(FilterBase):
         if ENABLE_BAML:
             raw_query = messages[-1]["content"]
             current_iso_timestamp = FilterUtils.get_current_time()
-            results =  construct_search_params(raw_query, current_iso_timestamp)
+            results = construct_search_params(raw_query, current_iso_timestamp)
             if isinstance(results, str):
                 return results
             search_params = results.model_dump()
             return self._get_search_results_from_params(search_params)
 
         system_message = self._get_system_message()
-        messages = FilterUtils._prepare_initial_messages(messages, system_message)
+        messages = FilterUtils._prepare_initial_messages(
+            messages, system_message)
         if self.native_tool_calling:
             return self._tool_response_as_results_or_str(messages)
         else:
@@ -695,7 +706,8 @@ class Filter(FilterBase):
             # Append search params to user message
             search_params_as_string = json.dumps(self.search_params, indent=2)
             prologue = "Search parameters:"
-            new_content = last_message["content"] + "\n\n" + prologue + "\n" + search_params_as_string
+            new_content = last_message["content"] + "\n\n" + \
+                prologue + "\n" + search_params_as_string
             last_message["content"] = new_content
         except Exception as e:
             self.safe_log_error("Error processing inlet", e)
