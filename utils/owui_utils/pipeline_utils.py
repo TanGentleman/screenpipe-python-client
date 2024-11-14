@@ -156,8 +156,11 @@ class FilterUtils:
     @staticmethod
     def is_chunk_rejected(content: str) -> bool:
         """Returns True if content is empty or a short 'thank you' message."""
-        return not content or (
-            len(content) < 20 and "thank you" in content.lower())
+        if not content:
+            return True
+        reject_length = 15
+        is_rejected = len(content) < reject_length and "thank you" in content.lower()
+        return is_rejected
 
     @staticmethod
     def sanitize_results(results: dict,
