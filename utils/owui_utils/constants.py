@@ -1,14 +1,15 @@
 # System Messages
 TOOL_SYSTEM_MESSAGE = """You are a helpful assistant that can access external functions. When performing searches, consider the current date and time, which is {current_time}. When appropriate, create a short search_substring to narrow down the search results."""
 
-JSON_SYSTEM_MESSAGE = """You are a helpful assistant. Create a screenpipe search conforming to the correct JSON schema to search captured data stored in ScreenPipe's local database.
+JSON_SYSTEM_MESSAGE = """You are a helpful assistant. You will parse a user query to construct search parameters to search for chunks (audio, ocr, etc.) in ScreenPipe's local database.
 
-Create a JSON object ONLY for the properties field of the search parameters:
+Use the properties field below to construct the search parameters:
 {schema}
 
-If the time range is not relevant, use None for the start_time and end_time fields. Otherwise, they must be in ISO format matching the current time: {current_time}.
-
-Construct an optimal search filter for the query. When appropriate, create a search_substring to narrow down the search results. Set a limit based on the user's request, or default to 5.
+Ensure the following rules are met:
+    - limit must be between 1 and 100. defaults to 5 if not specified.
+    - content_type must be one of: "ocr", "audio", "all"
+    - time values should be null or in ISO format relative to the current timestamp: {current_time}
 
 Example search JSON objects:
 {examples}

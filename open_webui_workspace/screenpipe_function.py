@@ -62,6 +62,28 @@ class ResponseUtils:
             {"role": "user", "content": new_user_message}
         ]
         return new_messages
+    
+    @staticmethod
+    def format_results_as_string(search_results: List[dict]) -> str:
+        """Formats search results as a string"""
+        response_string = ""
+        for i, result in enumerate(search_results, 1):
+            content = result["content"].strip()
+            result_type = result["type"]
+            metadata = {
+                "device_name": result.get("device_name", ""),
+                "timestamp": result.get("timestamp", "")
+            }
+            result_string = (
+                f"=== CHUNK {i}: {result_type.upper()} CONTENT ===\n"
+                f"{content}\n"
+                f"=== METADATA ===\n"
+                f"Device: {metadata['device_name']}\n"
+                f"Time: {metadata['timestamp']}\n"
+                f"==================\n\n"
+            )
+            response_string += result_string
+        return response_string.strip()
 
 
 class Pipe():
@@ -144,7 +166,7 @@ class Pipe():
 
             search_results = body.get("search_results", [])
             assert search_results
-            search_results_as_string = str(search_results)
+            search_results_as_string = ResponseUtils.format_results_as_string(search_results)
 
             if self.get_response:
                 messages_with_data = ResponseUtils.get_messages_with_screenpipe_data(
