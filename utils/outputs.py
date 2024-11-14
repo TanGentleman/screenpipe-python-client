@@ -1,5 +1,11 @@
 from typing import List, Optional
 from utils.time_utils import format_timestamp
+
+FRAME_DATA_SUPPORTED = False
+if FRAME_DATA_SUPPORTED:
+    import base64
+
+
 expected_output = {
     "data": [
         {
@@ -84,7 +90,8 @@ class OCR:
             window_name: str,
             tags: List[str],
             offset_index: Optional[int] = None,
-            frame: Optional[str] = None):
+            frame: Optional[str] = None,
+            clean_data: bool = True):
         """
         Represents an OCR (Optical Character Recognition) output.
 
@@ -99,29 +106,27 @@ class OCR:
             tags (List[str]): The list of tags associated with the OCR output.
             frame (Optional[str], optional): The frame associated with the OCR output. Defaults to None.
         """
-        self.frame_id = frame_id
         self.text = text
-        self.original_timestamp = timestamp
-        self.file_path = file_path
+        self.timestamp = timestamp
         self.app_name = app_name
         self.window_name = window_name
         self.tags = tags
-        self.frame = frame
-
+        
         self.ignored_fields = {
-            "offset_index": offset_index
+            "frame_id": frame_id,
+            "frame": frame,
+            "offset_index": offset_index,
+            "file_path": file_path
         }
 
-        CLEAN_DATA = True
-        if CLEAN_DATA:
+        if clean_data:
             self._clean_data()
-        else:
-            self.timestamp = self.original_timestamp
 
     def _clean_data(self):
         """
         Cleans the data (converts the timestamp to local time).
         """
+        self.original_timestamp = self.timestamp
         self.timestamp = format_timestamp(self.original_timestamp)
         self.ignored_fields = {}
 
@@ -129,9 +134,13 @@ class OCR:
         """
         Get the frame as a byte array (image data).
         """
-        import base64
         if self.frame:
-            return base64.b64decode(self.frame)
+            try:
+                return base64.b64decode(self.frame)
+            except ImportError:
+                print("Make sure to enable frame support in outputs.py!")
+            except Exception as e:
+                print(f"Error decoding frame: {e}")
         return None
 
     def save_frame(self, output_path: str):
@@ -195,7 +204,7 @@ class Audio:
         """
         self.chunk_id = chunk_id
         self.transcription = transcription
-        self.original_timestamp = timestamp
+        self.timestamp = timestamp
         self.tags = tags
         self.device_name = device_name
         self.device_type = device_type
@@ -208,15 +217,14 @@ class Audio:
         CLEAN_DATA = True
         if CLEAN_DATA:
             self._clean_data()
-        else:
-            self.timestamp = self.original_timestamp
 
     def _clean_data(self):
         """
         Cleans the data (converts the timestamp to local time).
         """
+        self.original_timestamp = self.timestamp
         self.timestamp = format_timestamp(self.original_timestamp)
-        self.ignored_fields = {}
+        del self.ignored_fields
 
     def __repr__(self):
         tags_str = f", tags={self.tags}" if self.tags else ""
