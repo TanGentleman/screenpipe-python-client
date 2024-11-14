@@ -312,20 +312,29 @@ class FilterUtils:
     @staticmethod
     def format_timestamp(
             timestamp: str,
-            offset_hours: Optional[float] = -
-            7) -> str:
-        """Formats UTC timestamp to local time with optional offset (default -7 PDT)"""
+            offset_hours: Optional[float] = None) -> str:
+        """Formats ISO UTC timestamp to UTC time with optional hour offset.
+        Args:
+            timestamp (str): ISO UTC timestamp (YYYY-MM-DDTHH:MM:SS[.ssssss]Z)
+            offset_hours (Optional[float]): Hours offset from UTC. None for UTC.
+        Returns:
+            str: Formatted as "MM/DD/YY HH:MM" (24-hour)
+        Raises:
+            ValueError: If invalid timestamp format
+        """
         if not isinstance(timestamp, str):
             raise ValueError("Timestamp must be a string")
 
         try:
             dt = datetime.strptime(timestamp.split(
                 '.')[0] + 'Z', "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
-            if offset_hours is not None:
-                dt = dt + timedelta(hours=offset_hours)
-            return dt.strftime("%m/%d/%y %H:%M")
         except ValueError:
             raise ValueError(f"Invalid timestamp format: {timestamp}")
+
+        if offset_hours is not None:
+            dt = dt + timedelta(hours=offset_hours)
+
+        return dt.strftime("%m/%d/%y %H:%M")
 
     @staticmethod
     def is_chunk_rejected(content: str) -> bool:

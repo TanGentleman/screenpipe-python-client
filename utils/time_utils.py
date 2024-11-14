@@ -7,7 +7,7 @@ PREFER_24_HOUR_FORMAT = False
 def format_timestamp(
         timestamp: str,
         offset_hours: Optional[float] = None) -> str:
-    """Formats ISO UTC timestamp to local time with optional hour offset.
+    """Formats ISO UTC timestamp to UTC time with optional hour offset.
     Args:
         timestamp (str): ISO UTC timestamp (YYYY-MM-DDTHH:MM:SS[.ssssss]Z)
         offset_hours (Optional[float]): Hours offset from UTC. None for UTC.
