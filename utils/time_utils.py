@@ -1,7 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Union
-
-PREFER_24_HOUR_FORMAT = False
+from typing import Optional
 
 
 def format_timestamp(

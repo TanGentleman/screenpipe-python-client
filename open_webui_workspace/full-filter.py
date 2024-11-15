@@ -54,7 +54,6 @@ DEFAULT_NATIVE_TOOL_CALLING = False
 GET_RESPONSE = False
 
 # Time settings
-PREFER_24_HOUR_FORMAT = True  
 DEFAULT_UTC_OFFSET = -7  # PDT
 
 @dataclass
@@ -74,7 +73,6 @@ class PipelineConfig:
     response_model: str
 
     # Pipeline settings
-    prefer_24_hour_format: bool
     default_utc_offset: int
     replacement_tuples: List[Tuple[str, str]]
 
@@ -97,7 +95,6 @@ class PipelineConfig:
             native_tool_calling=get_bool_env('NATIVE_TOOL_CALLING', DEFAULT_NATIVE_TOOL_CALLING),
             get_response=get_bool_env('GET_RESPONSE', GET_RESPONSE),
             response_model=os.getenv('RESPONSE_MODEL', DEFAULT_RESPONSE_MODEL),
-            prefer_24_hour_format=get_bool_env('PREFER_24_HOUR_FORMAT', PREFER_24_HOUR_FORMAT),
             default_utc_offset=get_int_env('DEFAULT_UTC_OFFSET', DEFAULT_UTC_OFFSET),
             replacement_tuples=REPLACEMENT_TUPLES,
         )
