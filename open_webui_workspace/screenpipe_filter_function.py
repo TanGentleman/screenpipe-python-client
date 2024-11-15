@@ -296,19 +296,30 @@ class Filter:
     def outlet(self, body: dict, __user__: Optional[dict] = None) -> dict:
         """Process outgoing messages, incorporating sanitized results if available."""
         try:
-            messages = body["messages"]
-            last_message = messages[-1]
-            last_user_message = messages[-2]
-            assert last_message["role"] == "assistant" and last_user_message["role"] == "user"
-            if body["user_message_content"] is not None:
-                last_user_message["content"] = body["user_message_content"]
+            # Validate required fields exist
+            messages = body.get("messages", [])
+            if not messages:
+                raise ValueError("Messages are empty in body")
 
-            message = messages[-1]
-            if message.get("role") == "assistant":
-                content = message.get("content", "")
-                message["content"] = content + "\n\nOUTLET active."
-            else:
-                raise ValueError("CRITICAL ERROR: Last message is not an assistant message!")
+            # Safely get last messages
+            if len(messages) >= 2:
+                last_message = messages[-1]
+                last_user_message = messages[-2]
+
+                # Restore original user message if available
+                if last_user_message.get("role") == "user":
+                    user_message_content = body.get("user_message_content")
+                    if user_message_content is not None:
+                        last_user_message["content"] = user_message_content
+
+                # Add outlet marker to assistant message
+                if last_message.get("role") == "assistant":
+                    content = last_message.get("content", "")
+                    if self.search_params:
+                        search_params_as_string = json.dumps(self.search_params, indent=2)
+                        last_message["content"] = content + f"\n\nUsed search params:\n{search_params_as_string}"
+                    else:
+                        last_message["content"] = content + "\n\nOUTLET active."
 
         except Exception as e:
             self.safe_log_error("Error processing outlet", e)
