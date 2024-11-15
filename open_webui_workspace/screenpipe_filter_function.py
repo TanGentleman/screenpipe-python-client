@@ -22,16 +22,23 @@ from utils.owui_utils.configuration import PipelineConfig
 from utils.owui_utils.constants import EXAMPLE_SEARCH_JSON, JSON_SYSTEM_MESSAGE, TOOL_SYSTEM_MESSAGE
 from utils.owui_utils.pipeline_utils import screenpipe_search, SearchParameters, PipeSearch, FilterUtils
 
-try:
-    from utils.baml_utils import construct_search_params
-    ENABLE_BAML = True
-except ImportError:
-    ENABLE_BAML = False
-    construct_search_params = None
 
+# Attempt to import BAML utils if enabled
+use_baml = False
+construct_search_params = None
 
-class FilterBase:
-    """Base class for Filter functionality"""
+if use_baml:
+    try:
+        from utils.baml_utils import construct_search_params
+        logging.info("BAML search parameter construction enabled")
+    except ImportError:
+        use_baml = False
+        pass
+
+ENABLE_BAML = use_baml
+
+class Filter:
+    """Filter class for screenpipe functionality"""
 
     class Valves(BaseModel):
         """Valve settings for the Filter"""
@@ -60,10 +67,6 @@ class FilterBase:
         self.tools = [convert_to_openai_tool(screenpipe_search)]
         self.json_schema = SearchParameters.model_json_schema()
         self.replacement_tuples = self.config.replacement_tuples
-        self.initialize_valves()
-
-    def initialize_valves(self):
-        """Initialize valve settings"""
         self.valves = self.Valves(
             **{
                 "LLM_API_BASE_URL": self.config.llm_api_base_url,
@@ -75,8 +78,6 @@ class FilterBase:
             }
         )
 
-
-class Filter(FilterBase):
     def safe_log_error(self, message: str, error: Exception) -> None:
         """Safely log an error without potentially exposing PII."""
         error_type = type(error).__name__
@@ -188,6 +189,7 @@ class Filter(FilterBase):
         # Replace system message
         assert messages[0]["role"] == "system", "There should be a system message here!"
         # NOTE: Response format varies by provider
+        print("Using json model:", self.json_model)
         try:
             response = self.client.chat.completions.create(
                 model=self.json_model,
@@ -246,7 +248,7 @@ class Filter(FilterBase):
         body["search_params"] = None
         body["search_results"] = None
         body["user_message_content"] = None
-        original_messages = body.get("messages", [])
+        original_messages = body["messages"]
         try:
             # Initialize settings and prepare messages
             self.initialize_settings()
@@ -266,19 +268,25 @@ class Filter(FilterBase):
             # Sanitize and store results
             sanitized_results = FilterUtils.sanitize_results(
                 results, self.replacement_tuples)
+            
+            if not sanitized_results:
+                body["inlet_error"] = "No sanitized results found"
+                return body
+            
             body["search_results"] = sanitized_results
-
             # Store original user message
-            last_message = original_messages[-1]
-            assert last_message["role"] == "user"
-            body["user_message_content"] = last_message["content"]
+            body_last_message = original_messages[-1]
+            # NOTE: This REPLACES the user message in the body dictionary
+            # TODO: Refactor this
+            assert body_last_message["role"] == "user"
+            body["user_message_content"] = body_last_message["content"]
 
             # Append search params to user message
             search_params_as_string = json.dumps(self.search_params, indent=2)
             prologue = "Search parameters:"
-            new_content = last_message["content"] + "\n\n" + \
+            refactored_last_message = body_last_message["content"] + "\n\n" + \
                 prologue + "\n" + search_params_as_string
-            last_message["content"] = new_content
+            body_last_message["content"] = refactored_last_message
         except Exception as e:
             self.safe_log_error("Error processing inlet", e)
             body["inlet_error"] = "Error in Filter inlet!"
@@ -288,13 +296,19 @@ class Filter(FilterBase):
     def outlet(self, body: dict, __user__: Optional[dict] = None) -> dict:
         """Process outgoing messages, incorporating sanitized results if available."""
         try:
-            messages = body.get("messages", [])
+            messages = body["messages"]
+            last_message = messages[-1]
+            last_user_message = messages[-2]
+            assert last_message["role"] == "assistant" and last_user_message["role"] == "user"
+            if body["user_message_content"] is not None:
+                last_user_message["content"] = body["user_message_content"]
+
             message = messages[-1]
             if message.get("role") == "assistant":
                 content = message.get("content", "")
                 message["content"] = content + "\n\nOUTLET active."
             else:
-                print("aaaah!")
+                raise ValueError("CRITICAL ERROR: Last message is not an assistant message!")
 
         except Exception as e:
             self.safe_log_error("Error processing outlet", e)

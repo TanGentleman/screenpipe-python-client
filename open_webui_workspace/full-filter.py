@@ -3,17 +3,14 @@ title: Screenpipe Filter (Full)
 author: TanGentleman
 author_url: https://github.com/TanGentleman
 funding_url: https://github.com/TanGentleman
-version: 0.1
+version: 0.2
 """
 
-# LAST UPDATED: 2024-11-11
+# LAST UPDATED: 2024-11-14
+
 
 ### 1. IMPORTS ###
 # Standard library imports
-from pydantic import ValidationError
-import requests
-from datetime import datetime, timezone, timedelta
-from typing import Literal, Optional, Annotated, List, Tuple
 import logging
 import json
 from typing import Optional
@@ -23,137 +20,108 @@ from langchain_core.utils.function_calling import convert_to_openai_tool
 from openai import OpenAI
 from pydantic import BaseModel, Field
 
-# from owui_utils.configuration import PipelineConfig
+# Local imports
+### PipelineConfig
+### from utils.owui_utils.configuration import PipelineConfig
 import os
 from dataclasses import dataclass
 from typing import List, Tuple
 
-# NOTE: Base URL and API key can be set in the environment variables file
-# Alternatively, they can be set as Valves in the UI
-
+# Environment variables and defaults
 SENSITIVE_KEY = os.getenv('LLM_API_KEY', '')
 if not SENSITIVE_KEY:
     print("WARNING: LLM_API_KEY environment variable is not set!")
-    # raise ValueError("LLM_API_KEY environment variable is not set!")
+
+# Sensitive data replacements
 REPLACEMENT_TUPLES = [
     # ("LASTNAME", ""),
     # ("FIRSTNAME", "NICKNAME")
 ]
 
-# URL and Port Configuration
+
+# Configuration defaults
 IS_DOCKER = True
 DEFAULT_SCREENPIPE_PORT = 3030
-URL_BASE = "http://localhost" if not IS_DOCKER else "http://host.docker.internal"
+URL_BASE = "http://host.docker.internal" if IS_DOCKER else "http://localhost"
+DEFAULT_LLM_API_BASE_URL = f"{URL_BASE}:11434/v1"
+DEFAULT_LLM_API_KEY = SENSITIVE_KEY or "API-KEY-HERE"
 
-# LLM Configuration (openai compatible)
-DEFAULT_LLM_API_BASE_URL = f"{URL_BASE}:4000/v1"
-DEFAULT_LLM_API_KEY = SENSITIVE_KEY
+# Model settings
+DEFAULT_TOOL_MODEL = "gpt-4o-mini"
+DEFAULT_JSON_MODEL = "qwen2.5:3b" 
+DEFAULT_RESPONSE_MODEL = "qwen2.5:3b"
 DEFAULT_NATIVE_TOOL_CALLING = False
 GET_RESPONSE = False
 
-# NOTE: If NATIVE_TOOL_CALLING is True, tool model is used instead of the
-# json model
-
-# Model Configuration
-DEFAULT_TOOL_MODEL = "Llama-3.1-70B"
-DEFAULT_JSON_MODEL = "sambanova-llama-8b"
-DEFAULT_RESPONSE_MODEL = "sambanova-llama-8b"
-
-# NOTE: Model name must be valid for the endpoint:
-# {DEFAULT_LLM_API_BASE_URL}/v1/chat/completions
-
-# Time Configuration
-PREFER_24_HOUR_FORMAT = True
+# Time settings
+PREFER_24_HOUR_FORMAT = True  
 DEFAULT_UTC_OFFSET = -7  # PDT
-
 
 @dataclass
 class PipelineConfig:
     """Configuration management for Screenpipe Pipeline"""
-    # API and Endpoint Configuration
+    # API settings
     llm_api_base_url: str
     llm_api_key: str
     screenpipe_port: int
     is_docker: bool
 
-    # Model Configuration
+    # Model settings  
     tool_model: str
     json_model: str
     native_tool_calling: bool
     get_response: bool
     response_model: str
 
-    # Pipeline Settings
+    # Pipeline settings
     prefer_24_hour_format: bool
     default_utc_offset: int
-
-    # Sensitive Data
     replacement_tuples: List[Tuple[str, str]]
 
     @classmethod
     def from_env(cls) -> 'PipelineConfig':
-        """Create configuration from environment variables with fallbacks.
-
-        Returns:
-            PipelineConfig: Configuration object populated from environment variables,
-            falling back to default values if not set.
-        """
-
+        """Create configuration from environment variables with fallbacks."""
         def get_bool_env(key: str, default: bool) -> bool:
-            """Helper to consistently parse boolean environment variables"""
             return os.getenv(key, str(default)).lower() == 'true'
 
         def get_int_env(key: str, default: int) -> int:
-            """Helper to consistently parse integer environment variables"""
             return int(os.getenv(key, default))
 
         return cls(
-            # API and Endpoint Configuration
-            llm_api_base_url=os.getenv(
-                'LLM_API_BASE_URL', DEFAULT_LLM_API_BASE_URL),
+            llm_api_base_url=os.getenv('LLM_API_BASE_URL', DEFAULT_LLM_API_BASE_URL),
             llm_api_key=os.getenv('LLM_API_KEY', DEFAULT_LLM_API_KEY),
-            screenpipe_port=get_int_env(
-                'SCREENPIPE_PORT', DEFAULT_SCREENPIPE_PORT),
+            screenpipe_port=get_int_env('SCREENPIPE_PORT', DEFAULT_SCREENPIPE_PORT),
             is_docker=get_bool_env('IS_DOCKER', IS_DOCKER),
-
-            # Model Configuration
             tool_model=os.getenv('TOOL_MODEL', DEFAULT_TOOL_MODEL),
-            json_model=os.getenv(
-                'JSON_MODEL', DEFAULT_JSON_MODEL),
-            native_tool_calling=get_bool_env(
-                'NATIVE_TOOL_CALLING', DEFAULT_NATIVE_TOOL_CALLING),
+            json_model=os.getenv('JSON_MODEL', DEFAULT_JSON_MODEL),
+            native_tool_calling=get_bool_env('NATIVE_TOOL_CALLING', DEFAULT_NATIVE_TOOL_CALLING),
             get_response=get_bool_env('GET_RESPONSE', GET_RESPONSE),
             response_model=os.getenv('RESPONSE_MODEL', DEFAULT_RESPONSE_MODEL),
-
-            # Pipeline Settings
-            prefer_24_hour_format=get_bool_env(
-                'PREFER_24_HOUR_FORMAT', PREFER_24_HOUR_FORMAT),
-            default_utc_offset=get_int_env(
-                'DEFAULT_UTC_OFFSET', DEFAULT_UTC_OFFSET),
-
-            # Sensitive Data
+            prefer_24_hour_format=get_bool_env('PREFER_24_HOUR_FORMAT', PREFER_24_HOUR_FORMAT),
+            default_utc_offset=get_int_env('DEFAULT_UTC_OFFSET', DEFAULT_UTC_OFFSET),
             replacement_tuples=REPLACEMENT_TUPLES,
         )
 
     @property
     def screenpipe_server_url(self) -> str:
         """Compute the Screenpipe base URL based on configuration"""
-        url_base = "http://localhost" if not self.is_docker else "http://host.docker.internal"
+        url_base = "http://host.docker.internal" if self.is_docker else "http://localhost"
         return f"{url_base}:{self.screenpipe_port}"
 
-
-# from utils.constants import EXAMPLE_SEARCH_JSON, JSON_SYSTEM_MESSAGE, TOOL_SYSTEM_MESSAGE
+### Constants
+### from utils.owui_utils.constants import TOOL_SYSTEM_MESSAGE, JSON_SYSTEM_MESSAGE, EXAMPLE_SEARCH_JSON
 # System Messages
 TOOL_SYSTEM_MESSAGE = """You are a helpful assistant that can access external functions. When performing searches, consider the current date and time, which is {current_time}. When appropriate, create a short search_substring to narrow down the search results."""
 
-JSON_SYSTEM_MESSAGE = """You are a helpful assistant. Create a screenpipe search conforming to the correct JSON schema to search captured data stored in ScreenPipe's local database.
+JSON_SYSTEM_MESSAGE = """You are a helpful assistant. You will parse a user query to construct search parameters to search for chunks (audio, ocr, etc.) in ScreenPipe's local database.
 
-Create a JSON object ONLY for the properties field of the search parameters:
+Use the properties field below to construct the search parameters:
 {schema}
 
-If the time range is not relevant, use None for the start_time and end_time fields. Otherwise, they must be in ISO format matching the current time: {current_time}.
-
-Construct an optimal search filter for the query. When appropriate, create a search_substring to narrow down the search results. Set a limit based on the user's request, or default to 5.
+Ensure the following rules are met:
+    - limit must be between 1 and 100. defaults to 5 if not specified.
+    - content_type must be one of: "ocr", "audio", "all"
+    - time values should be null or in ISO format relative to the current timestamp: {current_time}
 
 Example search JSON objects:
 {examples}
@@ -161,13 +129,11 @@ Example search JSON objects:
 ONLY Output the search JSON object, nothing else.
 """
 
-FINAL_RESPONSE_SYSTEM_MESSAGE = """You are a helpful assistant that parses screenpipe search results. Use the search results to answer the user's question as best as possible. If unclear, synthesize the context and provide an explanation."""
-ALT_FINAL_RESPONSE_SYSTEM_MESSAGE = """You analyze all types of data from screen recordings and audio transcriptions. The user's query is designed to filter the search results. Provide comprehensive insights of the provided data."""
-
 EXAMPLE_SEARCH_JSON = """\
 {
-    "limit": 2,
+    "limit": 10,
     "content_type": "audio",
+    "search_substring": "jason",
     "start_time": null,
     "end_time": null
 }
@@ -178,9 +144,15 @@ EXAMPLE_SEARCH_JSON = """\
     "end_time": "2024-03-20T23:59:59Z"
 }"""
 
-
-# from owui_utils.pipeline_utils import screenpipe_search, SearchParameters, PipeSearch, PipeUtils
-
+### PipelineUtils
+### from utils.owui_utils.pipeline_utils import screenpipe_search, SearchParameters, PipeSearch, FilterUtils
+from pydantic import BaseModel, Field
+from typing import Literal, Optional, Annotated, List, Tuple
+from datetime import datetime, timezone, timedelta
+import logging
+import requests
+import json
+from pydantic import ValidationError
 
 class SearchParameters(BaseModel):
     """Search parameters for the Screenpipe Pipeline"""
@@ -294,12 +266,12 @@ class PipeSearch:
 
         return processed
 
-
 class FilterUtils:
     """Utility methods for the Filter class"""
     @staticmethod
     def get_current_time() -> str:
-        return datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
+        """Get current time in ISO 8601 format with UTC timezone (e.g. 2024-01-23T15:30:45Z)"""
+        return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     @staticmethod
     def remove_names(
@@ -339,8 +311,11 @@ class FilterUtils:
     @staticmethod
     def is_chunk_rejected(content: str) -> bool:
         """Returns True if content is empty or a short 'thank you' message."""
-        return not content or (
-            len(content) < 20 and "thank you" in content.lower())
+        if not content:
+            return True
+        reject_length = 15
+        is_rejected = len(content) < reject_length and "thank you" in content.lower()
+        return is_rejected
 
     @staticmethod
     def sanitize_results(results: dict,
@@ -460,17 +435,22 @@ class FilterUtils:
             {"role": "user", "content": messages[-1]["content"]}
         ]
 
+# Attempt to import BAML utils if enabled
+use_baml = False
+construct_search_params = None
 
-try:
-    from utils.baml_utils import construct_search_params
-    ENABLE_BAML = True
-except ImportError:
-    ENABLE_BAML = False
-    construct_search_params = None
+if use_baml:
+    try:
+        from utils.baml_utils import construct_search_params
+        logging.info("BAML search parameter construction enabled")
+    except ImportError:
+        use_baml = False
+        pass
 
+ENABLE_BAML = use_baml
 
-class FilterBase:
-    """Base class for Filter functionality"""
+class Filter:
+    """Filter class for screenpipe functionality"""
 
     class Valves(BaseModel):
         """Valve settings for the Filter"""
@@ -499,10 +479,6 @@ class FilterBase:
         self.tools = [convert_to_openai_tool(screenpipe_search)]
         self.json_schema = SearchParameters.model_json_schema()
         self.replacement_tuples = self.config.replacement_tuples
-        self.initialize_valves()
-
-    def initialize_valves(self):
-        """Initialize valve settings"""
         self.valves = self.Valves(
             **{
                 "LLM_API_BASE_URL": self.config.llm_api_base_url,
@@ -514,8 +490,6 @@ class FilterBase:
             }
         )
 
-
-class Filter(FilterBase):
     def safe_log_error(self, message: str, error: Exception) -> None:
         """Safely log an error without potentially exposing PII."""
         error_type = type(error).__name__
@@ -627,6 +601,7 @@ class Filter(FilterBase):
         # Replace system message
         assert messages[0]["role"] == "system", "There should be a system message here!"
         # NOTE: Response format varies by provider
+        print("Using json model:", self.json_model)
         try:
             response = self.client.chat.completions.create(
                 model=self.json_model,
@@ -685,7 +660,7 @@ class Filter(FilterBase):
         body["search_params"] = None
         body["search_results"] = None
         body["user_message_content"] = None
-        original_messages = body.get("messages", [])
+        original_messages = body["messages"]
         try:
             # Initialize settings and prepare messages
             self.initialize_settings()
@@ -705,19 +680,25 @@ class Filter(FilterBase):
             # Sanitize and store results
             sanitized_results = FilterUtils.sanitize_results(
                 results, self.replacement_tuples)
+            
+            if not sanitized_results:
+                body["inlet_error"] = "No sanitized results found"
+                return body
+            
             body["search_results"] = sanitized_results
-
             # Store original user message
-            last_message = original_messages[-1]
-            assert last_message["role"] == "user"
-            body["user_message_content"] = last_message["content"]
+            body_last_message = original_messages[-1]
+            # NOTE: This REPLACES the user message in the body dictionary
+            # TODO: Refactor this
+            assert body_last_message["role"] == "user"
+            body["user_message_content"] = body_last_message["content"]
 
             # Append search params to user message
             search_params_as_string = json.dumps(self.search_params, indent=2)
             prologue = "Search parameters:"
-            new_content = last_message["content"] + "\n\n" + \
+            refactored_last_message = body_last_message["content"] + "\n\n" + \
                 prologue + "\n" + search_params_as_string
-            last_message["content"] = new_content
+            body_last_message["content"] = refactored_last_message
         except Exception as e:
             self.safe_log_error("Error processing inlet", e)
             body["inlet_error"] = "Error in Filter inlet!"
@@ -727,13 +708,19 @@ class Filter(FilterBase):
     def outlet(self, body: dict, __user__: Optional[dict] = None) -> dict:
         """Process outgoing messages, incorporating sanitized results if available."""
         try:
-            messages = body.get("messages", [])
+            messages = body["messages"]
+            last_message = messages[-1]
+            last_user_message = messages[-2]
+            assert last_message["role"] == "assistant" and last_user_message["role"] == "user"
+            if body["user_message_content"] is not None:
+                last_user_message["content"] = body["user_message_content"]
+
             message = messages[-1]
             if message.get("role") == "assistant":
                 content = message.get("content", "")
                 message["content"] = content + "\n\nOUTLET active."
             else:
-                print("aaaah!")
+                raise ValueError("CRITICAL ERROR: Last message is not an assistant message!")
 
         except Exception as e:
             self.safe_log_error("Error processing outlet", e)
