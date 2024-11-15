@@ -687,18 +687,18 @@ class Filter:
             
             body["search_results"] = sanitized_results
             # Store original user message
-            body_last_message = original_messages[-1]
-            # NOTE: This REPLACES the user message in the body dictionary
-            # TODO: Refactor this
-            assert body_last_message["role"] == "user"
-            body["user_message_content"] = body_last_message["content"]
-
-            # Append search params to user message
-            search_params_as_string = json.dumps(self.search_params, indent=2)
-            prologue = "Search parameters:"
-            refactored_last_message = body_last_message["content"] + "\n\n" + \
-                prologue + "\n" + search_params_as_string
-            body_last_message["content"] = refactored_last_message
+            REPLACE_USER_MESSAGE = False
+            if REPLACE_USER_MESSAGE:
+                body_last_message = original_messages[-1]
+                # NOTE: This REPLACES the user message in the body dictionary
+                assert body_last_message["role"] == "user"
+                body["user_message_content"] = body_last_message["content"]
+                # Append search params to user message
+                search_params_as_string = json.dumps(self.search_params, indent=2)
+                prologue = "Search parameters:"
+                refactored_last_message = body_last_message["content"] + "\n\n" + \
+                    prologue + "\n" + search_params_as_string
+                body_last_message["content"] = refactored_last_message
         except Exception as e:
             self.safe_log_error("Error processing inlet", e)
             body["inlet_error"] = "Error in Filter inlet!"
@@ -728,7 +728,8 @@ class Filter:
                 if last_message.get("role") == "assistant":
                     content = last_message.get("content", "")
                     if self.search_params:
-                        search_params_as_string = json.dumps(self.search_params, indent=2)
+                        pruned_search_params = {k: v for k, v in self.search_params.items() if v is not None}
+                        search_params_as_string = json.dumps(pruned_search_params, indent=2)
                         last_message["content"] = content + f"\n\nUsed search params:\n{search_params_as_string}"
                     else:
                         last_message["content"] = content + "\n\nOUTLET active."
