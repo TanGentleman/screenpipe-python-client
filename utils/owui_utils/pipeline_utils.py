@@ -6,7 +6,6 @@ import requests
 import json
 from pydantic import ValidationError
 
-
 class SearchParameters(BaseModel):
     """Search parameters for the Screenpipe Pipeline"""
     limit: Annotated[int, Field(ge=1, le=100)] = Field(
@@ -118,7 +117,6 @@ class PipeSearch:
             processed['app_name'] = processed['app_name'].capitalize()
 
         return processed
-
 
 class FilterUtils:
     """Utility methods for the Filter class"""
@@ -288,3 +286,96 @@ class FilterUtils:
             {"role": "system", "content": system_message},
             {"role": "user", "content": messages[-1]["content"]}
         ]
+
+FINAL_RESPONSE_SYSTEM_MESSAGE = """You are a helpful AI assistant analyzing personal data from ScreenPipe. Your task is to:
+
+1. Understand the user's intent from their original query and the search parameters they constructed
+2. Carefully analyze the provided context (audio/OCR data) based on those search parameters
+3. Give clear, relevant insights that directly address the user's query
+4. If the context seems less relevant to the query, explain why and still extract any useful information
+5. Be mindful that you are handling personal data and maintain appropriate discretion
+
+The data will be provided in XML tags:
+- <user_query>: The original user question
+- <search_parameters>: The parameters used to filter the data
+- <context>: The actual personal data chunks to analyze
+
+Focus on making connections between the user's intent and the retrieved data to provide meaningful analysis."""
+class ResponseUtils:
+    """Utility methods for the Pipe class"""
+    # TODO Add other response related methods here
+    @staticmethod
+    def form_final_user_message(
+            user_message: str,
+            sanitized_results: str,
+            search_parameters: str) -> str:
+        """
+        Reformats the user message by adding context and rules from ScreenPipe search results.
+        """
+        assert isinstance(
+            sanitized_results, str), "Sanitized results must be a string"
+        assert isinstance(user_message, str), "User message must be a string"
+        assert isinstance(search_parameters, str), "Search parameters must be a string"
+        query = user_message
+        context = sanitized_results
+        search_params = search_parameters
+        #TODO: Add the search parameters to the context
+        reformatted_message = f"""Use the context from my personal data to answer as best as possible. Results have been filtered by the search parameters. Analyze the context, even if the query is less relevant.
+<user_query>
+{query}
+</user_query>
+
+<search_parameters>
+{search_params}
+</search_parameters>
+
+<context>
+{context}
+</context>"""
+        return reformatted_message
+
+    @staticmethod
+    def get_messages_with_screenpipe_data(
+            messages: List[dict],
+            results_as_string: str,
+            search_parameters: str) -> List[dict]:
+        """
+        Combines the last user message with sanitized ScreenPipe search results.
+        """
+        if messages[-1]["role"] != "user":
+            raise ValueError("Last message must be from the user!")
+        if len(messages) > 2:
+            print("Warning! This LLM call does not use past chat history!")
+
+        assert isinstance(messages[-1]["content"],
+                          str), "User message must be a string"
+        original_user_message = messages[-1]["content"]
+        new_user_message = ResponseUtils.form_final_user_message(
+            original_user_message, results_as_string, search_parameters)
+        new_messages = [
+            {"role": "system", "content": FINAL_RESPONSE_SYSTEM_MESSAGE},
+            {"role": "user", "content": new_user_message}
+        ]
+        return new_messages
+    
+    @staticmethod
+    def format_results_as_string(search_results: List[dict]) -> str:
+        """Formats search results as a string"""
+        response_string = ""
+        for i, result in enumerate(search_results, 1):
+            content = result["content"].strip()
+            result_type = result["type"]
+            metadata = {
+                "device_name": result.get("device_name", ""),
+                "timestamp": result.get("timestamp", "")
+            }
+            result_string = (
+                f"=== CHUNK {i}: {result_type.upper()} CONTENT ===\n"
+                f"{content}\n"
+                f"=== METADATA ===\n"
+                f"Device: {metadata['device_name']}\n"
+                f"Time: {metadata['timestamp']}\n"
+                f"==================\n\n"
+            )
+            response_string += result_string
+        return response_string.strip()

@@ -3,9 +3,9 @@ title: Screenpipe Pipe (Full)
 author: TanGentleman
 author_url: https://github.com/TanGentleman
 funding_url: https://github.com/TanGentleman
-version: 0.1
+version: 0.2
 """
-
+import json
 from typing import Union, Generator, Iterator, List
 import logging
 from openai import OpenAI
@@ -16,154 +16,140 @@ import os
 from dataclasses import dataclass
 from typing import List, Tuple
 
-# NOTE: Base URL and API key can be set in the environment variables file
-# Alternatively, they can be set as Valves in the UI
-
+# Environment variables and defaults
 SENSITIVE_KEY = os.getenv('LLM_API_KEY', '')
 if not SENSITIVE_KEY:
     print("WARNING: LLM_API_KEY environment variable is not set!")
-    # raise ValueError("LLM_API_KEY environment variable is not set!")
+
+# Sensitive data replacements
 REPLACEMENT_TUPLES = [
     # ("LASTNAME", ""),
     # ("FIRSTNAME", "NICKNAME")
 ]
 
-# URL and Port Configuration
+
+# Configuration defaults
 IS_DOCKER = True
 DEFAULT_SCREENPIPE_PORT = 3030
-URL_BASE = "http://localhost" if not IS_DOCKER else "http://host.docker.internal"
+URL_BASE = "http://host.docker.internal" if IS_DOCKER else "http://localhost"
+DEFAULT_LLM_API_BASE_URL = f"{URL_BASE}:11434/v1"
+DEFAULT_LLM_API_KEY = SENSITIVE_KEY or "API-KEY-HERE"
 
-# LLM Configuration (openai compatible)
-DEFAULT_LLM_API_BASE_URL = f"{URL_BASE}:4000/v1"
-DEFAULT_LLM_API_KEY = SENSITIVE_KEY
+# Model settings
+DEFAULT_TOOL_MODEL = "gpt-4o-mini"
+DEFAULT_JSON_MODEL = "qwen2.5:3b" 
+DEFAULT_RESPONSE_MODEL = "qwen2.5:3b"
 DEFAULT_NATIVE_TOOL_CALLING = False
 GET_RESPONSE = False
 
-# NOTE: If NATIVE_TOOL_CALLING is True, tool model is used instead of the
-# json model
-
-# Model Configuration
-DEFAULT_TOOL_MODEL = "Llama-3.1-70B"
-DEFAULT_JSON_MODEL = "sambanova-llama-8b"
-DEFAULT_RESPONSE_MODEL = "sambanova-llama-8b"
-
-# NOTE: Model name must be valid for the endpoint:
-# {DEFAULT_LLM_API_BASE_URL}/v1/chat/completions
-
-# Time Configuration
-PREFER_24_HOUR_FORMAT = True
+# Time settings
+PREFER_24_HOUR_FORMAT = True  
 DEFAULT_UTC_OFFSET = -7  # PDT
-
 
 @dataclass
 class PipelineConfig:
     """Configuration management for Screenpipe Pipeline"""
-    # API and Endpoint Configuration
+    # API settings
     llm_api_base_url: str
     llm_api_key: str
     screenpipe_port: int
     is_docker: bool
 
-    # Model Configuration
+    # Model settings  
     tool_model: str
     json_model: str
     native_tool_calling: bool
     get_response: bool
     response_model: str
 
-    # Pipeline Settings
+    # Pipeline settings
     prefer_24_hour_format: bool
     default_utc_offset: int
-
-    # Sensitive Data
     replacement_tuples: List[Tuple[str, str]]
 
     @classmethod
     def from_env(cls) -> 'PipelineConfig':
-        """Create configuration from environment variables with fallbacks.
-
-        Returns:
-            PipelineConfig: Configuration object populated from environment variables,
-            falling back to default values if not set.
-        """
-
+        """Create configuration from environment variables with fallbacks."""
         def get_bool_env(key: str, default: bool) -> bool:
-            """Helper to consistently parse boolean environment variables"""
             return os.getenv(key, str(default)).lower() == 'true'
 
         def get_int_env(key: str, default: int) -> int:
-            """Helper to consistently parse integer environment variables"""
             return int(os.getenv(key, default))
 
         return cls(
-            # API and Endpoint Configuration
-            llm_api_base_url=os.getenv(
-                'LLM_API_BASE_URL', DEFAULT_LLM_API_BASE_URL),
+            llm_api_base_url=os.getenv('LLM_API_BASE_URL', DEFAULT_LLM_API_BASE_URL),
             llm_api_key=os.getenv('LLM_API_KEY', DEFAULT_LLM_API_KEY),
-            screenpipe_port=get_int_env(
-                'SCREENPIPE_PORT', DEFAULT_SCREENPIPE_PORT),
+            screenpipe_port=get_int_env('SCREENPIPE_PORT', DEFAULT_SCREENPIPE_PORT),
             is_docker=get_bool_env('IS_DOCKER', IS_DOCKER),
-
-            # Model Configuration
             tool_model=os.getenv('TOOL_MODEL', DEFAULT_TOOL_MODEL),
-            json_model=os.getenv(
-                'JSON_MODEL', DEFAULT_JSON_MODEL),
-            native_tool_calling=get_bool_env(
-                'NATIVE_TOOL_CALLING', DEFAULT_NATIVE_TOOL_CALLING),
+            json_model=os.getenv('JSON_MODEL', DEFAULT_JSON_MODEL),
+            native_tool_calling=get_bool_env('NATIVE_TOOL_CALLING', DEFAULT_NATIVE_TOOL_CALLING),
             get_response=get_bool_env('GET_RESPONSE', GET_RESPONSE),
             response_model=os.getenv('RESPONSE_MODEL', DEFAULT_RESPONSE_MODEL),
-
-            # Pipeline Settings
-            prefer_24_hour_format=get_bool_env(
-                'PREFER_24_HOUR_FORMAT', PREFER_24_HOUR_FORMAT),
-            default_utc_offset=get_int_env(
-                'DEFAULT_UTC_OFFSET', DEFAULT_UTC_OFFSET),
-
-            # Sensitive Data
+            prefer_24_hour_format=get_bool_env('PREFER_24_HOUR_FORMAT', PREFER_24_HOUR_FORMAT),
+            default_utc_offset=get_int_env('DEFAULT_UTC_OFFSET', DEFAULT_UTC_OFFSET),
             replacement_tuples=REPLACEMENT_TUPLES,
         )
 
     @property
     def screenpipe_server_url(self) -> str:
         """Compute the Screenpipe base URL based on configuration"""
-        url_base = "http://localhost" if not self.is_docker else "http://host.docker.internal"
+        url_base = "http://host.docker.internal" if self.is_docker else "http://localhost"
         return f"{url_base}:{self.screenpipe_port}"
 
+# from utils.owui_utils.pipeline_utils import ResponseUtils
+FINAL_RESPONSE_SYSTEM_MESSAGE = """You are a helpful AI assistant analyzing personal data from ScreenPipe. Your task is to:
 
-# from utils.owui_utils.constants import ALT_FINAL_RESPONSE_SYSTEM_MESSAGE
-ALT_FINAL_RESPONSE_SYSTEM_MESSAGE = """You analyze all types of data from screen recordings and audio transcriptions. The user's query is designed to filter the search results. Provide comprehensive insights of the provided data."""
+1. Understand the user's intent from their original query and the search parameters they constructed
+2. Carefully analyze the provided context (audio/OCR data) based on those search parameters
+3. Give clear, relevant insights that directly address the user's query
+4. If the context seems less relevant to the query, explain why and still extract any useful information
+5. Be mindful that you are handling personal data and maintain appropriate discretion
 
+The data will be provided in XML tags:
+- <user_query>: The original user question
+- <search_parameters>: The parameters used to filter the data
+- <context>: The actual personal data chunks to analyze
 
+Focus on making connections between the user's intent and the retrieved data to provide meaningful analysis."""
 class ResponseUtils:
     """Utility methods for the Pipe class"""
     # TODO Add other response related methods here
     @staticmethod
     def form_final_user_message(
             user_message: str,
-            sanitized_results: str) -> str:
+            sanitized_results: str,
+            search_parameters: str) -> str:
         """
         Reformats the user message by adding context and rules from ScreenPipe search results.
         """
         assert isinstance(
             sanitized_results, str), "Sanitized results must be a string"
         assert isinstance(user_message, str), "User message must be a string"
+        assert isinstance(search_parameters, str), "Search parameters must be a string"
         query = user_message
         context = sanitized_results
-
-        reformatted_message = f"""You are given context from personal screen and microphone data, as well as a user query, given inside xml tags. Even if the query is not relevant to the context, describe the context in detail.
-<context>
-{context}
-</context>
-
+        search_params = search_parameters
+        #TODO: Add the search parameters to the context
+        reformatted_message = f"""Use the context from my personal data to answer as best as possible. Results have been filtered by the search parameters. Analyze the context, even if the query is less relevant.
 <user_query>
 {query}
-</user_query>"""
+</user_query>
+
+<search_parameters>
+{search_params}
+</search_parameters>
+
+<context>
+{context}
+</context>"""
         return reformatted_message
 
     @staticmethod
     def get_messages_with_screenpipe_data(
             messages: List[dict],
-            results_as_string: str) -> List[dict]:
+            results_as_string: str,
+            search_parameters: str) -> List[dict]:
         """
         Combines the last user message with sanitized ScreenPipe search results.
         """
@@ -174,10 +160,11 @@ class ResponseUtils:
 
         assert isinstance(messages[-1]["content"],
                           str), "User message must be a string"
+        original_user_message = messages[-1]["content"]
         new_user_message = ResponseUtils.form_final_user_message(
-            messages[-1]["content"], results_as_string)
+            original_user_message, results_as_string, search_parameters)
         new_messages = [
-            {"role": "system", "content": ALT_FINAL_RESPONSE_SYSTEM_MESSAGE},
+            {"role": "system", "content": FINAL_RESPONSE_SYSTEM_MESSAGE},
             {"role": "user", "content": new_user_message}
         ]
         return new_messages
@@ -203,7 +190,6 @@ class ResponseUtils:
             )
             response_string += result_string
         return response_string.strip()
-
 
 class Pipe():
     """Pipe class for screenpipe functionality"""
@@ -282,20 +268,21 @@ class Pipe():
         try:
             if body["inlet_error"]:
                 return body["inlet_error"]
-
-            search_results = body.get("search_results", [])
-            assert search_results
+            
+            search_results = body["search_results"]
+            assert search_results is not None
             search_results_as_string = ResponseUtils.format_results_as_string(search_results)
-
+            search_params_dict = body["search_params"]
+            assert search_params_dict is not None
+            search_params = json.dumps(search_params_dict)
             if self.get_response:
                 messages_with_data = ResponseUtils.get_messages_with_screenpipe_data(
-                    messages, search_results_as_string)
+                    messages, search_results_as_string, search_params)
                 return self._generate_final_response(
                     self.client, self.response_model, messages_with_data, stream)
 
             epilogue = ""
             return search_results_as_string + epilogue
         except Exception as e:
-            print(str(e))
             self.safe_log_error("Error in pipe", e)
             return "An error occurred in the pipe."

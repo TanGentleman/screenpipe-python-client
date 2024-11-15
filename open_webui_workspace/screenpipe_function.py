@@ -3,87 +3,17 @@ title: Screenpipe Pipe
 author: TanGentleman
 author_url: https://github.com/TanGentleman
 funding_url: https://github.com/TanGentleman
-version: 0.4
+version: 0.5
 """
 
+import json
 from typing import Union, Generator, Iterator, List
 import logging
 from openai import OpenAI
 from pydantic import BaseModel, Field
 
 from utils.owui_utils.configuration import PipelineConfig
-from utils.owui_utils.constants import ALT_FINAL_RESPONSE_SYSTEM_MESSAGE
-
-
-class ResponseUtils:
-    """Utility methods for the Pipe class"""
-    # TODO Add other response related methods here
-    @staticmethod
-    def form_final_user_message(
-            user_message: str,
-            sanitized_results: str) -> str:
-        """
-        Reformats the user message by adding context and rules from ScreenPipe search results.
-        """
-        assert isinstance(
-            sanitized_results, str), "Sanitized results must be a string"
-        assert isinstance(user_message, str), "User message must be a string"
-        query = user_message
-        context = sanitized_results
-
-        reformatted_message = f"""You are given context from personal screen and microphone data, as well as a user query, given inside xml tags. Even if the query is not relevant to the context, describe the context in detail.
-<context>
-{context}
-</context>
-
-<user_query>
-{query}
-</user_query>"""
-        return reformatted_message
-
-    @staticmethod
-    def get_messages_with_screenpipe_data(
-            messages: List[dict],
-            results_as_string: str) -> List[dict]:
-        """
-        Combines the last user message with sanitized ScreenPipe search results.
-        """
-        if messages[-1]["role"] != "user":
-            raise ValueError("Last message must be from the user!")
-        if len(messages) > 2:
-            print("Warning! This LLM call does not use past chat history!")
-
-        assert isinstance(messages[-1]["content"],
-                          str), "User message must be a string"
-        new_user_message = ResponseUtils.form_final_user_message(
-            messages[-1]["content"], results_as_string)
-        new_messages = [
-            {"role": "system", "content": ALT_FINAL_RESPONSE_SYSTEM_MESSAGE},
-            {"role": "user", "content": new_user_message}
-        ]
-        return new_messages
-    
-    @staticmethod
-    def format_results_as_string(search_results: List[dict]) -> str:
-        """Formats search results as a string"""
-        response_string = ""
-        for i, result in enumerate(search_results, 1):
-            content = result["content"].strip()
-            result_type = result["type"]
-            metadata = {
-                "device_name": result.get("device_name", ""),
-                "timestamp": result.get("timestamp", "")
-            }
-            result_string = (
-                f"=== CHUNK {i}: {result_type.upper()} CONTENT ===\n"
-                f"{content}\n"
-                f"=== METADATA ===\n"
-                f"Device: {metadata['device_name']}\n"
-                f"Time: {metadata['timestamp']}\n"
-                f"==================\n\n"
-            )
-            response_string += result_string
-        return response_string.strip()
+from utils.owui_utils.pipeline_utils import ResponseUtils
 
 
 class Pipe():
@@ -163,14 +93,16 @@ class Pipe():
         try:
             if body["inlet_error"]:
                 return body["inlet_error"]
-
-            search_results = body.get("search_results", [])
-            assert search_results
+            
+            search_results = body["search_results"]
+            assert search_results is not None
             search_results_as_string = ResponseUtils.format_results_as_string(search_results)
-
+            search_params_dict = body["search_params"]
+            assert search_params_dict is not None
+            search_params = json.dumps(search_params_dict)
             if self.get_response:
                 messages_with_data = ResponseUtils.get_messages_with_screenpipe_data(
-                    messages, search_results_as_string)
+                    messages, search_results_as_string, search_params)
                 return self._generate_final_response(
                     self.client, self.response_model, messages_with_data, stream)
 
