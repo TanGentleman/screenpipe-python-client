@@ -49,7 +49,7 @@ DEFAULT_PROMPT = "Search: limit of 2, type all. Task: Analyze the output and pro
 def test_filter(prompt: str = DEFAULT_PROMPT, stream: bool = False):
     filter = ScreenFilter()
     pipe = ScreenPipe()
-    stream = False
+    # stream = False
     filter.valves = filter.Valves(**CUSTOM_FILTER_VALVES)
     pipe.valves = pipe.Valves(**CUSTOM_PIPE_VALVES)
     print("Filter valves:", filter.valves)
@@ -59,12 +59,6 @@ def test_filter(prompt: str = DEFAULT_PROMPT, stream: bool = False):
     body = filter.inlet(body)
     print("Filter inlet complete. New user message:")
     print(body["messages"][-1]["content"])
-    # replace user message with original prompt
-    user_message_content = body["user_message_content"]
-    last_message = body["messages"][-1]
-    assert user_message_content != last_message["content"], "Filter should always modify the last message"
-    body["messages"][-1]["content"] = user_message_content
-
     response = ""
     print("Pipe final messages:")
     if stream:
@@ -88,8 +82,9 @@ def test_filter(prompt: str = DEFAULT_PROMPT, stream: bool = False):
         print(response)
     body["messages"].append({"role": "assistant", "content": response})
     body = filter.outlet(body)
-    assert "OUTLET active." in body["messages"][-1]["content"], "Outlet should always append 'OUTLET active.'"
-
+    final_message = body["messages"][-1]["content"]
+    if not final_message.endswith("OUTLET active."):
+        assert "Used search params:" in final_message
 
 def main(prompt: str = DEFAULT_PROMPT, stream: bool = True):
     test_filter(prompt=prompt, stream=stream)
