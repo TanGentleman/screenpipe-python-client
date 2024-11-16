@@ -29,7 +29,7 @@ construct_search_params = None
 
 if use_baml:
     try:
-        from utils.baml_utils import construct_search_params
+        from utils.baml_utils import baml_generate_search_params
         logging.info("BAML search parameter construction enabled")
     except ImportError:
         use_baml = False
@@ -228,12 +228,16 @@ class Filter:
         if ENABLE_BAML:
             raw_query = messages[-1]["content"]
             current_iso_timestamp = FilterUtils.get_current_time()
-            results = construct_search_params(raw_query, current_iso_timestamp)
+            results = baml_generate_search_params(raw_query, current_iso_timestamp)
             if isinstance(results, str):
                 return results
             search_params = results.model_dump()
             return self._get_search_results_from_params(search_params)
 
+        # Refactor user message
+        user_message = messages[-1]["content"]
+        user_message_refactored = FilterUtils.refactor_user_message(user_message)
+        messages[-1]["content"] = user_message_refactored
         system_message = self._get_system_message()
         messages = FilterUtils._prepare_initial_messages(
             messages, system_message)
@@ -242,13 +246,23 @@ class Filter:
         else:
             return self._json_response_as_results_or_str(messages)
 
+    def inlet_body_is_valid(self, body: dict) -> bool:
+        """Check if the inlet body is valid"""
+        messages = body.get("messages", [])
+        return (len(messages) >= 2 and 
+                messages[-2]["role"] == "assistant" and 
+                messages[-1]["role"] == "user")
+
     def inlet(self, body: dict, __user__: Optional[dict] = None) -> dict:
         """Process incoming messages, performing search and sanitizing results."""
+        if not self.inlet_body_is_valid(body):
+            body["inlet_error"] = "Invalid inlet body"
+            return body
+        original_messages = body["messages"]
         body["inlet_error"] = None
         body["search_params"] = None
         body["search_results"] = None
-        body["user_message_content"] = None
-        original_messages = body["messages"]
+        body["user_message_content"] = original_messages[-1]["content"]
         try:
             # Initialize settings and prepare messages
             self.initialize_settings()
@@ -277,16 +291,14 @@ class Filter:
             # Store original user message
             REPLACE_USER_MESSAGE = False
             if REPLACE_USER_MESSAGE:
-                body_last_message = original_messages[-1]
                 # NOTE: This REPLACES the user message in the body dictionary
-                assert body_last_message["role"] == "user"
-                body["user_message_content"] = body_last_message["content"]
+                
                 # Append search params to user message
                 search_params_as_string = json.dumps(self.search_params, indent=2)
                 prologue = "Search parameters:"
-                refactored_last_message = body_last_message["content"] + "\n\n" + \
+                refactored_last_message = original_messages[-1]["content"] + "\n\n" + \
                     prologue + "\n" + search_params_as_string
-                body_last_message["content"] = refactored_last_message
+                original_messages[-1]["content"] = refactored_last_message
         except Exception as e:
             self.safe_log_error("Error processing inlet", e)
             body["inlet_error"] = "Error in Filter inlet!"
