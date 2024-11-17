@@ -6,7 +6,7 @@ from baml_py.errors import (
 )
 
 
-def construct_search_params(
+def baml_generate_search_params(
         raw_query: str,
         current_iso_timestamp: str) -> SearchParameters | str:
     """
@@ -26,7 +26,7 @@ def construct_search_params(
         raise
 
 
-def construct_search_params_stream(
+def baml_generate_search_params_stream(
         raw_query: str,
         current_iso_timestamp: str) -> SearchParameters:
     """
