@@ -1,0 +1,32 @@
+Claude 3.5 Sonnet:
+  model: claude-3.5-sonnet
+  base_url: http://localhost:4000/v1
+  capabilities:
+    function_calling: true
+    vision: true
+Qwen 2.5 Coder:
+  model: together/Qwen/Qwen2.5-Coder-32B-Instruct
+  base_url: http://localhost:4000/v1
+Llama 3.1 70B:
+  model: Llama-3.1-70B
+  base_url: http://localhost:4000/v1
+GPT-4o Mini:
+  model: openai/gpt-4o-mini
+  base_url: http://localhost:4000/v1
+  capabilities:
+    function_calling: true
+    vision: true
+SambaNova Llama 90B Vision:
+  model: sambanova/Llama-3.2-90B-Vision-Instruct
+  base_url: http://localhost:4000/v1
+  capabilities:
+    vision: true
+Gemini 1.5 Pro:
+  model: openrouter/google/gemini-exp-1114
+  base_url: http://localhost:4000/v1
+Qwen 2.5 Coder 7B:
+  model: lmstudio/qwen2.5-coder-7b-instruct-mlx
+  base_url: http://localhost:4000/v1
+  capabilities:
+    function_calling: true
+    local: true
