@@ -24,7 +24,7 @@ from utils.owui_utils.pipeline_utils import screenpipe_search, SearchParameters,
 
 
 # Attempt to import BAML utils if enabled
-use_baml = False
+use_baml = True
 construct_search_params = None
 
 if use_baml:
@@ -246,16 +246,31 @@ class Filter:
         else:
             return self._json_response_as_results_or_str(messages)
 
-    def inlet_body_is_valid(self, body: dict) -> bool:
-        """Check if the inlet body is valid"""
+    def is_inlet_body_valid(self, body: dict) -> bool:
+        """Validates the structure and types of the inlet body dictionary.
+        
+        Args:
+            body: Dictionary containing messages
+            
+        Returns:
+            bool: True if body has valid structure and types, False otherwise
+        
+        The body must contain:
+        - messages list with at least 1 message
+        - Last message from user
+        """
+        if not isinstance(body, dict):
+            return False
         messages = body.get("messages", [])
-        return (len(messages) >= 2 and 
-                messages[-2]["role"] == "assistant" and 
-                messages[-1]["role"] == "user")
+        if not messages or len(messages) < 1:
+            return False
+        if messages[-1].get("role") != "user":
+            return False
+        return True
 
     def inlet(self, body: dict, __user__: Optional[dict] = None) -> dict:
         """Process incoming messages, performing search and sanitizing results."""
-        if not self.inlet_body_is_valid(body):
+        if not self.is_inlet_body_valid(body):
             body["inlet_error"] = "Invalid inlet body"
             return body
         original_messages = body["messages"]
@@ -305,34 +320,51 @@ class Filter:
 
         return body
 
+    def is_outlet_body_valid(self, body: dict) -> bool:
+        """Validates the structure and types of the outlet body dictionary.
+        
+        Args:
+            body: Dictionary containing messages
+            
+        Returns:
+            bool: True if body has valid structure and types, False otherwise
+            
+        The body must contain:
+        - messages list with at least 2 messages
+        - Last message from user, second-to-last from assistant
+        """
+        if not isinstance(body, dict):
+            return False
+            
+        messages = body.get("messages", [])
+        if not messages or len(messages) < 2:
+            return False
+            
+        if (messages[-1].get("role") != "user" or 
+            messages[-2].get("role") != "assistant"):
+            return False
+                
+        return True
+
     def outlet(self, body: dict, __user__: Optional[dict] = None) -> dict:
-        """Process outgoing messages, incorporating sanitized results if available."""
+        """Process outgoing messages."""
         try:
-            # Validate required fields exist
-            messages = body.get("messages", [])
-            if not messages:
-                raise ValueError("Messages are empty in body")
+            if not self.is_outlet_body_valid(body):
+                return body
 
-            # Safely get last messages
-            if len(messages) >= 2:
-                last_message = messages[-1]
-                last_user_message = messages[-2]
+            messages = body["messages"]
+            # Restore original user message if available
+            user_message_content = body.get("user_message_content")
+            if user_message_content is not None:
+                messages[-2]["content"] = user_message_content
 
-                # Restore original user message if available
-                if last_user_message.get("role") == "user":
-                    user_message_content = body.get("user_message_content")
-                    if user_message_content is not None:
-                        last_user_message["content"] = user_message_content
+            # Add search params to assistant message if available
+            if self.search_params:
+                content = messages[-1].get("content", "")
+                pruned_params = {k: v for k, v in self.search_params.items() if v}
+                params_str = json.dumps(pruned_params, indent=2)
+                messages[-1]["content"] = f"{content}\n\nUsed search params:\n{params_str}"
 
-                # Add outlet marker to assistant message
-                if last_message.get("role") == "assistant":
-                    content = last_message.get("content", "")
-                    if self.search_params:
-                        pruned_search_params = {k: v for k, v in self.search_params.items() if v is not None}
-                        search_params_as_string = json.dumps(pruned_search_params, indent=2)
-                        last_message["content"] = content + f"\n\nUsed search params:\n{search_params_as_string}"
-                    else:
-                        last_message["content"] = content + "\n\nOUTLET active."
 
         except Exception as e:
             self.safe_log_error("Error processing outlet", e)

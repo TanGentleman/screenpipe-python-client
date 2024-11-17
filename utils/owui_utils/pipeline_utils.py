@@ -286,6 +286,12 @@ class FilterUtils:
             {"role": "system", "content": system_message},
             {"role": "user", "content": messages[-1]["content"]}
         ]
+    
+    @staticmethod
+    def refactor_user_message(user_message: str) -> str:
+        """Refactor user message to standardize search format"""
+        current_time = FilterUtils.get_current_time()
+        return f"{user_message}\n- The current time is {current_time}"
 
 FINAL_RESPONSE_SYSTEM_MESSAGE = """You are a helpful AI assistant analyzing personal data from ScreenPipe. Your task is to:
 
@@ -336,22 +342,20 @@ class ResponseUtils:
 
     @staticmethod
     def get_messages_with_screenpipe_data(
-            messages: List[dict],
-            results_as_string: str,
-            search_parameters: str) -> List[dict]:
+            user_message_string: str,
+            search_results_list: List[dict],
+            search_params_dict: dict) -> List[dict]:
         """
         Combines the last user message with sanitized ScreenPipe search results.
         """
-        if messages[-1]["role"] != "user":
-            raise ValueError("Last message must be from the user!")
-        if len(messages) > 2:
-            print("Warning! This LLM call does not use past chat history!")
-
-        assert isinstance(messages[-1]["content"],
-                          str), "User message must be a string"
-        original_user_message = messages[-1]["content"]
+        #TODO: Modify the results and search parameters into strings in this function
+        assert isinstance(user_message_string, str), "User message must be a string"
+        assert isinstance(search_results_list, list), "Search results must be a list"
+        assert isinstance(search_params_dict, dict), "Search parameters must be a dictionary"
+        search_results_string = ResponseUtils.format_results_as_string(search_results_list)
+        search_params_string = json.dumps(search_params_dict, indent=2)
         new_user_message = ResponseUtils.form_final_user_message(
-            original_user_message, results_as_string, search_parameters)
+            user_message_string, search_results_string, search_params_string)
         new_messages = [
             {"role": "system", "content": FINAL_RESPONSE_SYSTEM_MESSAGE},
             {"role": "user", "content": new_user_message}

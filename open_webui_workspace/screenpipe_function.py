@@ -80,34 +80,78 @@ class Pipe():
                 messages=messages_with_screenpipe_data,
             )
             return final_response.choices[0].message.content
+    
+    def is_pipe_body_valid(self, body: dict) -> bool:
+        """Validates the structure and types of the pipe body dictionary.
+        
+        Args:
+            body: Dictionary containing user message content, stream, and optional search data
+            
+        Returns:
+            bool: True if body has valid structure and types, False otherwise
+            
+        The body must contain:
+        - user_message_content as string
+        - stream as boolean
+        - Optional inlet_error as string
+        - Optional search_results as list
+        - Optional search_params as dict
+        - Optional messages list
+        """
+        if not isinstance(body, dict):
+            return False
+            
+        messages = body.get("messages", [])
+        if not messages or len(messages) < 2:
+            return False
+            
+        if (messages[-1].get("role") != "user" or 
+            messages[-2].get("role") != "assistant"):
+            return False
+            
+        # Validate mandatory user_message_content field
+        if not isinstance(body.get("user_message_content"), str):
+            return False
+            
+        # Validate optional fields if present
+        optional_fields = {
+            "inlet_error": str,
+            "search_results": list,
+            "search_params": dict
+        }
+        
+        for field, expected_type in optional_fields.items():
+            if field in body and not isinstance(body[field], expected_type):
+                return False
+        return True
 
     def pipe(self, body: dict) -> Union[str, Generator, Iterator]:
         """Main pipeline processing method"""
+        if body["inlet_error"]:
+            return body["inlet_error"]
+        
         if self.valves.GET_RESPONSE:
             self._initialize_client()
             assert self.get_response is True
         else:
             self.get_response = False
-        stream = body["stream"]
-        messages = body["messages"]
         try:
-            if body["inlet_error"]:
-                return body["inlet_error"]
-            
-            search_results = body["search_results"]
-            assert search_results is not None
-            search_results_as_string = ResponseUtils.format_results_as_string(search_results)
+            stream = body["stream"]
+            user_message_string = body["user_message_content"]
+            search_results_list = body["search_results"]
             search_params_dict = body["search_params"]
-            assert search_params_dict is not None
-            search_params = json.dumps(search_params_dict)
             if self.get_response:
                 messages_with_data = ResponseUtils.get_messages_with_screenpipe_data(
-                    messages, search_results_as_string, search_params)
+                    user_message_string, search_results_list, search_params_dict)
                 return self._generate_final_response(
                     self.client, self.response_model, messages_with_data, stream)
-
+            results_as_string = ResponseUtils.format_results_as_string(search_results_list)
             epilogue = ""
-            return search_results_as_string + epilogue
+            return results_as_string + epilogue
         except Exception as e:
-            self.safe_log_error("Error in pipe", e)
+            ERROR_LOGGING_ENABLED = False
+            if ERROR_LOGGING_ENABLED:
+                self.safe_log_error(str(e), e)
+            else:
+                self.safe_log_error("Error in pipe", e)
             return "An error occurred in the pipe."
