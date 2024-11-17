@@ -79,6 +79,7 @@ def process_stream_response(response: requests.Response) -> str:
 def chat_with_api(messages: list) -> Union[Dict[str, Any], str]:
     """
     Send chat messages to the API and handle the response.
+    Returns either the outlet response dict or an error string.
     """
     try:
         # Process inlet
@@ -90,6 +91,7 @@ def chat_with_api(messages: list) -> Union[Dict[str, Any], str]:
 
         # Process pipe
         if inlet_data["stream"]:
+            print("\nAssistant: ", end="", flush=True)
             pipe_response = requests.post(
                 f"{API_BASE_URL}/pipe/stream",
                 json=inlet_data,
@@ -97,12 +99,13 @@ def chat_with_api(messages: list) -> Union[Dict[str, Any], str]:
             )
             response_content = process_stream_response(pipe_response)
         else:
-            pipe_response = requests.post(
-                f"{API_BASE_URL}/pipe/completion",
-                json=inlet_data
-            )
-            response_data = pipe_response.json()
-            response_content = response_data["response_string"]
+            with Spinner("Processing your request..."):
+                pipe_response = requests.post(
+                    f"{API_BASE_URL}/pipe/completion",
+                    json=inlet_data
+                )
+                response_data = pipe_response.json()
+                response_content = response_data["response_string"]
 
         # Process outlet
         inlet_data["messages"].append({"role": "assistant", "content": response_content})
@@ -136,8 +139,7 @@ def chat_loop():
 
         messages.append({"role": "user", "content": user_input})
         
-        with Spinner("Processing your request..."):
-            response = chat_with_api(messages)
+        response = chat_with_api(messages)
             
         if isinstance(response, str):
             print(f"\nError: {response}")
@@ -146,7 +148,8 @@ def chat_loop():
         if isinstance(response, dict) and "messages" in response:
             assistant_message = response["messages"][-1]["content"]
             messages.append({"role": "assistant", "content": assistant_message})
-            print("\nAssistant:", assistant_message)
+            if not response.get("stream"):  # Check stream flag from response
+                print("\nAssistant:", assistant_message)
         else:
             print("\nError: Unexpected response format from API")
 
