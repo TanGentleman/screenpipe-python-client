@@ -29,15 +29,15 @@ class SearchParameters {
 
 // Create a function to validate and process search parameters
 function ConstructSearchParameters(query: string, current_iso_timestamp: string) -> SearchParameters {
-  client CustomLlama
+  client GeminiFlash
   prompt #"
     {{ _.role("system") }} 
-    Construct search parameters given a query.
+    Create search parameters to filter database content. Only include search_substring or time parameters if specified.
 
     Ensure the following rules are met:
     - limit must be between 1 and 100. defaults to 5 if not specified.
     - content_type must be one of: "ocr", "audio", "all"
-    - time values should be null or in ISO format relative to the current timestamp: {{ current_iso_timestamp }}
+    - time values should be null or in ISO format
 
     {{ ctx.output_format }}
 

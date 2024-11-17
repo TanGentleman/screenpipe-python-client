@@ -9,6 +9,25 @@ client<llm> CustomLlama {
   }
 }
 
+client<llm> SmallNova {
+  provider openai
+  options {
+    model "sambanova-llama-3b"
+    base_url "http://localhost:4000/v1"
+    api_key env.LLM_API_KEY
+  }
+}
+
+client<llm> GeminiFlash {
+  provider openai
+  options {
+    model "openrouter/google/gemini-flash-1.5-8b"
+    base_url "http://localhost:4000/v1"
+    api_key env.LLM_API_KEY
+  }
+}
+
+
 client<llm> CustomGPT4o {
   provider openai
   options {
