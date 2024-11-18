@@ -122,6 +122,18 @@ def chat_with_api(messages: list) -> Union[Dict[str, Any], str]:
     except Exception as e:
         return f"Unexpected error: {str(e)}"
 
+def update_valves() -> dict:
+    """Call the update valves endpoint and return status message."""
+    try:
+        response = requests.post(f"{API_BASE_URL}/update_valves")
+        if response.status_code == 200:
+            return response.json()
+        return {"Error": f"Error refreshing valves. Status code: {response.status_code}"}
+    except requests.exceptions.RequestException as e:
+        return {"Error": f"Error communicating with API: {str(e)}"}
+    except Exception as e:
+        return {"Error": f"Unexpected error: {str(e)}"}
+
 def chat_loop():
     """
     Main chat loop that processes user input and displays responses.
@@ -132,12 +144,17 @@ def chat_loop():
         "Assistant: Welcome! I can help you analyze your screen recordings and audio data.\n"
         "You can ask about your recent activities, OCR text, or audio transcriptions."
     )
-    print("(Type 'quit' to exit)")
+    print("(Type 'quit' to exit, 'refresh' to update valves)")
 
     while True:
         user_input = input("\nYou: ").strip()
         if user_input.lower() == "quit":
             break
+            
+        if user_input.lower() == "refresh":
+            status = update_valves()
+            print(f"\nAssistant: {status}")
+            continue
 
         messages.append({"role": "user", "content": user_input})
         

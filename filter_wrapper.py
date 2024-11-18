@@ -2,7 +2,7 @@ import logging
 from pydantic import BaseModel, Field
 import requests
 
-IS_DOCKER = False
+IS_DOCKER = True
 URL_BASE = "http://host.docker.internal" if IS_DOCKER else "http://localhost"
 CORE_API_PORT = 3333
 CORE_API_URL = f"{URL_BASE}:{CORE_API_PORT}"

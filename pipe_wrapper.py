@@ -4,43 +4,29 @@ from pydantic import BaseModel, Field
 import requests
 from typing import Union, Generator, Iterator
 
-IS_DOCKER = False
+IS_DOCKER = True
 URL_BASE = "http://host.docker.internal" if IS_DOCKER else "http://localhost"
 CORE_API_PORT = 3333
 CORE_API_URL = f"{URL_BASE}:{CORE_API_PORT}"
 
 DEFAULT_STREAMING = True
 
-def process_api_stream_response(response: requests.Response) -> str:
-    """Process streaming response from HTTP request."""
-    full_response = ""
+def yield_stream_response(response: requests.Response) -> Generator:
+    """Yield lines from a streaming response"""
     for line in response.iter_lines():
-        if not line:
-            continue
-            
         line = line.decode('utf-8')
         if not line.startswith('data: '):
             continue
-            
         data = line[6:]  # Remove 'data: ' prefix
         if data == '[DONE]':
             continue
-            
         chunk_data = json.loads(data)
         chunk_content = ""
-        
         if isinstance(chunk_data, str):
             chunk_content = chunk_data
         elif isinstance(chunk_data, dict) and 'choices' in chunk_data:
             chunk_content = chunk_data['choices'][0]['delta'].get('content', '')
-        
-        if chunk_content:
-            print(chunk_content, end="", flush=True)
-            full_response += chunk_content
-            
-    print()
-    return full_response
-
+        yield chunk_content
 
 class Pipe():
     """Pipe class for screenpipe functionality"""
@@ -75,7 +61,7 @@ class Pipe():
                     json=body,
                     stream=True
                 )
-                return process_api_stream_response(response)
+                return yield_stream_response(response)
             else:
                 response = requests.post(
                     f"{self.valves.api_url}/pipe/completion",
