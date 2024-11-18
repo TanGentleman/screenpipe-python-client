@@ -14,21 +14,37 @@ DEFAULT_STREAMING = True
 
 def yield_stream_response(response: requests.Response) -> Generator:
     """Yield lines from a streaming response"""
+    if not response or not response.ok:
+        logging.error(f"Invalid response: {response}")
+        return
+        
     for line in response.iter_lines():
-        line = line.decode('utf-8')
-        if not line.startswith('data: '):
+        try:
+            if not line:
+                continue
+
+            line = line.decode('utf-8')
+            if not line.startswith('data: '):
+                continue
+
+            data = line[6:]  # Remove 'data: ' prefix
+            if data == '[DONE]':
+                continue
+
+            chunk_data = json.loads(data)
+            chunk_content = ""
+            if isinstance(chunk_data, str):
+                chunk_content = chunk_data
+            elif isinstance(chunk_data, dict) and 'choices' in chunk_data:
+                delta = chunk_data['choices'][0].get('delta', {})
+                chunk_content = delta.get('content', '')
+            
+            if chunk_content:  # Only yield non-empty content
+                yield chunk_content
+                
+        except Exception as e:
+            logging.error(f"Error processing stream chunk: {e}")
             continue
-        data = line[6:]  # Remove 'data: ' prefix
-        if data == '[DONE]':
-            continue
-        chunk_data = json.loads(data)
-        chunk_content = ""
-        if isinstance(chunk_data, str):
-            chunk_content = chunk_data
-        elif isinstance(chunk_data, dict) and 'choices' in chunk_data:
-            chunk_content = chunk_data['choices'][0]['delta'].get(
-                'content', '')
-        yield chunk_content
 
 
 class Pipe():
@@ -62,7 +78,6 @@ class Pipe():
                 body["stream"] = self.valves.stream
 
             stream = body["stream"]
-
             if stream:
                 response = requests.post(
                     f"{self.valves.api_url}/pipe/stream",
