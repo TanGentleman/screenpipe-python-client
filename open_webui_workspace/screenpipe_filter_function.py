@@ -18,7 +18,7 @@ from openai import OpenAI
 from pydantic import BaseModel, Field
 
 # Local imports
-from utils.owui_utils.configuration import PipelineConfig
+from utils.owui_utils.configuration import create_config
 from utils.owui_utils.constants import EXAMPLE_SEARCH_JSON, JSON_SYSTEM_MESSAGE, TOOL_SYSTEM_MESSAGE
 from utils.owui_utils.pipeline_utils import screenpipe_search, SearchParameters, PipeSearch, FilterUtils
 
@@ -37,14 +37,8 @@ if use_baml:
 
 ENABLE_BAML = use_baml
 
-def get_config():
-    """Get the pipeline configuration"""
-    from dotenv import load_dotenv
-    load_dotenv()
-    return PipelineConfig.from_env()
-
 # Unpack the config
-CONFIG = get_config()
+CONFIG = create_config()
 
 
 class Filter:
@@ -205,6 +199,8 @@ class Filter:
                 response_format=self._get_json_response_format(),
             )
             response_text = response.choices[0].message.content
+            if not response_text:
+                return "No response generated."
             parsed_search_schema = FilterUtils.parse_schema_from_response(
                 response_text, SearchParameters)
             if isinstance(parsed_search_schema, str):
