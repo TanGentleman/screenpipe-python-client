@@ -340,8 +340,8 @@ class Filter:
         if not messages or len(messages) < 2:
             return False
             
-        if (messages[-1].get("role") != "user" or 
-            messages[-2].get("role") != "assistant"):
+        if (messages[-1].get("role") != "assistant" or 
+            messages[-2].get("role") != "user"):
             return False
                 
         return True
@@ -350,6 +350,7 @@ class Filter:
         """Process outgoing messages."""
         try:
             if not self.is_outlet_body_valid(body):
+                print("Invalid outlet body!!")
                 return body
 
             messages = body["messages"]

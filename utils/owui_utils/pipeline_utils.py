@@ -295,16 +295,15 @@ class FilterUtils:
 
 FINAL_RESPONSE_SYSTEM_MESSAGE = """You are a helpful AI assistant analyzing personal data from ScreenPipe. Your task is to:
 
-1. Understand the user's intent from their original query and the search parameters they constructed
-2. Carefully analyze the provided context (audio/OCR data) based on those search parameters
+1. Understand the user's intent from their original query
+2. Carefully analyze the provided results (audio/OCR data)
 3. Give clear, relevant insights that directly address the user's query
 4. If the context seems less relevant to the query, explain why and still extract any useful information
-5. Be mindful that you are handling personal data and maintain appropriate discretion
 
 The data will be provided in XML tags:
 - <user_query>: The original user question
 - <search_parameters>: The parameters used to filter the data
-- <context>: The actual personal data chunks to analyze
+- <context>: The results of the search
 
 Focus on making connections between the user's intent and the retrieved data to provide meaningful analysis."""
 class ResponseUtils:
@@ -326,8 +325,7 @@ class ResponseUtils:
         context = sanitized_results
         search_params = search_parameters
         #TODO: Add the search parameters to the context
-        reformatted_message = f"""Use the context from my personal data to answer as best as possible. Results have been filtered by the search parameters. Analyze the context, even if the query is less relevant.
-<user_query>
+        reformatted_message = f"""<user_query>
 {query}
 </user_query>
 
@@ -374,12 +372,11 @@ class ResponseUtils:
                 "timestamp": result.get("timestamp", "")
             }
             result_string = (
-                f"=== CHUNK {i}: {result_type.upper()} CONTENT ===\n"
+                f"[Result {i} - {result_type.upper()}]\n"
                 f"{content}\n"
-                f"=== METADATA ===\n"
-                f"Device: {metadata['device_name']}\n"
-                f"Time: {metadata['timestamp']}\n"
-                f"==================\n\n"
+                f"Source: {metadata['device_name']}\n" 
+                f"Timestamp: {metadata['timestamp']}\n"
+                f"---\n\n"
             )
             response_string += result_string
         return response_string.strip()
