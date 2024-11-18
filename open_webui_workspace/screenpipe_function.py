@@ -7,7 +7,7 @@ version: 0.5
 """
 
 import json
-from typing import Union, Generator, Iterator, List
+from typing import Optional, Union, Generator, Iterator, List
 import logging
 from openai import OpenAI
 from pydantic import BaseModel, Field
@@ -44,6 +44,19 @@ class Pipe():
         self.name = "screenpipe_pipeline"
         self.valves = self.Valves()
         self.client = None
+
+    def set_valves(self, valves: Optional[dict] = None):
+        """Update valve settings from a dictionary of values"""
+        if valves is None:
+            self.valves = self.Valves()
+            return
+        assert self.valves is not None
+        for key, value in valves.items():
+            if hasattr(self.valves, key):
+                # TODO: Validate value type
+                setattr(self.valves, key, value)
+            else:
+                print(f"Invalid valve: {key}")
 
     def _initialize_client(self):
         """Initialize OpenAI client"""

@@ -82,6 +82,19 @@ class Filter:
         self.searcher = None
         self.search_params = None
 
+    def set_valves(self, valves: Optional[dict] = None):
+        """Update valve settings from a dictionary of values"""
+        if valves is None:
+            self.valves = self.Valves()
+            return
+        assert self.valves is not None
+        for key, value in valves.items():
+            if hasattr(self.valves, key):
+                # TODO: Validate value type
+                setattr(self.valves, key, value)
+            else:
+                print(f"Invalid valve: {key}")
+
     def safe_log_error(self, message: str, error: Exception) -> None:
         """Safely log an error without potentially exposing PII."""
         error_type = type(error).__name__
