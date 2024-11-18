@@ -16,10 +16,11 @@ from fastapi.responses import StreamingResponse
 from open_webui_workspace.screenpipe_filter_function import Filter as ScreenFilter
 from open_webui_workspace.screenpipe_function import Pipe as ScreenPipe
 
+from utils.owui_utils.configuration import create_config
+
 DEFAULT_QUERY = "What have I been doing on my laptop? Analyze 10 ocr chunks from the past 5 days."
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Type definitions
@@ -37,23 +38,19 @@ class FilterResponse(TypedDict, total=False):
     search_results: Optional[List[Any]]
     user_message_content: Optional[str]
 
-class BaseRequestBody(TypedDict):
-    """Base request body type"""
+class InletRequestBody(TypedDict):
+    """Request body type for inlet endpoint"""
     messages: List[Message]
     stream: bool
 
-class InletRequestBody(BaseRequestBody):
-    """Request body type for inlet endpoint"""
-    pass
-
-class PipeRequestBody(BaseRequestBody, total=False):
+class PipeRequestBody(TypedDict, total=False):
     """Request body type for pipe endpoints"""
     inlet_error: Optional[str]
     search_params: Optional[Dict[str, Any]]
     search_results: Optional[List[Any]]
     user_message_content: Optional[str]
 
-class OutletRequestBody(BaseRequestBody, total=False):
+class OutletRequestBody(TypedDict, total=False):
     """Request body type for outlet endpoint"""
     search_params: Optional[Dict[str, Any]]
     search_results: Optional[List[Any]]
@@ -66,17 +63,17 @@ class Models:
 
 # Configuration
 FILTER_CONFIG = {
-    "LLM_API_BASE_URL": "http://localhost:4000/v1",
-    "JSON_MODEL": Models.FLASH_MODEL,
-    "TOOL_MODEL": Models.SMART_MODEL,
-    "NATIVE_TOOL_CALLING": False,
-    "SCREENPIPE_SERVER_URL": "http://localhost:3030"
+    # "LLM_API_BASE_URL": "http://localhost:4000/v1",
+    # "JSON_MODEL": Models.FLASH_MODEL,
+    # "TOOL_MODEL": Models.SMART_MODEL,
+    # "NATIVE_TOOL_CALLING": False,
+    # "SCREENPIPE_SERVER_URL": "http://localhost:3030"
 }
 
 PIPE_CONFIG = {
-    "LLM_API_BASE_URL": "http://localhost:4000/v1",
-    "RESPONSE_MODEL": Models.FLASH_MODEL,
-    "GET_RESPONSE": True,
+    # "LLM_API_BASE_URL": "http://localhost:4000/v1",
+    # "RESPONSE_MODEL": Models.FLASH_MODEL,
+    # "GET_RESPONSE": True,
 }
 
 # Initialize FastAPI app and components
@@ -89,8 +86,8 @@ app = FastAPI(
 app_filter = ScreenFilter()
 app_pipe = ScreenPipe()
 
-app_filter.valves = app_filter.Valves(**FILTER_CONFIG)
-app_pipe.valves = app_pipe.Valves(**PIPE_CONFIG)
+app_filter.set_valves(FILTER_CONFIG)
+app_pipe.set_valves(PIPE_CONFIG)
 
 logger.info("Filter valves: %s", app_filter.valves)
 logger.info("Pipe valves: %s", app_pipe.valves)
@@ -100,36 +97,25 @@ async def root() -> Dict[str, str]:
     """Health check endpoint."""
     return {"message": "Hello World"}
 
-@app.post("/filter/inlet", response_model=FilterResponse)
-async def filter_inlet(body: InletRequestBody) -> FilterResponse:
+@app.post("/filter/inlet")#, response_model=FilterResponse)
+async def filter_inlet(body: dict) -> dict:
     """Process incoming data through the inlet filter."""
     try:
+        InletRequestBody(**body)
         logger.info("Processing filter inlet request")
         logger.debug("Request body: %s", body)
         logger.debug("Filter valves: %s", app_filter.valves)
         
         response_body = app_filter.inlet(body)
-        return FilterResponse(
-            messages=response_body.get("messages", []),
-            stream=response_body.get("stream", False),
-            inlet_error=response_body.get("inlet_error"),
-            search_params=response_body.get("search_params"),
-            search_results=response_body.get("search_results"),
-            user_message_content=response_body.get("user_message_content")
-        )
+        FilterResponse(**response_body)
+        return response_body
     except Exception as e:
         logger.error("Error in filter inlet: %s", str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/pipe/stream")
-async def pipe_stream(body: PipeRequestBody) -> StreamingResponse:
+async def pipe_stream(body: dict) -> StreamingResponse:
     """Handle streaming pipe requests."""
-    if not body["stream"]:
-        raise HTTPException(
-            status_code=400,
-            detail="Use /pipe/completion for non-streaming requests"
-        )
-        
     try:
         response = app_pipe.pipe(body)
         
@@ -155,14 +141,8 @@ async def pipe_stream(body: PipeRequestBody) -> StreamingResponse:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/pipe/completion")
-async def pipe_completion(body: PipeRequestBody) -> Dict[str, str]:
+async def pipe_completion(body: dict) -> Dict[str, str]:
     """Handle non-streaming pipe completion requests."""
-    if body["stream"]:
-        raise HTTPException(
-            status_code=400,
-            detail="Use /pipe/stream for streaming requests"
-        )
-        
     try:
         response = app_pipe.pipe(body)
         if not isinstance(response, str):
@@ -172,18 +152,13 @@ async def pipe_completion(body: PipeRequestBody) -> Dict[str, str]:
         logger.error("Error in pipe completion: %s", str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/filter/outlet", response_model=FilterResponse)
-async def filter_outlet(body: OutletRequestBody) -> FilterResponse:
+@app.post("/filter/outlet")#, response_model=FilterResponse)
+async def filter_outlet(body: dict) -> dict:
     """Process outgoing data through the outlet filter."""
     try:
         response_body = app_filter.outlet(body)
-        return FilterResponse(
-            messages=response_body.get("messages", []),
-            stream=response_body.get("stream", False),
-            search_params=response_body.get("search_params"),
-            search_results=response_body.get("search_results"),
-            user_message_content=response_body.get("user_message_content")
-        )
+        FilterResponse(**response_body)
+        return response_body
     except Exception as e:
         logger.error("Error in filter outlet: %s", str(e))
         raise HTTPException(status_code=500, detail=str(e))
@@ -193,17 +168,26 @@ async def update_valves(
     filter_config: Dict[str, Any] = Body(None),
     pipe_config: Dict[str, Any] = Body(None)
 ) -> Dict[str, str]:
-    """Update the valve configurations for filter and pipe components."""
+    """Update the valve configurations for filter and pipe components.
+    
+    Args:
+        filter_config: Optional configuration dict for filter valves
+        pipe_config: Optional configuration dict for pipe valves
+        
+    Returns:
+        Dict containing success message and current valve configurations
+        
+    Raises:
+        HTTPException: If valve update fails
+    """
     try:
-        if filter_config:
+        if filter_config is not None:
             logger.info("Updating filter valves with config: %s", filter_config)
-            new_filter_valves = app_filter.Valves(**filter_config)
-            app_filter.valves = new_filter_valves
+            app_filter.set_valves(filter_config)
             
-        if pipe_config:
+        if pipe_config is not None:
             logger.info("Updating pipe valves with config: %s", pipe_config)
-            new_pipe_valves = app_pipe.Valves(**pipe_config)
-            app_pipe.valves = new_pipe_valves
+            app_pipe.set_valves(pipe_config)
             
         return {
             "message": "Valves updated successfully",
@@ -212,10 +196,58 @@ async def update_valves(
         }
     except Exception as e:
         logger.error("Error updating valves: %s", str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to update valves: {str(e)}"
+        )
 
+@app.post("/refresh_valves")
+async def refresh_valves_from_env() -> Dict[str, str]:
+    """Refresh valve configurations from environment variables.
+    
+    Returns:
+        Dict containing success message and refreshed valve configurations
+        
+    Raises:
+        HTTPException: If valve refresh fails
+    """
+    try:
+        config = create_config()
+        
+        # Build filter config from env vars
+        filter_config = {
+            "LLM_API_BASE_URL": config.llm_api_base_url,
+            "LLM_API_KEY": config.llm_api_key,
+            "SCREENPIPE_SERVER_URL": config.screenpipe_server_url,
+            "NATIVE_TOOL_CALLING": config.native_tool_calling,
+            "JSON_MODEL": config.json_model,
+            "TOOL_MODEL": config.tool_model
+        }
+        
+        # Build pipe config from env vars
+        pipe_config = {
+            "LLM_API_BASE_URL": config.llm_api_base_url,
+            "LLM_API_KEY": config.llm_api_key,
+            "GET_RESPONSE": config.get_response,
+            "RESPONSE_MODEL": config.response_model
+        }
 
-
+        # Update both components
+        app_filter.set_valves(filter_config)
+        app_pipe.set_valves(pipe_config)
+            
+        return {
+            "message": "Valves updated successfully from environment",
+            "filter_valves": str(app_filter.valves),
+            "pipe_valves": str(app_pipe.valves)
+        }
+    except Exception as e:
+        logger.error("Error updating valves from environment: %s", str(e))
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to update valves from environment: {str(e)}"
+        )
+    
 def process_api_stream_response(response: Any) -> str:
     """Process streaming response from HTTP request."""
     full_response = ""
@@ -257,7 +289,7 @@ def main_from_cli(query: Optional[str] = None) -> None:
     }
     PRINT_BODIES = False
 
-    try:
+    try:        
         # Process pipeline stages
         inlet_response = requests.post("http://localhost:3333/filter/inlet", json=body)
         inlet_data = inlet_response.json()
