@@ -129,15 +129,18 @@ async def pipe_stream(body: dict) -> StreamingResponse:
     """Handle streaming pipe requests."""
     try:
         response = app_pipe.pipe(body)
+        if not response:
+            raise ValueError("Empty response from pipe")
 
         async def generate() -> AsyncGenerator[str, None]:
             """Generate streaming response chunks."""
             try:
                 for chunk in response:
-                    if isinstance(chunk, str):
-                        yield f"data: {json.dumps(chunk)}\n\n"
-                    else:
-                        yield f"data: {json.dumps(chunk.dict())}\n\n"
+                    if chunk:  # Only process non-None chunks
+                        if isinstance(chunk, str):
+                            yield f"data: {json.dumps(chunk)}\n\n"
+                        else:
+                            yield f"data: {json.dumps(chunk.dict())}\n\n"
                 yield "data: [DONE]\n\n"
             except Exception as e:
                 logger.error("Error in stream generation: %s", str(e))
@@ -268,31 +271,40 @@ async def refresh_valves_from_env() -> Dict[str, str]:
 
 def process_api_stream_response(response: Any) -> str:
     """Process streaming response from HTTP request."""
+    if not response or not response.ok:
+        logger.error(f"Invalid response: {response}")
+        return ""
+        
     full_response = ""
-    for line in response.iter_lines():
-        if not line:
-            continue
+    try:
+        for line in response.iter_lines():
+            if not line:
+                continue
 
-        line = line.decode('utf-8')
-        if not line.startswith('data: '):
-            continue
+            line = line.decode('utf-8')
+            if not line.startswith('data: '):
+                continue
 
-        data = line[6:]  # Remove 'data: ' prefix
-        if data == '[DONE]':
-            continue
+            data = line[6:]  # Remove 'data: ' prefix
+            if data == '[DONE]':
+                continue
 
-        chunk_data = json.loads(data)
-        chunk_content = ""
+            chunk_data = json.loads(data)
+            chunk_content = ""
 
-        if isinstance(chunk_data, str):
-            chunk_content = chunk_data
-        elif 'choices' in chunk_data and chunk_data['choices'][0]['delta'].get('content'):
-            chunk_content = chunk_data['choices'][0]['delta']['content']
+            if isinstance(chunk_data, str):
+                chunk_content = chunk_data
+            elif isinstance(chunk_data, dict) and 'choices' in chunk_data:
+                delta = chunk_data['choices'][0].get('delta', {})
+                chunk_content = delta.get('content', '')
 
-        if chunk_content:
-            print(chunk_content, end="", flush=True)
-            full_response += chunk_content
+            if chunk_content:
+                print(chunk_content, end="", flush=True)
+                full_response += chunk_content
 
+    except Exception as e:
+        logger.error(f"Error processing stream response: {e}")
+        
     print()
     return full_response
 
