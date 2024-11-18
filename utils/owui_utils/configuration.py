@@ -2,24 +2,15 @@ import os
 from dataclasses import dataclass
 from typing import List, Tuple
 
-# Environment variables and defaults
-SENSITIVE_KEY = os.getenv('LLM_API_KEY', '')
-if not SENSITIVE_KEY:
-    print("WARNING: LLM_API_KEY environment variable is not set!")
-
 # Sensitive data replacements
-REPLACEMENT_TUPLES = [
-    # ("LASTNAME", ""),
-    # ("FIRSTNAME", "NICKNAME")
-]
-
+REPLACEMENT_TUPLES = [("vasudeva", ""), ("tanuj", "tan")]
 
 # Configuration defaults
 IS_DOCKER = True
 DEFAULT_SCREENPIPE_PORT = 3030
 URL_BASE = "http://host.docker.internal" if IS_DOCKER else "http://localhost"
 DEFAULT_LLM_API_BASE_URL = f"{URL_BASE}:11434/v1"
-DEFAULT_LLM_API_KEY = SENSITIVE_KEY or "API-KEY-HERE"
+DEFAULT_LLM_API_KEY = "API-KEY-HERE"
 
 # Model settings
 DEFAULT_TOOL_MODEL = "gpt-4o-mini"
