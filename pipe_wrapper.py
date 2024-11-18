@@ -1,6 +1,6 @@
 import json
 import logging
-from pprint import pprint
+from pydantic import BaseModel, Field
 import requests
 from typing import Union, Generator, Iterator
 
@@ -9,7 +9,9 @@ URL_BASE = "http://host.docker.internal" if IS_DOCKER else "http://localhost"
 CORE_API_PORT = 3333
 CORE_API_URL = f"{URL_BASE}:{CORE_API_PORT}"
 
-def process_stream_response(response: requests.Response) -> str:
+DEFAULT_STREAMING = True
+
+def process_api_stream_response(response: requests.Response) -> str:
     """Process streaming response from HTTP request."""
     full_response = ""
     for line in response.iter_lines():
@@ -40,64 +42,43 @@ def process_stream_response(response: requests.Response) -> str:
     return full_response
 
 
-class Filter():
-    """Filter class for screenpipe functionality"""
-
-    def __init__(self):
-        self.type = "filter"
-        self.name = "wrapper_filter"
-        self.api_url = CORE_API_URL
-
-    def inlet(self, body: dict) -> dict:
-        """Inlet method for filter"""
-        try:    
-            response = requests.post(
-                f"{self.api_url}/filter/inlet",
-                json=body
-            )
-            return response.json()
-        except Exception as e:
-            logging.error(f"Error details: {e}")
-            safe_details = f"Error in inlet: {type(e).__name__}"
-            return {"inlet_error": safe_details}
-
-
-    def outlet(self, body: dict) -> dict:
-        """Outlet method for filter"""
-        try:
-            response = requests.post(
-                f"{self.api_url}/filter/outlet",
-                json=body
-            )
-            return response.json()
-        except Exception as e:
-            logging.error(f"Error details: {e}")
-            safe_details = f"Error in outlet: {type(e).__name__}"
-            return {"outlet_error": safe_details}
-
 class Pipe():
     """Pipe class for screenpipe functionality"""
+
+    class Valves(BaseModel):
+        api_url: str = Field(default=CORE_API_URL, description="Base URL for the Core API")
+        stream: bool = Field(default=DEFAULT_STREAMING, description="Whether to stream the response")
 
     def __init__(self):
         self.type = "pipe"
         self.name = "wrapper_pipeline"
-        self.api_url = CORE_API_URL
+        self.valves = self.Valves()
 
     def pipe(self, body: dict) -> Union[str, Generator, Iterator]:
         """Main pipeline processing method"""
         try:
-            stream = body.get("stream", False)
+            if "stream" not in body:
+                body["stream"] = self.valves.stream
+            elif body["stream"] != self.valves.stream:
+                # NOTE: Which one to use? Always use the one in the valves?
+                # NOTE: Prioritizing valves over body
+                logging.warning(f"Stream value in body: {body['stream']} does not match valves: {self.valves.stream}!")
+                logging.warning("Overriding with valves!")
+                print("Setting stream to:", self.valves.stream)
+                body["stream"] = self.valves.stream
+            
+            stream = body["stream"]
             
             if stream:
                 response = requests.post(
-                    f"{self.api_url}/pipe/stream",
+                    f"{self.valves.api_url}/pipe/stream",
                     json=body,
                     stream=True
                 )
-                return process_stream_response(response)
+                return process_api_stream_response(response)
             else:
                 response = requests.post(
-                    f"{self.api_url}/pipe/completion",
+                    f"{self.valves.api_url}/pipe/completion",
                     json=body
                 )
                 return response.json()["response_string"]
@@ -109,13 +90,8 @@ class Pipe():
 
 if __name__ == "__main__":
     QUERY = "1 audio please. Tell me about it."
-    filter = Filter()
+    STREAM = True
     pipe = Pipe()
-    stream = True
-    body = {"stream": stream, "messages": [{"role": "user", "content": QUERY}]}
-    inlet_response = filter.inlet(body)
-    pipe_response = pipe.pipe(inlet_response)
+    body = {"stream": STREAM, "messages": [{"role": "user", "content": QUERY}]}
+    pipe_response = pipe.pipe(body)
     assert isinstance(pipe_response, str)
-    new_body = inlet_response
-    new_body["messages"].append({"role": "assistant", "content": pipe_response})
-    outlet_response = filter.outlet(new_body)
