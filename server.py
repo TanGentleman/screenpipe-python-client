@@ -4,16 +4,20 @@ This module provides the HTTP API endpoints for the ScreenPipe service,
 handling filtering and processing of data through inlet/outlet pipes.
 """
 
+    
+import requests
 import asyncio
 import json
 import logging
 from pprint import pprint
 from typing import Optional, List, Dict, AsyncGenerator, Any
 from typing_extensions import TypedDict
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Body
 from fastapi.responses import StreamingResponse
 from open_webui_workspace.screenpipe_filter_function import Filter as ScreenFilter
 from open_webui_workspace.screenpipe_function import Pipe as ScreenPipe
+
+DEFAULT_QUERY = "What have I been doing on my laptop? Analyze 10 ocr chunks from the past 5 days."
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -25,7 +29,7 @@ class Message(TypedDict):
     role: str
     content: str
 
-class FilterResponse(TypedDict):
+class FilterResponse(TypedDict, total=False):
     """Response type for filter endpoints"""
     messages: List[Message]
     stream: bool
@@ -43,7 +47,7 @@ class InletRequestBody(BaseRequestBody):
     """Request body type for inlet endpoint"""
     pass
 
-class PipeRequestBody(BaseRequestBody):
+class PipeRequestBody(BaseRequestBody, total=False):
     """Request body type for pipe endpoints"""
     inlet_error: Optional[str]
     search_params: Optional[Dict[str, Any]]
@@ -58,22 +62,21 @@ class OutletRequestBody(BaseRequestBody, total=False):
 
 class Models:
     """Model configuration constants"""
-    SAMBANOVA_MODEL = "sambanova-llama-8b"
-    TINY_MODEL = "openrouter/meta-llama/llama-3.2-1b-instruct:free"
+    FLASH_MODEL = "openrouter/google/gemini-flash-1.5-8b"
+    SMART_MODEL = "Llama-3.1-70B"
 
 # Configuration
 FILTER_CONFIG = {
     "LLM_API_BASE_URL": "http://localhost:4000/v1",
-    "LLM_API_KEY": "sk-tan",
-    "JSON_MODEL": Models.SAMBANOVA_MODEL,
+    "JSON_MODEL": Models.FLASH_MODEL,
+    "TOOL_MODEL": Models.SMART_MODEL,
     "NATIVE_TOOL_CALLING": False,
     "SCREENPIPE_SERVER_URL": "http://localhost:3030"
 }
 
 PIPE_CONFIG = {
     "LLM_API_BASE_URL": "http://localhost:4000/v1",
-    "LLM_API_KEY": "sk-tan",
-    "RESPONSE_MODEL": Models.TINY_MODEL,
+    "RESPONSE_MODEL": Models.FLASH_MODEL,
     "GET_RESPONSE": True,
 }
 
@@ -178,7 +181,6 @@ async def filter_outlet(body: OutletRequestBody) -> FilterResponse:
         return FilterResponse(
             messages=response_body.get("messages", []),
             stream=response_body.get("stream", False),
-            inlet_error=response_body.get("inlet_error"),
             search_params=response_body.get("search_params"),
             search_results=response_body.get("search_results"),
             user_message_content=response_body.get("user_message_content")
@@ -187,12 +189,38 @@ async def filter_outlet(body: OutletRequestBody) -> FilterResponse:
         logger.error("Error in filter outlet: %s", str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/update_valves")
+async def update_valves(
+    filter_config: Dict[str, Any] = Body(None),
+    pipe_config: Dict[str, Any] = Body(None)
+) -> Dict[str, str]:
+    """Update the valve configurations for filter and pipe components."""
+    try:
+        if filter_config:
+            logger.info("Updating filter valves with config: %s", filter_config)
+            new_filter_valves = app_filter.Valves(**filter_config)
+            app_filter.valves = new_filter_valves
+            
+        if pipe_config:
+            logger.info("Updating pipe valves with config: %s", pipe_config)
+            new_pipe_valves = app_pipe.Valves(**pipe_config)
+            app_pipe.valves = new_pipe_valves
+            
+        return {
+            "message": "Valves updated successfully",
+            "filter_valves": str(app_filter.valves),
+            "pipe_valves": str(app_pipe.valves)
+        }
+    except Exception as e:
+        logger.error("Error updating valves: %s", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
 def start_server(port: int = 3333) -> None:
     """Start the FastAPI server."""
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=port)
 
-async def process_streaming_response(response_stream: Any, body: Dict[str, Any]) -> str:
+async def process_streaming_response(response_stream: Any) -> str:
     """Process streaming responses and accumulate the full response."""
     full_response = ""
     for chunk in response_stream:
@@ -210,10 +238,13 @@ async def process_streaming_response(response_stream: Any, body: Dict[str, Any])
     print()
     return full_response
 
-async def main() -> None:
+async def main(query: Optional[str] = None) -> None:
     """Main async function for testing the pipeline."""
+    if not query:
+        query = DEFAULT_QUERY
+        
     body = {
-        "messages": [{"role": "user", "content": "What have I been doing in my past 5 ocr chunks?"}],
+        "messages": [{"role": "user", "content": query}],
         "stream": True
     }
     PRINT_BODIES = False
@@ -225,9 +256,22 @@ async def main() -> None:
             pprint(inlet_response)
 
         pipe_response = await pipe_stream(inlet_response)
-        response = await process_streaming_response(pipe_response, inlet_response) if inlet_response["stream"] else pipe_response
+        full_response = ""
+        for chunk in pipe_response:
+            chunk_content = ""
+            if isinstance(chunk, str):
+                chunk_content = chunk
+                print(chunk, end="", flush=True)
+            elif chunk.choices[0].delta.content is not None:
+                chunk_content = chunk.choices[0].delta.content
+                print(chunk_content, end="", flush=True)
+            else:
+                finish_reason = chunk.choices[0].finish_reason
+                logger.info("Finish reason: %s", finish_reason)
+            full_response += chunk_content
+        print()
 
-        inlet_response["messages"].append({"role": "assistant", "content": response})
+        inlet_response["messages"].append({"role": "assistant", "content": full_response})
         outlet_response = await filter_outlet(inlet_response)
         
         if PRINT_BODIES:
@@ -238,7 +282,7 @@ async def main() -> None:
     except Exception as e:
         logger.error("Error in main: %s", str(e))
 
-def process_stream_response(response: Any) -> str:
+def process_api_stream_response(response: Any) -> str:
     """Process streaming response from HTTP request."""
     full_response = ""
     for line in response.iter_lines():
@@ -268,13 +312,14 @@ def process_stream_response(response: Any) -> str:
     print()
     return full_response
 
-def main_from_cli() -> None:
+def main_from_cli(query: Optional[str] = None) -> None:
     """CLI entry point for testing the pipeline."""
-    import requests
+    if not query:
+        query = DEFAULT_QUERY
 
     body = {
-        "messages": [{"role": "user", "content": "What have I been doing in my past 2 audio chunks?"}],
-        "stream": False
+        "messages": [{"role": "user", "content": query}],
+        "stream": True
     }
     PRINT_BODIES = False
 
@@ -292,7 +337,7 @@ def main_from_cli() -> None:
                 json=inlet_data,
                 stream=True
             )
-            full_response = process_stream_response(response)
+            full_response = process_api_stream_response(response)
         else:
             response = requests.post(
                 "http://localhost:3333/pipe/completion",
@@ -320,6 +365,9 @@ def main_from_cli() -> None:
         logger.error("Error in CLI main: %s", str(e))
 
 if __name__ == "__main__":
-    # start_server()
-    # asyncio.run(main())
-    main_from_cli()
+    import sys
+    QUERY = " ".join(sys.argv[1:])
+    print(f"Query:<{QUERY}>")
+    main_from_cli(QUERY)
+    # asyncio.run(main(QUERY))
+    # main_from_cli()
