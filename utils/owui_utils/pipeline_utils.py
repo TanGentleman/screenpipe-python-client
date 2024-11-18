@@ -6,6 +6,8 @@ import requests
 import json
 from pydantic import ValidationError
 
+MAX_SEARCH_LIMIT = 99
+
 class SearchParameters(BaseModel):
     """Search parameters for the Screenpipe Pipeline"""
     limit: Annotated[int, Field(ge=1, le=100)] = Field(
@@ -110,7 +112,7 @@ class PipeSearch:
 
         # Validate limit
         if 'limit' in processed:
-            processed['limit'] = min(int(processed['limit']), 40)
+            processed['limit'] = min(int(processed['limit']), MAX_SEARCH_LIMIT)
 
         # Capitalize app name if present
         if 'app_name' in processed and processed['app_name']:

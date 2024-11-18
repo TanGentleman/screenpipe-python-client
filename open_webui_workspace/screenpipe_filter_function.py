@@ -37,46 +37,50 @@ if use_baml:
 
 ENABLE_BAML = use_baml
 
+def get_config():
+    """Get the pipeline configuration"""
+    from dotenv import load_dotenv
+    load_dotenv()
+    return PipelineConfig.from_env()
+
+# Unpack the config
+CONFIG = get_config()
+
+
 class Filter:
     """Filter class for screenpipe functionality"""
 
     class Valves(BaseModel):
         """Valve settings for the Filter"""
         LLM_API_BASE_URL: str = Field(
-            default="", description="Base URL for the LLM API"
+            default=CONFIG.llm_api_base_url, description="Base URL for the LLM API"
         )
         LLM_API_KEY: str = Field(
-            default="", description="API key for LLM access"
+            default=CONFIG.llm_api_key, description="API key for LLM access"
         )
         JSON_MODEL: Optional[str] = Field(
-            default=None, description="Model to use for JSON calls"
+            default=CONFIG.json_model, description="Model to use for JSON calls"
         )
         TOOL_MODEL: str = Field(
-            default="", description="Model to use for tool calls"
+            default=CONFIG.tool_model, description="Model to use for tool calls"
         )
         NATIVE_TOOL_CALLING: bool = Field(
-            default=False,
-            description="Works best with gpt-4o-mini, use JSON for other models.")
+            default=CONFIG.native_tool_calling,
+            description="Works best with gpt-4o-mini, use JSON for other models."
+        )
         SCREENPIPE_SERVER_URL: str = Field(
-            default="", description="URL for the ScreenPipe server"
+            default=CONFIG.screenpipe_server_url, description="URL for the ScreenPipe server"
         )
 
     def __init__(self):
         self.name = "screenpipe_pipeline"
-        self.config = PipelineConfig.from_env()
         self.tools = [convert_to_openai_tool(screenpipe_search)]
         self.json_schema = SearchParameters.model_json_schema()
-        self.replacement_tuples = self.config.replacement_tuples
-        self.valves = self.Valves(
-            **{
-                "LLM_API_BASE_URL": self.config.llm_api_base_url,
-                "LLM_API_KEY": self.config.llm_api_key,
-                "JSON_MODEL": self.config.json_model,
-                "TOOL_MODEL": self.config.tool_model,
-                "NATIVE_TOOL_CALLING": self.config.native_tool_calling,
-                "SCREENPIPE_SERVER_URL": self.config.screenpipe_server_url,
-            }
-        )
+        self.replacement_tuples = CONFIG.replacement_tuples
+        self.valves = self.Valves()
+        self.client = None
+        self.searcher = None
+        self.search_params = None
 
     def safe_log_error(self, message: str, error: Exception) -> None:
         """Safely log an error without potentially exposing PII."""
@@ -87,34 +91,25 @@ class Filter:
         """Initialize all pipeline settings"""
         self._initialize_client()
         self._initialize_searcher()
-        self._initialize_models()
 
     def _initialize_client(self):
         """Initialize OpenAI client"""
-        base_url = self.valves.LLM_API_BASE_URL or self.config.llm_api_base_url
-        api_key = self.valves.LLM_API_KEY or self.config.llm_api_key
         self.client = OpenAI(
-            base_url=base_url,
-            api_key=api_key
+            base_url=self.valves.LLM_API_BASE_URL,
+            api_key=self.valves.LLM_API_KEY
         )
 
     def _initialize_searcher(self):
         """Initialize PipeSearch instance"""
-        screenpipe_server_url = self.valves.SCREENPIPE_SERVER_URL or self.config.screenpipe_server_url
-        default_dict = {"screenpipe_server_url": screenpipe_server_url}
-        self.searcher = PipeSearch(default_dict)
+        self.searcher = PipeSearch(
+            {"screenpipe_server_url": self.valves.SCREENPIPE_SERVER_URL}
+        )
         self.search_params = None
-
-    def _initialize_models(self):
-        """Initialize model settings"""
-        self.tool_model = self.valves.TOOL_MODEL or self.config.tool_model
-        self.json_model = self.valves.JSON_MODEL or self.config.json_model
-        self.native_tool_calling = self.valves.NATIVE_TOOL_CALLING
 
     def _get_system_message(self) -> str:
         """Get appropriate system message based on configuration"""
         current_time = FilterUtils.get_current_time()
-        if self.native_tool_calling:
+        if self.valves.NATIVE_TOOL_CALLING:
             return TOOL_SYSTEM_MESSAGE.format(current_time=current_time)
         return JSON_SYSTEM_MESSAGE.format(
             schema=self.json_schema,
@@ -150,7 +145,7 @@ class Filter:
         return results
 
     def _get_json_response_format(self) -> dict:
-        lm_studio_condition = self.json_model.startswith("lmstudio")
+        lm_studio_condition = self.valves.JSON_MODEL.startswith("lmstudio")
         if lm_studio_condition:
             assert self.json_schema is not None
             return {
@@ -189,10 +184,10 @@ class Filter:
         # Replace system message
         assert messages[0]["role"] == "system", "There should be a system message here!"
         # NOTE: Response format varies by provider
-        print("Using json model:", self.json_model)
+        print("Using json model:", self.valves.JSON_MODEL)
         try:
             response = self.client.chat.completions.create(
-                model=self.json_model,
+                model=self.valves.JSON_MODEL,
                 messages=messages,
                 response_format=self._get_json_response_format(),
             )
@@ -207,9 +202,9 @@ class Filter:
             return "Failed json mode api call."
 
     def _make_tool_api_call(self, messages):
-        print("Using tool model:", self.tool_model)
+        print("Using tool model:", self.valves.TOOL_MODEL)
         return self.client.chat.completions.create(
-            model=self.tool_model,
+            model=self.valves.TOOL_MODEL,
             messages=messages,
             tools=self.tools,
             tool_choice="auto",
@@ -270,6 +265,9 @@ class Filter:
 
     def inlet(self, body: dict, __user__: Optional[dict] = None) -> dict:
         """Process incoming messages, performing search and sanitizing results."""
+        print(f"inlet:{__name__}")
+        # print(f"inlet:body:{body}")
+        print(f"inlet:user:{__user__}")
         if not self.is_inlet_body_valid(body):
             body["inlet_error"] = "Invalid inlet body"
             return body
@@ -335,7 +333,7 @@ class Filter:
         """
         if not isinstance(body, dict):
             return False
-            
+        
         messages = body.get("messages", [])
         if not messages or len(messages) < 2:
             return False
@@ -348,6 +346,9 @@ class Filter:
 
     def outlet(self, body: dict, __user__: Optional[dict] = None) -> dict:
         """Process outgoing messages."""
+        print(f"outlet:{__name__}")
+        # print(f"outlet:body:{body}")
+        print(f"outlet:user:{__user__}")
         try:
             if not self.is_outlet_body_valid(body):
                 print("Invalid outlet body!!")
