@@ -9,8 +9,8 @@ Use the properties field below to construct the search parameters:
 Ensure the following rules are met:
     - limit must be between 1 and 100. defaults to 5 if not specified.
     - content_type must be one of: "ocr", "audio", "all"
-    - if provided, time values should be in ISO format relative to the current timestamp: {current_time}
-    - when appropriate, create a short search_substring to narrow down the search results
+    - time values should be null unless the query specifies a time range
+    - only include a search_substring if specified in the query
 
 Example search JSON objects:
 {examples}

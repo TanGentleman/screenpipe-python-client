@@ -12,15 +12,10 @@ import logging
 from openai import OpenAI
 from pydantic import BaseModel, Field
 
-from utils.owui_utils.configuration import PipelineConfig
+from utils.owui_utils.configuration import create_config
 from utils.owui_utils.pipeline_utils import ResponseUtils
 
-def get_config():
-    from dotenv import load_dotenv
-    load_dotenv()
-    return PipelineConfig.from_env()
-
-CONFIG = get_config()
+CONFIG = create_config()
 
 class Pipe():
     """Pipe class for screenpipe functionality"""
@@ -136,6 +131,7 @@ class Pipe():
 
     def pipe(self, body: dict) -> Union[str, Generator, Iterator]:
         """Main pipeline processing method"""
+        print(f"pipe:{__name__}")
         if body["inlet_error"]:
             return body["inlet_error"]
         

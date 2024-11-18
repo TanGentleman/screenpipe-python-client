@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import List, Tuple
 
 # Sensitive data replacements
-REPLACEMENT_TUPLES = [("vasudeva", ""), ("tanuj", "tan")]
+REPLACEMENT_TUPLES = []
 
 # Configuration defaults
 IS_DOCKER = True
@@ -70,3 +70,9 @@ class PipelineConfig:
         """Compute the Screenpipe base URL based on configuration"""
         url_base = "http://host.docker.internal" if self.is_docker else "http://localhost"
         return f"{url_base}:{self.screenpipe_port}"
+
+def create_config() -> PipelineConfig:
+    """Get the configuration from the environment"""
+    from dotenv import load_dotenv
+    load_dotenv(override=True)
+    return PipelineConfig.from_env()

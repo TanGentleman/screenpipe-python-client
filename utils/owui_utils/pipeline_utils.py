@@ -237,7 +237,7 @@ class FilterUtils:
             pydantic_object = target_schema(**response_object)
             return pydantic_object.model_dump()
         except (json.JSONDecodeError, ValidationError) as e:
-            print(f"Error: {e}")
+            print(f"DECODING ERROR (MODEL MAY NOT SUPPORT JSON): {e}")
             return response_text
 
     @staticmethod
@@ -293,7 +293,7 @@ class FilterUtils:
     def refactor_user_message(user_message: str) -> str:
         """Refactor user message to standardize search format"""
         current_time = FilterUtils.get_current_time()
-        return f"{user_message}\n- The current time is {current_time}"
+        return f"USER MESSAGE: {user_message}\n*CURRENT TIME: {current_time}*"
 
 FINAL_RESPONSE_SYSTEM_MESSAGE = """You are a helpful AI assistant analyzing personal data from ScreenPipe. Your task is to:
 
