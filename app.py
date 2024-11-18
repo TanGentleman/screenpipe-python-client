@@ -19,7 +19,7 @@ class Spinner:
     def __init__(self, message="Processing..."):
         self.spinner = itertools.cycle(["-", "/", "|", "\\"])
         self.busy = False
-        self.delay = 0.1
+        self.delay = 0.05
         self.message = message
         self.thread = None
 
@@ -46,7 +46,7 @@ class Spinner:
             self.thread.join()
         self.write("\r")  # Move cursor to beginning of line
 
-def process_stream_response(response: requests.Response) -> str:
+def process_api_stream_response(response: requests.Response) -> str:
     """Process streaming response from HTTP request."""
     full_response = ""
     for line in response.iter_lines():
@@ -81,13 +81,15 @@ def chat_with_api(messages: list) -> Union[Dict[str, Any], str]:
     Send chat messages to the API and handle the response.
     Returns either the outlet response dict or an error string.
     """
+    stream = True
     try:
         # Process inlet
-        inlet_response = requests.post(
-            f"{API_BASE_URL}/filter/inlet",
-            json={"messages": messages, "stream": True}
-        )
-        inlet_data = inlet_response.json()
+        with Spinner("Processing your request..."):
+            inlet_response = requests.post(
+                f"{API_BASE_URL}/filter/inlet",
+                json={"messages": messages, "stream": stream}
+            )
+            inlet_data = inlet_response.json()
 
         # Process pipe
         if inlet_data["stream"]:
@@ -97,7 +99,7 @@ def chat_with_api(messages: list) -> Union[Dict[str, Any], str]:
                 json=inlet_data,
                 stream=True
             )
-            response_content = process_stream_response(pipe_response)
+            response_content = process_api_stream_response(pipe_response)
         else:
             with Spinner("Processing your request..."):
                 pipe_response = requests.post(
