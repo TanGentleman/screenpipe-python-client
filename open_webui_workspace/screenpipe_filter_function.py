@@ -22,7 +22,8 @@ from utils.owui_utils.configuration import create_config
 from utils.owui_utils.constants import EXAMPLE_SEARCH_JSON, JSON_SYSTEM_MESSAGE, TOOL_SYSTEM_MESSAGE
 from utils.owui_utils.pipeline_utils import screenpipe_search, SearchParameters, PipeSearch, FilterUtils
 
-
+# Unpack the config
+CONFIG = create_config()
 # Attempt to import BAML utils if enabled
 use_baml = False
 construct_search_params = None
@@ -37,8 +38,7 @@ if use_baml:
 
 ENABLE_BAML = use_baml
 
-# Unpack the config
-CONFIG = create_config()
+
 
 
 class Filter:
@@ -47,24 +47,23 @@ class Filter:
     class Valves(BaseModel):
         """Valve settings for the Filter"""
         LLM_API_BASE_URL: str = Field(
-            default=CONFIG.llm_api_base_url, description="Base URL for the LLM API"
-        )
+            default=CONFIG.llm_api_base_url,
+            description="Base URL for the LLM API")
         LLM_API_KEY: str = Field(
             default=CONFIG.llm_api_key, description="API key for LLM access"
         )
         JSON_MODEL: Optional[str] = Field(
-            default=CONFIG.json_model, description="Model to use for JSON calls"
-        )
+            default=CONFIG.json_model,
+            description="Model to use for JSON calls")
         TOOL_MODEL: str = Field(
-            default=CONFIG.tool_model, description="Model to use for tool calls"
-        )
+            default=CONFIG.tool_model,
+            description="Model to use for tool calls")
         NATIVE_TOOL_CALLING: bool = Field(
             default=CONFIG.native_tool_calling,
-            description="Works best with gpt-4o-mini, use JSON for other models."
-        )
+            description="Works best with gpt-4o-mini, use JSON for other models.")
         SCREENPIPE_SERVER_URL: str = Field(
-            default=CONFIG.screenpipe_server_url, description="URL for the ScreenPipe server"
-        )
+            default=CONFIG.screenpipe_server_url,
+            description="URL for the ScreenPipe server")
 
     def __init__(self):
         self.name = "screenpipe_pipeline"
@@ -232,7 +231,8 @@ class Filter:
         if ENABLE_BAML:
             raw_query = messages[-1]["content"]
             current_iso_timestamp = FilterUtils.get_current_time()
-            results = baml_generate_search_params(raw_query, current_iso_timestamp)
+            results = baml_generate_search_params(
+                raw_query, current_iso_timestamp)
             if isinstance(results, str):
                 return results
             search_params = results.model_dump()
@@ -240,7 +240,8 @@ class Filter:
 
         # Refactor user message
         user_message = messages[-1]["content"]
-        user_message_refactored = FilterUtils.refactor_user_message(user_message)
+        user_message_refactored = FilterUtils.refactor_user_message(
+            user_message)
         messages[-1]["content"] = user_message_refactored
         system_message = self._get_system_message()
         messages = FilterUtils._prepare_initial_messages(
@@ -252,13 +253,13 @@ class Filter:
 
     def is_inlet_body_valid(self, body: dict) -> bool:
         """Validates the structure and types of the inlet body dictionary.
-        
+
         Args:
             body: Dictionary containing messages
-            
+
         Returns:
             bool: True if body has valid structure and types, False otherwise
-        
+
         The body must contain:
         - messages list with at least 1 message
         - Last message from user
@@ -304,22 +305,23 @@ class Filter:
             # Sanitize and store results
             sanitized_results = FilterUtils.sanitize_results(
                 results, self.replacement_tuples)
-            
+
             if not sanitized_results:
                 body["inlet_error"] = "No sanitized results found"
                 return body
-            
+
             body["search_results"] = sanitized_results
             # Store original user message
             REPLACE_USER_MESSAGE = False
             if REPLACE_USER_MESSAGE:
                 # NOTE: This REPLACES the user message in the body dictionary
-                
+
                 # Append search params to user message
-                search_params_as_string = json.dumps(self.search_params, indent=2)
+                search_params_as_string = json.dumps(
+                    self.search_params, indent=2)
                 prologue = "Search parameters:"
-                refactored_last_message = original_messages[-1]["content"] + "\n\n" + \
-                    prologue + "\n" + search_params_as_string
+                refactored_last_message = original_messages[-1]["content"] + \
+                    "\n\n" + prologue + "\n" + search_params_as_string
                 original_messages[-1]["content"] = refactored_last_message
         except Exception as e:
             self.safe_log_error("Error processing inlet", e)
@@ -329,28 +331,28 @@ class Filter:
 
     def is_outlet_body_valid(self, body: dict) -> bool:
         """Validates the structure and types of the outlet body dictionary.
-        
+
         Args:
             body: Dictionary containing messages
-            
+
         Returns:
             bool: True if body has valid structure and types, False otherwise
-            
+
         The body must contain:
         - messages list with at least 2 messages
         - Last message from user, second-to-last from assistant
         """
         if not isinstance(body, dict):
             return False
-        
+
         messages = body.get("messages", [])
         if not messages or len(messages) < 2:
             return False
-            
-        if (messages[-1].get("role") != "assistant" or 
-            messages[-2].get("role") != "user"):
+
+        if (messages[-1].get("role") != "assistant" or
+                messages[-2].get("role") != "user"):
             return False
-                
+
         return True
 
     def outlet(self, body: dict, __user__: Optional[dict] = None) -> dict:
@@ -372,10 +374,10 @@ class Filter:
             # Add search params to assistant message if available
             if self.search_params:
                 content = messages[-1].get("content", "")
-                pruned_params = {k: v for k, v in self.search_params.items() if v}
+                pruned_params = {
+                    k: v for k, v in self.search_params.items() if v}
                 params_str = json.dumps(pruned_params, indent=2)
                 messages[-1]["content"] = f"{content}\n\nUsed search params:\n{params_str}"
-
 
         except Exception as e:
             self.safe_log_error("Error processing outlet", e)
