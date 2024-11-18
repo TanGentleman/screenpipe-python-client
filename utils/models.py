@@ -19,11 +19,13 @@ LITELLM_BASE_URL = f"http://{HOST}:{PORT}/v1"
 # Configure logging
 logger = logging.getLogger(__name__)
 
+
 class ModelCapabilities(TypedDict, total=False):
     """Capabilities of a model"""
     function_calling: bool
     vision: bool
     local: bool
+
 
 class ModelConfig(TypedDict, total=False):
     """Configuration of a model"""
@@ -33,12 +35,18 @@ class ModelConfig(TypedDict, total=False):
 
 class Model(BaseModel):
     """A model class representing an LLM model configuration."""
-    
-    base_url: str = Field(..., description="Base API URL for the model service")
-    model: str = Field(..., description="Full model name/path e.g. 'meta-llama/Llama-3-70b-chat-hf'")
-    concise_name: Optional[str] = Field(None, description="Short display name e.g. 'Llama 3 70B'")
-    capabilities: Dict = Field(default_factory=dict, description="Model capabilities like function calling, vision etc")
-    config: Dict = Field(default_factory=dict, description="Additional configuration parameters")
+
+    base_url: str = Field(...,
+                          description="Base API URL for the model service")
+    model: str = Field(...,
+                       description="Full model name/path e.g. 'meta-llama/Llama-3-70b-chat-hf'")
+    concise_name: Optional[str] = Field(
+        None, description="Short display name e.g. 'Llama 3 70B'")
+    capabilities: Dict = Field(
+        default_factory=dict,
+        description="Model capabilities like function calling, vision etc")
+    config: Dict = Field(default_factory=dict,
+                         description="Additional configuration parameters")
 
     def __str__(self) -> str:
         """Return string representation of the model."""
@@ -51,7 +59,7 @@ class Model(BaseModel):
 
 class ModelRegistry:
     """Singleton registry for managing model configurations."""
-    
+
     _instance = None
     _models: Dict[str, Model] = {}
 
@@ -82,7 +90,7 @@ class ModelRegistry:
             Model(
                 base_url=LITELLM_BASE_URL,
                 model="claude-3.5-sonnet",
-                concise_name="Claude 3.5 Sonnet", 
+                concise_name="Claude 3.5 Sonnet",
                 capabilities={"function_calling": True, "vision": True}
             ),
             Model(
@@ -119,7 +127,7 @@ class ModelRegistry:
                 capabilities={"function_calling": True, "local": True}
             ),
         ]
-        
+
         for model in models:
             self._models[model.model] = model
 
@@ -127,8 +135,8 @@ class ModelRegistry:
     def get_vision_models(cls) -> Dict[str, Model]:
         """Get all models that support vision capabilities."""
         return {
-            model_id: model 
-            for model_id, model in cls.list_models().items() 
+            model_id: model
+            for model_id, model in cls.list_models().items()
             if model.capabilities.get('vision', False)
         }
 
@@ -136,8 +144,8 @@ class ModelRegistry:
     def get_function_calling_models(cls) -> Dict[str, Model]:
         """Get all models that support function calling."""
         return {
-            model_id: model 
-            for model_id, model in cls.list_models().items() 
+            model_id: model
+            for model_id, model in cls.list_models().items()
             if model.capabilities.get('function_calling', False)
         }
 
@@ -154,7 +162,9 @@ class ModelRegistry:
         }
 
     @classmethod
-    def get_model_names(cls, models_dict: Dict[str, Model] = None) -> list[str]:
+    def get_model_names(cls,
+                        models_dict: Dict[str,
+                                          Model] = None) -> list[str]:
         """Get a list of concise names for the specified models dictionary.
         If no dictionary is provided, returns names for all models."""
         if models_dict is None:
@@ -167,30 +177,35 @@ def export_models_to_yaml(yaml_path: str | Path) -> None:
     try:
         import yaml
     except ImportError:
-        logger.error("PyYAML is required for YAML operations. Please install with 'pip install PyYAML'")
+        logger.error(
+            "PyYAML is required for YAML operations. Please install with 'pip install PyYAML'")
         raise
 
     yaml_path = Path(yaml_path)
     models = ModelRegistry.list_models()
     yaml_models = {}
-    
+
     for model in models.values():
         model_config = {
             "model": model.model,
             "base_url": model.base_url
         }
-        
+
         if model.capabilities:
             model_config["capabilities"] = model.capabilities
-            
+
         if model.config:
             model_config["config"] = model.config
-            
+
         yaml_models[model.concise_name] = model_config
-    
-    try:    
+
+    try:
         with yaml_path.open("w") as f:
-            yaml.dump(yaml_models, f, sort_keys=False, default_flow_style=False)
+            yaml.dump(
+                yaml_models,
+                f,
+                sort_keys=False,
+                default_flow_style=False)
     except IOError as e:
         logger.error(f"Failed to write YAML file: {e}")
         raise
@@ -201,7 +216,8 @@ def import_models_from_yaml(yaml_path: str | Path) -> Dict[str, Model]:
     try:
         import yaml
     except ImportError:
-        logger.error("PyYAML is required for YAML operations. Please install with 'pip install PyYAML'")
+        logger.error(
+            "PyYAML is required for YAML operations. Please install with 'pip install PyYAML'")
         raise
 
     yaml_path = Path(yaml_path)
@@ -211,7 +227,7 @@ def import_models_from_yaml(yaml_path: str | Path) -> Dict[str, Model]:
     except IOError as e:
         logger.error(f"Failed to read YAML file: {e}")
         raise
-    
+
     imported_models = {}
     for name, config in yaml_models.items():
         model = Model(
@@ -222,30 +238,33 @@ def import_models_from_yaml(yaml_path: str | Path) -> Dict[str, Model]:
             config=config.get("config", {})
         )
         imported_models[model.model] = model
-        
+
     return imported_models
+
 
 def main_export():
     filepath = Path(__file__).parent / "models.yaml"
     export_models_to_yaml(filepath)
+
 
 def main_import():
     filepath = Path(__file__).parent / "models.yaml"
     imported_models = import_models_from_yaml(filepath)
     print(imported_models)
 
+
 if __name__ == "__main__":
     registry = ModelRegistry()
-    
+
     print("\nAll Models:")
     print(registry.get_model_names())
-    
+
     print("\nVision Models:")
     print(registry.get_model_names(registry.get_vision_models()))
-    
+
     print("\nFunction Calling Models:")
     print(registry.get_model_names(registry.get_function_calling_models()))
-    
+
     print("\nLocal Models:")
     print(registry.get_model_names(registry.get_local_models()))
 

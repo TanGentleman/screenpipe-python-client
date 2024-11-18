@@ -86,6 +86,7 @@ def test_filter(prompt: str = DEFAULT_PROMPT, stream: bool = False):
     if not final_message.endswith("OUTLET active."):
         assert "Used search params:" in final_message
 
+
 def main(prompt: str = DEFAULT_PROMPT, stream: bool = True):
     test_filter(prompt=prompt, stream=stream)
 

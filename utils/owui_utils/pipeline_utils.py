@@ -8,6 +8,7 @@ from pydantic import ValidationError
 
 MAX_SEARCH_LIMIT = 99
 
+
 class SearchParameters(BaseModel):
     """Search parameters for the Screenpipe Pipeline"""
     limit: Annotated[int, Field(ge=1, le=100)] = Field(
@@ -120,6 +121,7 @@ class PipeSearch:
 
         return processed
 
+
 class FilterUtils:
     """Utility methods for the Filter class"""
     @staticmethod
@@ -168,7 +170,8 @@ class FilterUtils:
         if not content:
             return True
         reject_length = 15
-        is_rejected = len(content) < reject_length and "thank you" in content.lower()
+        is_rejected = len(
+            content) < reject_length and "thank you" in content.lower()
         return is_rejected
 
     @staticmethod
@@ -288,12 +291,13 @@ class FilterUtils:
             {"role": "system", "content": system_message},
             {"role": "user", "content": messages[-1]["content"]}
         ]
-    
+
     @staticmethod
     def refactor_user_message(user_message: str) -> str:
         """Refactor user message to standardize search format"""
         current_time = FilterUtils.get_current_time()
         return f"USER MESSAGE: {user_message}\n*CURRENT TIME: {current_time}*"
+
 
 FINAL_RESPONSE_SYSTEM_MESSAGE = """You are a helpful AI assistant analyzing personal data from ScreenPipe. Your task is to:
 
@@ -308,6 +312,8 @@ The data will be provided in XML tags:
 - <context>: The results of the search
 
 Focus on making connections between the user's intent and the retrieved data to provide meaningful analysis."""
+
+
 class ResponseUtils:
     """Utility methods for the Pipe class"""
     # TODO Add other response related methods here
@@ -322,11 +328,12 @@ class ResponseUtils:
         assert isinstance(
             sanitized_results, str), "Sanitized results must be a string"
         assert isinstance(user_message, str), "User message must be a string"
-        assert isinstance(search_parameters, str), "Search parameters must be a string"
+        assert isinstance(
+            search_parameters, str), "Search parameters must be a string"
         query = user_message
         context = sanitized_results
         search_params = search_parameters
-        #TODO: Add the search parameters to the context
+        # TODO: Add the search parameters to the context
         reformatted_message = f"""<user_query>
 {query}
 </user_query>
@@ -348,11 +355,16 @@ class ResponseUtils:
         """
         Combines the last user message with sanitized ScreenPipe search results.
         """
-        #TODO: Modify the results and search parameters into strings in this function
-        assert isinstance(user_message_string, str), "User message must be a string"
-        assert isinstance(search_results_list, list), "Search results must be a list"
-        assert isinstance(search_params_dict, dict), "Search parameters must be a dictionary"
-        search_results_string = ResponseUtils.format_results_as_string(search_results_list)
+        # TODO: Modify the results and search parameters into strings in this
+        # function
+        assert isinstance(
+            user_message_string, str), "User message must be a string"
+        assert isinstance(
+            search_results_list, list), "Search results must be a list"
+        assert isinstance(
+            search_params_dict, dict), "Search parameters must be a dictionary"
+        search_results_string = ResponseUtils.format_results_as_string(
+            search_results_list)
         search_params_string = json.dumps(search_params_dict, indent=2)
         new_user_message = ResponseUtils.form_final_user_message(
             user_message_string, search_results_string, search_params_string)
@@ -361,7 +373,7 @@ class ResponseUtils:
             {"role": "user", "content": new_user_message}
         ]
         return new_messages
-    
+
     @staticmethod
     def format_results_as_string(search_results: List[dict]) -> str:
         """Formats search results as a string"""
@@ -376,7 +388,7 @@ class ResponseUtils:
             result_string = (
                 f"[Result {i} - {result_type.upper()}]\n"
                 f"{content}\n"
-                f"Source: {metadata['device_name']}\n" 
+                f"Source: {metadata['device_name']}\n"
                 f"Timestamp: {metadata['timestamp']}\n"
                 f"---\n\n"
             )

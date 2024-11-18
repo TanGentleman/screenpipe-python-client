@@ -14,13 +14,14 @@ DEFAULT_LLM_API_KEY = "API-KEY-HERE"
 
 # Model settings
 DEFAULT_TOOL_MODEL = "gpt-4o-mini"
-DEFAULT_JSON_MODEL = "qwen2.5:3b" 
+DEFAULT_JSON_MODEL = "qwen2.5:3b"
 DEFAULT_RESPONSE_MODEL = "qwen2.5:3b"
 DEFAULT_NATIVE_TOOL_CALLING = False
 GET_RESPONSE = False
 
 # Time settings
 DEFAULT_UTC_OFFSET = -7  # PDT
+
 
 @dataclass
 class PipelineConfig:
@@ -31,7 +32,7 @@ class PipelineConfig:
     screenpipe_port: int
     is_docker: bool
 
-    # Model settings  
+    # Model settings
     tool_model: str
     json_model: str
     native_tool_calling: bool
@@ -70,6 +71,7 @@ class PipelineConfig:
         """Compute the Screenpipe base URL based on configuration"""
         url_base = "http://host.docker.internal" if self.is_docker else "http://localhost"
         return f"{url_base}:{self.screenpipe_port}"
+
 
 def create_config() -> PipelineConfig:
     """Get the configuration from the environment"""

@@ -11,6 +11,7 @@ CORE_API_URL = f"{URL_BASE}:{CORE_API_PORT}"
 
 DEFAULT_STREAMING = True
 
+
 def yield_stream_response(response: requests.Response) -> Generator:
     """Yield lines from a streaming response"""
     for line in response.iter_lines():
@@ -25,15 +26,21 @@ def yield_stream_response(response: requests.Response) -> Generator:
         if isinstance(chunk_data, str):
             chunk_content = chunk_data
         elif isinstance(chunk_data, dict) and 'choices' in chunk_data:
-            chunk_content = chunk_data['choices'][0]['delta'].get('content', '')
+            chunk_content = chunk_data['choices'][0]['delta'].get(
+                'content', '')
         yield chunk_content
+
 
 class Pipe():
     """Pipe class for screenpipe functionality"""
 
     class Valves(BaseModel):
-        api_url: str = Field(default=CORE_API_URL, description="Base URL for the Core API")
-        stream: bool = Field(default=DEFAULT_STREAMING, description="Whether to stream the response")
+        api_url: str = Field(
+            default=CORE_API_URL,
+            description="Base URL for the Core API")
+        stream: bool = Field(
+            default=DEFAULT_STREAMING,
+            description="Whether to stream the response")
 
     def __init__(self):
         self.type = "pipe"
@@ -48,13 +55,14 @@ class Pipe():
             elif body["stream"] != self.valves.stream:
                 # NOTE: Which one to use? Always use the one in the valves?
                 # NOTE: Prioritizing valves over body
-                logging.warning(f"Stream value in body: {body['stream']} does not match valves: {self.valves.stream}!")
+                logging.warning(
+                    f"Stream value in body: {body['stream']} does not match valves: {self.valves.stream}!")
                 logging.warning("Overriding with valves!")
                 print("Setting stream to:", self.valves.stream)
                 body["stream"] = self.valves.stream
-            
+
             stream = body["stream"]
-            
+
             if stream:
                 response = requests.post(
                     f"{self.valves.api_url}/pipe/stream",
@@ -73,6 +81,7 @@ class Pipe():
             logging.error(f"Error in pipe: {type(e).__name__}")
             logging.error(f"Error details: {e}")
             return "An error occurred in the pipe."
+
 
 if __name__ == "__main__":
     QUERY = "1 audio please. Tell me about it."

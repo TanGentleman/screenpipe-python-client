@@ -111,7 +111,7 @@ class OCR:
         self.app_name = app_name
         self.window_name = window_name
         self.tags = tags
-        
+
         self.ignored_fields = {
             "frame_id": frame_id,
             "frame": frame,
