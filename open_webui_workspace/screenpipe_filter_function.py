@@ -24,7 +24,7 @@ from utils.owui_utils.pipeline_utils import screenpipe_search, SearchParameters,
 
 
 # Attempt to import BAML utils if enabled
-use_baml = True
+use_baml = False
 construct_search_params = None
 
 if use_baml:
@@ -236,7 +236,7 @@ class Filter:
         system_message = self._get_system_message()
         messages = FilterUtils._prepare_initial_messages(
             messages, system_message)
-        if self.native_tool_calling:
+        if self.valves.NATIVE_TOOL_CALLING:
             return self._tool_response_as_results_or_str(messages)
         else:
             return self._json_response_as_results_or_str(messages)
@@ -257,7 +257,7 @@ class Filter:
         if not isinstance(body, dict):
             return False
         messages = body.get("messages", [])
-        if not messages or len(messages) < 1:
+        if not messages:
             return False
         if messages[-1].get("role") != "user":
             return False
