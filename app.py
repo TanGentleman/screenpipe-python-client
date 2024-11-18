@@ -125,7 +125,7 @@ def chat_with_api(messages: list) -> Union[Dict[str, Any], str]:
 def update_valves() -> dict:
     """Call the update valves endpoint and return status message."""
     try:
-        response = requests.post(f"{API_BASE_URL}/update_valves")
+        response = requests.post(f"{API_BASE_URL}/refresh_valves")
         if response.status_code == 200:
             return response.json()
         return {"Error": f"Error refreshing valves. Status code: {response.status_code}"}
