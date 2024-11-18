@@ -6,7 +6,6 @@ handling filtering and processing of data through inlet/outlet pipes.
 
     
 import requests
-import asyncio
 import json
 import logging
 from pprint import pprint
@@ -215,72 +214,7 @@ async def update_valves(
         logger.error("Error updating valves: %s", str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-def start_server(port: int = 3333) -> None:
-    """Start the FastAPI server."""
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=port)
 
-async def process_streaming_response(response_stream: Any) -> str:
-    """Process streaming responses and accumulate the full response."""
-    full_response = ""
-    for chunk in response_stream:
-        chunk_content = ""
-        if isinstance(chunk, str):
-            chunk_content = chunk
-            print(chunk, end="", flush=True)
-        elif chunk.choices[0].delta.content is not None:
-            chunk_content = chunk.choices[0].delta.content
-            print(chunk_content, end="", flush=True)
-        else:
-            finish_reason = chunk.choices[0].finish_reason
-            logger.info("Finish reason: %s", finish_reason)
-        full_response += chunk_content
-    print()
-    return full_response
-
-async def main(query: Optional[str] = None) -> None:
-    """Main async function for testing the pipeline."""
-    if not query:
-        query = DEFAULT_QUERY
-        
-    body = {
-        "messages": [{"role": "user", "content": query}],
-        "stream": True
-    }
-    PRINT_BODIES = False
-    
-    try:
-        # Process pipeline stages
-        inlet_response = await filter_inlet(body)
-        if PRINT_BODIES:
-            pprint(inlet_response)
-
-        pipe_response = await pipe_stream(inlet_response)
-        full_response = ""
-        for chunk in pipe_response:
-            chunk_content = ""
-            if isinstance(chunk, str):
-                chunk_content = chunk
-                print(chunk, end="", flush=True)
-            elif chunk.choices[0].delta.content is not None:
-                chunk_content = chunk.choices[0].delta.content
-                print(chunk_content, end="", flush=True)
-            else:
-                finish_reason = chunk.choices[0].finish_reason
-                logger.info("Finish reason: %s", finish_reason)
-            full_response += chunk_content
-        print()
-
-        inlet_response["messages"].append({"role": "assistant", "content": full_response})
-        outlet_response = await filter_outlet(inlet_response)
-        
-        if PRINT_BODIES:
-            pprint(outlet_response)
-
-        print("\n\n")
-        print(outlet_response["messages"][-1]["content"])
-    except Exception as e:
-        logger.error("Error in main: %s", str(e))
 
 def process_api_stream_response(response: Any) -> str:
     """Process streaming response from HTTP request."""
@@ -364,10 +298,13 @@ def main_from_cli(query: Optional[str] = None) -> None:
     except Exception as e:
         logger.error("Error in CLI main: %s", str(e))
 
+def start_server(port: int = 3333) -> None:
+    """Start the FastAPI server."""
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=port)
+
 if __name__ == "__main__":
     import sys
     QUERY = " ".join(sys.argv[1:])
     print(f"Query:<{QUERY}>")
     main_from_cli(QUERY)
-    # asyncio.run(main(QUERY))
-    # main_from_cli()
