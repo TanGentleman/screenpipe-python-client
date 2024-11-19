@@ -18,7 +18,9 @@ from open_webui_workspace.screenpipe_function import Pipe as ScreenPipe
 
 from utils.owui_utils.configuration import create_config
 
-DEFAULT_QUERY = "What have I been doing on my laptop? Analyze 10 ocr chunks from the past 5 days."
+# DEFAULT_QUERY = "What have I been doing on my laptop? Analyze 10 ocr chunks from the past 5 days."
+DEFAULT_QUERY = "What have I been doing on my laptop? Analyze 1 audio chunk from the past 1 days."
+DEFAULT_STREAM = False
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -316,7 +318,7 @@ def main_from_cli(query: Optional[str] = None) -> None:
 
     body = {
         "messages": [{"role": "user", "content": query}],
-        "stream": True
+        "stream": DEFAULT_STREAM
     }
     PRINT_BODIES = False
 
@@ -372,6 +374,6 @@ def start_server(port: int = 3333) -> None:
 
 if __name__ == "__main__":
     import sys
-    QUERY = " ".join(sys.argv[1:])
+    QUERY = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else DEFAULT_QUERY
     print(f"Query:<{QUERY}>")
     main_from_cli(QUERY)
