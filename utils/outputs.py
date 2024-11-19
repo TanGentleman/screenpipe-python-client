@@ -1,7 +1,7 @@
 from typing import List, Optional
 from utils.time_utils import format_timestamp
 
-FRAME_DATA_SUPPORTED = False
+FRAME_DATA_SUPPORTED = True
 if FRAME_DATA_SUPPORTED:
     import base64
 
@@ -106,14 +106,15 @@ class OCR:
             tags (List[str]): The list of tags associated with the OCR output.
             frame (Optional[str], optional): The frame associated with the OCR output. Defaults to None.
         """
+        self.frame_id = frame_id
         self.text = text
         self.timestamp = timestamp
         self.app_name = app_name
         self.window_name = window_name
         self.tags = tags
+        self.frame = frame
 
         self.ignored_fields = {
-            "frame_id": frame_id,
             "frame": frame,
             "offset_index": offset_index,
             "file_path": file_path
