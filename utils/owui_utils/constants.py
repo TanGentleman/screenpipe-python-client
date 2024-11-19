@@ -32,3 +32,19 @@ EXAMPLE_SEARCH_JSON = """\
     "start_time": "2024-03-20T00:00:00Z",
     "end_time": "2024-03-20T23:59:59Z"
 }"""
+
+DEFAULT_QUERY = "Search the past 10 days for audio. Try your best to contextualize my conversations."
+DEFAULT_STREAM = True
+
+EXAMPLE_SEARCH_RESULTS = [
+    {
+        "content": "Hey Jason, can you help me with the project deadline?",
+        "timestamp": "2024-03-20T14:30:00Z",
+        "source": "Team Meeting - Zoom (audio)"
+    },
+    {
+        "content": "Project Status: In Progress\nDeadline: March 25, 2024",
+        "timestamp": "2024-03-20T14:31:00Z",
+        "source": "Project Management Dashboard (ocr)"
+    }
+]

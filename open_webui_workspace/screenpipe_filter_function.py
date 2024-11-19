@@ -289,13 +289,13 @@ class Filter:
         try:
             # Initialize settings and prepare messages
             self.initialize_settings()
-            results = self._get_search_results(original_messages)
-            if not results:
+            raw_results = self._get_search_results(original_messages)
+            if not raw_results:
                 body["inlet_error"] = "No results found"
                 return body
             # Handle error case
-            if isinstance(results, str):
-                body["inlet_error"] = results
+            if isinstance(raw_results, str):
+                body["inlet_error"] = raw_results
                 return body
 
             assert self.search_params is not None
@@ -303,14 +303,14 @@ class Filter:
             body["search_params"] = self.search_params
 
             # Sanitize and store results
-            sanitized_results = FilterUtils.sanitize_results(
-                results, self.replacement_tuples)
+            search_results = FilterUtils.sanitize_results(
+                raw_results, self.replacement_tuples)
 
-            if not sanitized_results:
+            if not search_results:
                 body["inlet_error"] = "No sanitized results found"
                 return body
 
-            body["search_results"] = sanitized_results
+            body["search_results"] = search_results
             # Store original user message
             REPLACE_USER_MESSAGE = False
             if REPLACE_USER_MESSAGE:
