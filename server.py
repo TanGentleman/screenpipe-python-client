@@ -17,32 +17,17 @@ from open_webui_workspace.screenpipe_filter_function import Filter as ScreenFilt
 from open_webui_workspace.screenpipe_function import Pipe as ScreenPipe
 
 from utils.owui_utils.configuration import create_config
-
-# DEFAULT_QUERY = "What have I been doing on my laptop? Analyze 10 ocr chunks from the past 5 days."
-DEFAULT_QUERY = "What have I been doing on my laptop? Analyze 1 audio chunk from the past 1 days."
-DEFAULT_STREAM = False
+from utils.owui_utils.pipeline_utils import get_inlet_body
+from utils.owui_utils.constants import DEFAULT_QUERY
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 # Type definitions
-
-
 class Message(TypedDict):
     """Message type for chat interactions"""
     role: str
     content: str
-
-
-class FilterResponse(TypedDict, total=False):
-    """Response type for filter endpoints"""
-    messages: List[Message]
-    stream: bool
-    inlet_error: Optional[str]
-    search_params: Optional[Dict[str, Any]]
-    search_results: Optional[List[Any]]
-    user_message_content: Optional[str]
-
 
 class InletRequestBody(TypedDict):
     """Request body type for inlet endpoint"""
@@ -50,7 +35,7 @@ class InletRequestBody(TypedDict):
     stream: bool
 
 
-class PipeRequestBody(TypedDict, total=False):
+class PipeRequestBody(TypedDict):
     """Request body type for pipe endpoints"""
     inlet_error: Optional[str]
     search_params: Optional[Dict[str, Any]]
@@ -58,10 +43,10 @@ class PipeRequestBody(TypedDict, total=False):
     user_message_content: Optional[str]
 
 
-class OutletRequestBody(TypedDict, total=False):
+class OutletRequestBody(TypedDict):
     """Request body type for outlet endpoint"""
+    messages: List[Message]
     search_params: Optional[Dict[str, Any]]
-    search_results: Optional[List[Any]]
     user_message_content: Optional[str]
 
 
@@ -99,8 +84,8 @@ app_pipe = ScreenPipe()
 app_filter.set_valves(FILTER_CONFIG)
 app_pipe.set_valves(PIPE_CONFIG)
 
-logger.info("Filter valves: %s", app_filter.valves)
-logger.info("Pipe valves: %s", app_pipe.valves)
+logger.info("Filter valves:\n%s", pprint(app_filter.valves.model_dump(), indent=2))
+logger.info("Pipe valves:\n%s", pprint(app_pipe.valves.model_dump(), indent=4))
 
 
 @app.get("/")
@@ -119,7 +104,6 @@ async def filter_inlet(body: dict) -> dict:
         logger.debug("Filter valves: %s", app_filter.valves)
 
         response_body = app_filter.inlet(body)
-        FilterResponse(**response_body)
         return response_body
     except Exception as e:
         logger.error("Error in filter inlet: %s", str(e))
@@ -175,14 +159,13 @@ async def filter_outlet(body: dict) -> dict:
     """Process outgoing data through the outlet filter."""
     try:
         response_body = app_filter.outlet(body)
-        FilterResponse(**response_body)
         return response_body
     except Exception as e:
         logger.error("Error in filter outlet: %s", str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/update_valves")
+@app.post("/valves/update")
 async def update_valves(
     filter_config: Dict[str, Any] = Body(None),
     pipe_config: Dict[str, Any] = Body(None)
@@ -223,7 +206,7 @@ async def update_valves(
         )
 
 
-@app.post("/refresh_valves")
+@app.get("/valves/refresh")
 async def refresh_valves_from_env() -> Dict[str, str]:
     """Refresh valve configurations from environment variables.
 
@@ -263,6 +246,7 @@ async def refresh_valves_from_env() -> Dict[str, str]:
             "filter_valves": str(app_filter.valves),
             "pipe_valves": str(app_pipe.valves)
         }
+
     except Exception as e:
         logger.error("Error updating valves from environment: %s", str(e))
         raise HTTPException(
@@ -310,25 +294,13 @@ def process_api_stream_response(response: Any) -> str:
     print()
     return full_response
 
-
-def main_from_cli(query: Optional[str] = None) -> None:
-    """CLI entry point for testing the pipeline."""
-    if not query:
-        query = DEFAULT_QUERY
-
-    body = {
-        "messages": [{"role": "user", "content": query}],
-        "stream": DEFAULT_STREAM
-    }
-    PRINT_BODIES = False
-
+def run_pipeline(body: dict) -> None:
+    """Run the pipeline with the given body."""
     try:
         # Process pipeline stages
         inlet_response = requests.post(
             "http://localhost:3333/filter/inlet", json=body)
         inlet_data = inlet_response.json()
-        if PRINT_BODIES:
-            pprint(inlet_data)
 
         # Handle pipe response
         if inlet_data["stream"]:
@@ -356,14 +328,19 @@ def main_from_cli(query: Optional[str] = None) -> None:
         )
         outlet_data = outlet_response.json()
 
-        if PRINT_BODIES:
-            pprint(outlet_data)
-
+        response_string = outlet_data["messages"][-1]["content"]
         print("\n\n")
-        print(outlet_data["messages"][-1]["content"])
+        print(response_string)
+        return response_string
 
     except Exception as e:
-        logger.error("Error in CLI main: %s", str(e))
+        logger.error("Error in server.run_pipeline: %s", str(e))
+
+
+def main_from_cli(query: Optional[str] = None) -> None:
+    """CLI entry point for testing the pipeline."""
+    body = get_inlet_body(query=query)
+    run_pipeline(body)
 
 
 def start_server(port: int = 3333) -> None:
@@ -374,6 +351,5 @@ def start_server(port: int = 3333) -> None:
 
 if __name__ == "__main__":
     import sys
-    QUERY = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else DEFAULT_QUERY
-    print(f"Query:<{QUERY}>")
-    main_from_cli(QUERY)
+    cli_query = " ".join(sys.argv[1:]) or None
+    main_from_cli(cli_query)
