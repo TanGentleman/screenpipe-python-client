@@ -278,13 +278,14 @@ class Filter:
         print(f"inlet:{__name__}")
         # print(f"inlet:body:{body}")
         print(f"inlet:user:{__user__}")
+        body["inlet_error"] = None
+        body["user_message_content"] = None
+        body["search_params"] = None
+        body["search_results"] = None
         if not self.is_inlet_body_valid(body):
             body["inlet_error"] = "Invalid inlet body"
             return body
         original_messages = body["messages"]
-        body["inlet_error"] = None
-        body["search_params"] = None
-        body["search_results"] = None
         body["user_message_content"] = original_messages[-1]["content"]
         try:
             # Initialize settings and prepare messages
