@@ -10,6 +10,51 @@ from utils.owui_utils.constants import DEFAULT_QUERY, DEFAULT_STREAM, EXAMPLE_SE
 
 MAX_SEARCH_LIMIT = 99
 
+def get_pipe_body(
+    query: Optional[str] = None,
+    stream: Optional[bool] = None,
+    search_results: Optional[list] = None,
+    search_params: Optional[dict] = None
+) -> dict:
+    """Creates a pipe request body for the ScreenPipe API.
+
+    Args:
+        query (Optional[str]): The user's query message. Defaults to DEFAULT_QUERY.
+        stream (Optional[bool]): Whether to stream the response. Defaults to DEFAULT_STREAM.
+        search_results (Optional[list]): Search results to include. Defaults to EXAMPLE_SEARCH_RESULTS.
+        search_params (Optional[dict]): Search parameters used. Defaults to EXAMPLE_SEARCH_RESULTS.
+
+    Returns:
+        dict: A pipe request body containing:
+            - user_message_content: The user's query message
+            - search_results: List of search results
+            - search_params: Dictionary of search parameters
+            - stream: Boolean indicating whether to stream response
+    """
+    return {
+        "user_message_content": query or DEFAULT_QUERY,
+        "search_results": search_results or EXAMPLE_SEARCH_RESULTS,
+        "search_params": search_params or EXAMPLE_SEARCH_RESULTS,
+        "stream": DEFAULT_STREAM if stream is None else stream,
+        "inlet_error": None
+    }
+
+def get_inlet_body(query: Optional[str] = None, stream: Optional[bool] = None) -> dict:
+    """Creates an inlet request body for the ScreenPipe API.
+    
+    Args:
+        query (Optional[str]): The user's query message. Defaults to DEFAULT_QUERY.
+        stream (Optional[bool]): Whether to stream the response. Defaults to DEFAULT_STREAM.
+
+    Returns:
+        dict: An inlet request body containing:
+            - messages: List with single user message
+            - stream: Boolean indicating whether to stream response
+    """
+    return {
+        "messages": [{"role": "user", "content": query or DEFAULT_QUERY}],
+        "stream": DEFAULT_STREAM if stream is None else stream
+    }
 
 class SearchParameters(BaseModel):
     """Search parameters for the Screenpipe Pipeline"""
@@ -299,53 +344,6 @@ class FilterUtils:
         """Refactor user message to standardize search format"""
         current_time = FilterUtils.get_current_time()
         return f"USER MESSAGE: {user_message}\n*CURRENT TIME: {current_time}*"
-
-
-def get_pipe_body(
-    query: Optional[str] = None,
-    stream: Optional[bool] = None,
-    search_results: Optional[list] = None,
-    search_params: Optional[dict] = None
-) -> dict:
-    """Creates a pipe request body for the ScreenPipe API.
-
-    Args:
-        query (Optional[str]): The user's query message. Defaults to DEFAULT_QUERY.
-        stream (Optional[bool]): Whether to stream the response. Defaults to DEFAULT_STREAM.
-        search_results (Optional[list]): Search results to include. Defaults to EXAMPLE_SEARCH_RESULTS.
-        search_params (Optional[dict]): Search parameters used. Defaults to EXAMPLE_SEARCH_RESULTS.
-
-    Returns:
-        dict: A pipe request body containing:
-            - user_message_content: The user's query message
-            - search_results: List of search results
-            - search_params: Dictionary of search parameters
-            - stream: Boolean indicating whether to stream response
-    """
-    return {
-        "user_message_content": query or DEFAULT_QUERY,
-        "search_results": search_results or EXAMPLE_SEARCH_RESULTS,
-        "search_params": search_params or EXAMPLE_SEARCH_RESULTS,
-        "stream": DEFAULT_STREAM if stream is None else stream
-    }
-
-def get_inlet_body(query: Optional[str] = None, stream: Optional[bool] = None) -> dict:
-    """Creates an inlet request body for the ScreenPipe API.
-    
-    Args:
-        query (Optional[str]): The user's query message. Defaults to DEFAULT_QUERY.
-        stream (Optional[bool]): Whether to stream the response. Defaults to DEFAULT_STREAM.
-
-    Returns:
-        dict: An inlet request body containing:
-            - messages: List with single user message
-            - stream: Boolean indicating whether to stream response
-    """
-    return {
-        "messages": [{"role": "user", "content": query or DEFAULT_QUERY}],
-        "stream": DEFAULT_STREAM if stream is None else stream
-    }
-
 
 FINAL_RESPONSE_SYSTEM_MESSAGE = """You are a helpful AI assistant analyzing personal data from ScreenPipe. Your task is to:
 
