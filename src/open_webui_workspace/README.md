@@ -1,5 +1,7 @@
 # Open WebUI Workspace
 
+This guide is in progress. It's possible to get this to a point where it's a one or two click install, but at the moment, it requires a bit of manual setup.
+
 PRE-REQ: Read the Open WebUI installation guide and have Open WebUI Workspace accessible. See https://docs.openwebui.com/getting-started/
 For easiest setup use a Docker container. Your URL will be something like http://localhost:8080.
 
@@ -29,9 +31,9 @@ Last step:
 5. Navigate 
 ```
 cd screenpipe-python-client
+python cli/run_server.py
 ```
 - You can now use the Pipe function in your chat!
 - Change any values in the Valves section, or in your .env file at server start.
-
 
 TODO: Visual guide

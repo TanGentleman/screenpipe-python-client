@@ -28,7 +28,7 @@ poetry run python cli/cli.py health-check
 For developers:
 - See `INSTRUCTIONS.md` for getting started
 - Check the `open-webui-workspace` folder for Open-WebUI integration
-- Use ScreenpipeClient from `src/utils/screenpipe.py` as your Python SDK
+- Use `ScreenpipeClient` from `src/utils/screenpipe.py` as the Python interface for the SP server.
 - Reference `docs.md` for under-the-hood API documentation (based on [screenpipe-server source](https://github.com/mediar-ai/screenpipe/blob/main/screenpipe-server/src/server.rs))
 
 ## CLI Commands
