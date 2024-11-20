@@ -28,7 +28,7 @@ CONFIG = create_config()
 # Attempt to import BAML utils if enabled
 
 try:
-    from utils.baml_utils import baml_generate_search_params, BamlConfig
+    from ..utils.baml_utils import baml_generate_search_params, BamlConfig
     logging.info("BAML search parameter construction enabled")
     use_baml = True
 except ImportError:
@@ -250,6 +250,10 @@ class Filter:
         - messages list with at least 1 message
         - Last message from user
         """
+        if not BAML_ENABLED:
+            if not self.valves.FORCE_TOOL_CALLING:
+                self.safe_log_error("BAML and Tool calling are both disabled!", ValueError)
+                return False
         if not isinstance(body, dict):
             return False
         messages = body.get("messages", [])
@@ -324,7 +328,7 @@ class Filter:
                     "\n\n" + prologue + "\n" + search_params_as_string
                 original_messages[-1]["content"] = refactored_last_message
         except Exception as e:
-            # self.safe_log_error(f"{e}", None)
+            self.safe_log_error(f"{e}", None)
             self.safe_log_error("Error processing inlet", e)
             body["inlet_error"] = "Error in Filter inlet!"
 
