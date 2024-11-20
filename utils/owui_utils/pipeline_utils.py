@@ -6,7 +6,7 @@ import requests
 import json
 from pydantic import ValidationError
 
-from utils.owui_utils.constants import DEFAULT_QUERY, DEFAULT_STREAM, EXAMPLE_SEARCH_RESULTS
+from utils.owui_utils.constants import DEFAULT_QUERY, DEFAULT_STREAM, EXAMPLE_SEARCH_RESULTS, FINAL_RESPONSE_SYSTEM_MESSAGE
 
 MAX_SEARCH_LIMIT = 99
 
@@ -58,52 +58,156 @@ def get_inlet_body(query: Optional[str] = None, stream: Optional[bool] = None) -
 
 class SearchParameters(BaseModel):
     """Search parameters for the Screenpipe Pipeline"""
-    limit: Annotated[int, Field(ge=1, le=100)] = Field(
-        default=5,
-        description="The maximum number of results to return (1-100)"
+    content_type: Literal["OCR", "AUDIO", "ALL"] = Field(
+        description="Type of screen/audio content to search for, default to ALL"
     )
-    content_type: Literal["ocr", "audio", "all"] = Field(
-        default="all",
-        description="The type of content to search"
+    from_time: Optional[str] = Field(
+        default=None,
+        description="ISO timestamp to filter results after this time"
+    )
+    to_time: Optional[str] = Field(
+        default=None,
+        description="ISO timestamp to filter results before this time"
+    )
+    limit: Optional[int] = Field(
+        default=None,
+        description="Maximum number of results to return"
     )
     search_substring: Optional[str] = Field(
         default=None,
-        description="Optional search term to filter results"
+        description="Optional substring to filter text content"
+    )
+    application: Optional[str] = Field(
+        default=None,
+        description="Optional filter to only show results from this application"
+    )
+
+    def to_dict(self) -> dict:
+        """Convert SearchParameters to a dictionary."""
+        values = {k: v for k, v in self.model_dump().items() if v is not None}
+        return values
+
+    def to_api_dict(self) -> dict:
+        """Convert SearchParameters to a dictionary mapped to the search API parameters.
+        
+        Transforms the parameters to match the API requirements:
+        - Maps field names to API parameter names
+        - Converts content_type to lowercase
+        - Removes None values
+        - Validates against ScreenPipeAPISearch schema
+
+        Returns:
+            dict: A dictionary containing the mapped API parameters
+        """
+        # Define mapping of model fields to API parameter names
+        API_PARAM_MAP = {
+            'search_substring': 'q',
+            'content_type': 'content_type',
+            'limit': 'limit', 
+            'from_time': 'start_time',
+            'to_time': 'end_time',
+            'application': 'app_name'
+        }
+
+        # Get non-None values
+        values = self.to_dict()
+        
+        # Transform and map values to API parameters
+        search_params = {}
+        for field_name, value in values.items():
+            if field_name not in API_PARAM_MAP:
+                print(f"WARNING: Field name not in API_PARAM_MAP: {field_name}")
+                continue
+                
+            api_param = API_PARAM_MAP[field_name]
+            
+            # Handle content_type special case
+            if field_name == 'content_type':
+                value = value.lower()
+                
+            search_params[api_param] = value
+
+        # Validate against API schema
+        validated_params = ScreenPipeAPISearch(**search_params).to_api_dict()
+        if not validated_params == search_params:
+            logging.error("API parameter validation failed!!!")
+            print("Validated params:", validated_params)
+            print("Search params:", search_params)
+            raise AssertionError("API parameter validation failed")
+        
+        return search_params
+
+class ScreenPipeAPISearch(BaseModel):
+    """API search parameters for the Screenpipe server"""
+    q: Optional[str] = Field(
+        default=None,
+        description="Search term to filter content"
+    )
+    content_type: Literal["ocr", "audio", "fts", "ui", "all"] = Field(
+        description="Type of content to search for"
+    )
+    limit: Optional[int] = Field(
+        default=None, # 20 is default for API
+        description="Maximum number of results per page"
+    )
+    offset: Optional[int] = Field(
+        default=None,
+        description="Pagination offset"
     )
     start_time: Optional[str] = Field(
         default=None,
-        description="Start timestamp for search range (ISO format, e.g., 2024-03-20T00:00:00Z)"
+        description="ISO timestamp to filter results after this time"
     )
     end_time: Optional[str] = Field(
         default=None,
-        description="End timestamp for search range (ISO format, e.g., 2024-03-20T23:59:59Z)"
+        description="ISO timestamp to filter results before this time"
     )
     app_name: Optional[str] = Field(
         default=None,
-        description="Optional app name to filter results"
+        description="Filter results by application name"
     )
+    window_name: Optional[str] = Field(
+        default=None,
+        description="Filter results by window name"
+    )
+    include_frames: Optional[bool] = Field(
+        default=None,
+        description="Include base64 encoded frames in results"
+    )
+    min_length: Optional[int] = Field(
+        default=None,
+        description="Minimum content length"
+    )
+    max_length: Optional[int] = Field(
+        default=None,
+        description="Maximum content length"
+    )
+
+    def to_api_dict(self) -> dict:
+        """Convert API search parameters to a dictionary for requests."""
+        # Get non-None values from model
+        values = {k: v for k, v in self.model_dump().items() if v is not None}
+        return values
+
 
 
 def screenpipe_search(
-    limit: int = 5,
-    content_type: Literal["ocr", "audio", "all"] = "all",
-    search_substring: str = "",
-    start_time: Optional[str] = None,
-    end_time: Optional[str] = None,
-    app_name: Optional[str] = None,
+    content_type: Literal["OCR", "AUDIO", "ALL"],
+    from_time: Optional[str] = None,
+    to_time: Optional[str] = None,
+    limit: Optional[int] = None,
+    search_substring: Optional[str] = None,
+    application: Optional[str] = None,
 ) -> dict:
     """Searches captured data stored in ScreenPipe's local database.
 
     Args:
-        search_substring: Optional search term to filter results. Defaults to "".
-        content_type: The type of content to search. Must be one of "ocr", "audio", or "all". Defaults to "all".
-        start_time: Start timestamp for search range (ISO format, e.g., 2024-03-20T00:00:00Z). Defaults to None.
-        end_time: End timestamp for search range (ISO format, e.g., 2024-03-20T23:59:59Z). Defaults to None.
-        limit: The maximum number of results to return (1-100). Defaults to 5.
-        app_name: Optional app name to filter results. Defaults to None.
-
-    Returns:
-        dict: A dictionary containing the search results or an error message.
+        content_type: Type of screen/audio content to search for, default to ALL.
+        from_time: ISO timestamp to filter results after this time.
+        to_time: ISO timestamp to filter results before this time.
+        limit: Maximum number of results to return.
+        search_substring: Optional substring to filter text content.
+        application: Optional filter to only show results from this application.
     """
     return {}
 
@@ -122,6 +226,7 @@ class PipeSearch:
 
     def search(self, **kwargs) -> dict:
         """Enhanced search wrapper with better error handling"""
+        assert kwargs == ScreenPipeAPISearch(**kwargs).to_api_dict(), "Bad search params!"
         if not self.screenpipe_server_url:
             return {"error": "ScreenPipe server URL is not set"}
 
@@ -150,21 +255,21 @@ class PipeSearch:
 
     def _process_search_params(self, params: dict) -> dict:
         """Process and validate search parameters"""
-        # Extract and process search substring
-        query = params.pop('search_substring', '')
-        if query:
-            params['q'] = query.strip() or None
-
-        # Remove None values and process remaining parameters
-        processed = {k: v for k, v in params.items() if v is not None}
+        processed = params
 
         # Validate limit
         if 'limit' in processed:
+            original_limit = processed['limit']
             processed['limit'] = min(int(processed['limit']), MAX_SEARCH_LIMIT)
+            if processed['limit'] != original_limit:
+                logging.warning(f"Limiting search results from {original_limit} to {processed['limit']}")
 
-        # Capitalize app name if present
+        # Capitalize app name if present 
         if 'app_name' in processed and processed['app_name']:
+            original_app = processed['app_name']
             processed['app_name'] = processed['app_name'].capitalize()
+            if processed['app_name'] != original_app:
+                logging.warning(f"Capitalized app name from {original_app} to {processed['app_name']}")
 
         return processed
 
@@ -266,29 +371,29 @@ class FilterUtils:
             logging.error(f"Error sanitizing results: {str(e)}")
             return []
 
-    @staticmethod
-    def parse_schema_from_response(
-            response_text: str,
-            target_schema) -> dict | str:
-        """
-        Parses the response text into a dictionary using the provided Pydantic schema.
+    # @staticmethod
+    # def parse_schema_from_response(
+    #         response_text: str,
+    #         target_schema) -> dict | str:
+    #     """
+    #     Parses the response text into a dictionary using the provided Pydantic schema.
 
-        Args:
-            response_text (str): The response text to parse.
-            schema (BaseModel): The Pydantic schema to validate the parsed data against.
+    #     Args:
+    #         response_text (str): The response text to parse.
+    #         schema (BaseModel): The Pydantic schema to validate the parsed data against.
 
-        Returns:
-            dict: The parsed and validated data as a dictionary. If parsing fails, returns an empty dictionary.
-        """
-        assert issubclass(
-            target_schema, BaseModel), "Schema must be a Pydantic BaseModel"
-        try:
-            response_object = json.loads(response_text)
-            pydantic_object = target_schema(**response_object)
-            return pydantic_object.model_dump()
-        except (json.JSONDecodeError, ValidationError) as e:
-            print(f"DECODING ERROR (MODEL MAY NOT SUPPORT JSON): {e}")
-            return response_text
+    #     Returns:
+    #         dict: The parsed and validated data as a dictionary. If parsing fails, returns an empty dictionary.
+    #     """
+    #     assert issubclass(
+    #         target_schema, BaseModel), "Schema must be a Pydantic BaseModel"
+    #     try:
+    #         response_object = json.loads(response_text)
+    #         pydantic_object = target_schema(**response_object)
+    #         return pydantic_object.model_dump()
+    #     except (json.JSONDecodeError, ValidationError) as e:
+    #         print(f"DECODING ERROR (MODEL MAY NOT SUPPORT JSON): {e}")
+    #         return response_text
 
     @staticmethod
     def catch_malformed_tool(response_text: str) -> str | dict:
@@ -324,41 +429,6 @@ class FilterUtils:
             # NOTE: Maybe this should be {"error": "Failed to process function
             # call"}
             return "Failed to process function call"
-
-    @staticmethod
-    def _prepare_initial_messages(messages, system_message: str) -> List[dict]:
-        """Prepare initial messages for the pipeline"""
-        if not messages or messages[-1]["role"] != "user":
-            raise ValueError("Last message must be from the user!")
-
-        if not system_message:
-            raise ValueError("System message must be provided")
-
-        return [
-            {"role": "system", "content": system_message},
-            {"role": "user", "content": messages[-1]["content"]}
-        ]
-
-    @staticmethod
-    def refactor_user_message(user_message: str) -> str:
-        """Refactor user message to standardize search format"""
-        current_time = FilterUtils.get_current_time()
-        return f"USER MESSAGE: {user_message}\n*CURRENT TIME: {current_time}*"
-
-FINAL_RESPONSE_SYSTEM_MESSAGE = """You are a helpful AI assistant analyzing personal data from ScreenPipe. Your task is to:
-
-1. Understand the user's intent from their original query
-2. Carefully analyze the provided results (audio/OCR data)
-3. Give clear, relevant insights that directly address the user's query
-4. If the context seems less relevant to the query, explain why and still extract any useful information
-
-The data will be provided in XML tags:
-- <user_query>: The original user question
-- <search_parameters>: The parameters used to filter the data
-- <context>: The results of the search
-
-Focus on making connections between the user's intent and the retrieved data to provide meaningful analysis."""
-
 
 class ResponseUtils:
     """Utility methods for the Pipe class"""
@@ -429,12 +499,14 @@ class ResponseUtils:
             result_type = result["type"]
             metadata = {
                 "device_name": result.get("device_name", ""),
+                "app_name": result.get("app_name", ""),
                 "timestamp": result.get("timestamp", "")
             }
+            source_string = metadata['device_name'] or f"{metadata['app_name']}" or "N/A"
             result_string = (
                 f"[Result {i} - {result_type.upper()}]\n"
                 f"{content}\n"
-                f"Source: {metadata['device_name']}\n"
+                f"Source: {source_string}\n"
                 f"Timestamp: {metadata['timestamp']}\n"
                 f"---\n\n"
             )
