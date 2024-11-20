@@ -1,15 +1,17 @@
+OLLAMA_KEY=my-ollama-api-key
+
 # API and Endpoint Configuration
 LLM_API_BASE_URL=http://localhost:11434/v1
-LLM_API_KEY=api-key
+LLM_API_KEY=env.OLLAMA_KEY
 SCREENPIPE_PORT=3030
 IS_DOCKER=False
 
 # Model Configuration
-FILTER_MODEL=qwen2.5-coder:latest
-RESPONSE_MODEL=qwen2.5:3b
+FILTER_MODEL=qwen2.5-coder
+RESPONSE_MODEL=qwen2.5
 
 FORCE_TOOL_CALLING=true
 GET_RESPONSE=true
 
 # Pipeline Settings
-DEFAULT_UTC_OFFSET=-7
+DEFAULT_UTC_OFFSET=0 # Use -7 for PST
