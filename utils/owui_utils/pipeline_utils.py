@@ -10,6 +10,7 @@ from utils.owui_utils.constants import DEFAULT_QUERY, DEFAULT_STREAM, EXAMPLE_SE
 
 MAX_SEARCH_LIMIT = 99
 
+
 def get_pipe_body(
     query: Optional[str] = None,
     stream: Optional[bool] = None,
@@ -39,9 +40,12 @@ def get_pipe_body(
         "inlet_error": None
     }
 
-def get_inlet_body(query: Optional[str] = None, stream: Optional[bool] = None) -> dict:
+
+def get_inlet_body(
+        query: Optional[str] = None,
+        stream: Optional[bool] = None) -> dict:
     """Creates an inlet request body for the ScreenPipe API.
-    
+
     Args:
         query (Optional[str]): The user's query message. Defaults to DEFAULT_QUERY.
         stream (Optional[bool]): Whether to stream the response. Defaults to DEFAULT_STREAM.
@@ -55,6 +59,7 @@ def get_inlet_body(query: Optional[str] = None, stream: Optional[bool] = None) -
         "messages": [{"role": "user", "content": query or DEFAULT_QUERY}],
         "stream": DEFAULT_STREAM if stream is None else stream
     }
+
 
 class SearchParameters(BaseModel):
     """Search parameters for the Screenpipe Pipeline"""
@@ -79,8 +84,7 @@ class SearchParameters(BaseModel):
     )
     application: Optional[str] = Field(
         default=None,
-        description="Optional filter to only show results from this application"
-    )
+        description="Optional filter to only show results from this application")
 
     def to_dict(self) -> dict:
         """Convert SearchParameters to a dictionary."""
@@ -89,7 +93,7 @@ class SearchParameters(BaseModel):
 
     def to_api_dict(self) -> dict:
         """Convert SearchParameters to a dictionary mapped to the search API parameters.
-        
+
         Transforms the parameters to match the API requirements:
         - Maps field names to API parameter names
         - Converts content_type to lowercase
@@ -103,7 +107,7 @@ class SearchParameters(BaseModel):
         API_PARAM_MAP = {
             'search_substring': 'q',
             'content_type': 'content_type',
-            'limit': 'limit', 
+            'limit': 'limit',
             'from_time': 'start_time',
             'to_time': 'end_time',
             'application': 'app_name'
@@ -111,20 +115,21 @@ class SearchParameters(BaseModel):
 
         # Get non-None values
         values = self.to_dict()
-        
+
         # Transform and map values to API parameters
         search_params = {}
         for field_name, value in values.items():
             if field_name not in API_PARAM_MAP:
-                print(f"WARNING: Field name not in API_PARAM_MAP: {field_name}")
+                print(
+                    f"WARNING: Field name not in API_PARAM_MAP: {field_name}")
                 continue
-                
+
             api_param = API_PARAM_MAP[field_name]
-            
+
             # Handle content_type special case
             if field_name == 'content_type':
                 value = value.lower()
-                
+
             search_params[api_param] = value
 
         # Validate against API schema
@@ -134,8 +139,9 @@ class SearchParameters(BaseModel):
             print("Validated params:", validated_params)
             print("Search params:", search_params)
             raise AssertionError("API parameter validation failed")
-        
+
         return search_params
+
 
 class ScreenPipeAPISearch(BaseModel):
     """API search parameters for the Screenpipe server"""
@@ -147,7 +153,7 @@ class ScreenPipeAPISearch(BaseModel):
         description="Type of content to search for"
     )
     limit: Optional[int] = Field(
-        default=None, # 20 is default for API
+        default=None,  # 20 is default for API
         description="Maximum number of results per page"
     )
     offset: Optional[int] = Field(
@@ -190,7 +196,6 @@ class ScreenPipeAPISearch(BaseModel):
         return values
 
 
-
 def screenpipe_search(
     content_type: Literal["OCR", "AUDIO", "ALL"],
     from_time: Optional[str] = None,
@@ -226,7 +231,8 @@ class PipeSearch:
 
     def search(self, **kwargs) -> dict:
         """Enhanced search wrapper with better error handling"""
-        assert kwargs == ScreenPipeAPISearch(**kwargs).to_api_dict(), "Bad search params!"
+        assert kwargs == ScreenPipeAPISearch(
+            **kwargs).to_api_dict(), "Bad search params!"
         if not self.screenpipe_server_url:
             return {"error": "ScreenPipe server URL is not set"}
 
@@ -262,14 +268,16 @@ class PipeSearch:
             original_limit = processed['limit']
             processed['limit'] = min(int(processed['limit']), MAX_SEARCH_LIMIT)
             if processed['limit'] != original_limit:
-                logging.warning(f"Limiting search results from {original_limit} to {processed['limit']}")
+                logging.warning(
+                    f"Limiting search results from {original_limit} to {processed['limit']}")
 
-        # Capitalize app name if present 
+        # Capitalize app name if present
         if 'app_name' in processed and processed['app_name']:
             original_app = processed['app_name']
             processed['app_name'] = processed['app_name'].capitalize()
             if processed['app_name'] != original_app:
-                logging.warning(f"Capitalized app name from {original_app} to {processed['app_name']}")
+                logging.warning(
+                    f"Capitalized app name from {original_app} to {processed['app_name']}")
 
         return processed
 
@@ -376,11 +384,13 @@ class FilterUtils:
     #         response_text: str,
     #         target_schema) -> dict | str:
     #     """
-    #     Parses the response text into a dictionary using the provided Pydantic schema.
+    # Parses the response text into a dictionary using the provided Pydantic
+    # schema.
 
     #     Args:
     #         response_text (str): The response text to parse.
-    #         schema (BaseModel): The Pydantic schema to validate the parsed data against.
+    # schema (BaseModel): The Pydantic schema to validate the parsed data
+    # against.
 
     #     Returns:
     #         dict: The parsed and validated data as a dictionary. If parsing fails, returns an empty dictionary.
@@ -429,6 +439,7 @@ class FilterUtils:
             # NOTE: Maybe this should be {"error": "Failed to process function
             # call"}
             return "Failed to process function call"
+
 
 class ResponseUtils:
     """Utility methods for the Pipe class"""

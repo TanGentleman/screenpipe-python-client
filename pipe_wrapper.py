@@ -17,7 +17,7 @@ def yield_stream_response(response: requests.Response) -> Generator:
     if not response or not response.ok:
         logging.error(f"Invalid response: {response}")
         return
-        
+
     for line in response.iter_lines():
         try:
             if not line:
@@ -38,10 +38,10 @@ def yield_stream_response(response: requests.Response) -> Generator:
             elif isinstance(chunk_data, dict) and 'choices' in chunk_data:
                 delta = chunk_data['choices'][0].get('delta', {})
                 chunk_content = delta.get('content', '')
-            
+
             if chunk_content:  # Only yield non-empty content
                 yield chunk_content
-                
+
         except Exception as e:
             logging.error(f"Error processing stream chunk: {e}")
             continue

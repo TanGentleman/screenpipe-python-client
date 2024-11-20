@@ -24,10 +24,13 @@ from utils.owui_utils.constants import DEFAULT_QUERY
 logger = logging.getLogger(__name__)
 
 # Type definitions
+
+
 class Message(TypedDict):
     """Message type for chat interactions"""
     role: str
     content: str
+
 
 class InletRequestBody(TypedDict):
     """Request body type for inlet endpoint"""
@@ -84,7 +87,11 @@ app_pipe = ScreenPipe()
 app_filter.set_valves(FILTER_CONFIG)
 app_pipe.set_valves(PIPE_CONFIG)
 
-logger.info("Filter valves:\n%s", pprint(app_filter.valves.model_dump(), indent=2))
+logger.info(
+    "Filter valves:\n%s",
+    pprint(
+        app_filter.valves.model_dump(),
+        indent=2))
 logger.info("Pipe valves:\n%s", pprint(app_pipe.valves.model_dump(), indent=4))
 
 
@@ -260,7 +267,7 @@ def process_api_stream_response(response: Any) -> str:
     if not response or not response.ok:
         logger.error(f"Invalid response: {response}")
         return ""
-        
+
     full_response = ""
     try:
         for line in response.iter_lines():
@@ -290,9 +297,10 @@ def process_api_stream_response(response: Any) -> str:
 
     except Exception as e:
         logger.error(f"Error processing stream response: {e}")
-        
+
     print()
     return full_response
+
 
 def run_pipeline(body: dict) -> None:
     """Run the pipeline with the given body."""

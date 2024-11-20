@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 
 # Local imports
 from utils.owui_utils.configuration import create_config
-from utils.owui_utils.constants import EXAMPLE_SEARCH_JSON, JSON_SYSTEM_MESSAGE, TOOL_SYSTEM_MESSAGE
+from utils.owui_utils.constants import TOOL_SYSTEM_MESSAGE
 from utils.owui_utils.pipeline_utils import screenpipe_search, SearchParameters, PipeSearch, FilterUtils
 
 # Unpack the config
@@ -36,6 +36,7 @@ if use_baml:
         pass
 
 BAML_ENABLED = use_baml
+
 
 class Filter:
     """Filter class for screenpipe functionality"""
@@ -113,7 +114,8 @@ class Filter:
         if self.valves.NATIVE_TOOL_CALLING:
             return TOOL_SYSTEM_MESSAGE
         else:
-            raise ValueError("Native tool calling must be enabled for System Message!")
+            raise ValueError(
+                "Native tool calling must be enabled for System Message!")
         # Deprecated JSON system message
         # return JSON_SYSTEM_MESSAGE.format(
         #     schema=self.json_schema,
@@ -187,7 +189,7 @@ class Filter:
             # Create and validate search parameters object
             search_param_object = SearchParameters(**search_params)
             # self.safe_log_error(f"Search params: {search_param_object}", None)
-            
+
             # Store search parameters for later reference
             self.search_params = search_param_object.to_dict()
             # Convert to API-compatible format and execute search
@@ -255,7 +257,7 @@ class Filter:
         if isinstance(parsed_response, str):
             print(f"WARNING: BAML error!")
             return parsed_response
-        
+
         def fix_baml_response(baml_search_params) -> dict:
             search_params = baml_search_params.model_dump()
             search_params["content_type"] = search_params["content_type"].value
@@ -263,17 +265,14 @@ class Filter:
                 time_range = search_params["time_range"]
                 search_params["from_time"] = time_range["from_time"]
                 search_params["to_time"] = time_range["to_time"]
-            
-            # self.safe_log_error(f"BAML search params: {search_params}", None)
+
             fixed_search_params = SearchParameters(**search_params).to_dict()
             return fixed_search_params
-        
         try:
             search_params = fix_baml_response(parsed_response)
         except Exception as e:
             self.safe_log_error("Error fixing BAML search params!", e)
             raise ValueError
-        self.safe_log_error(f"BAML search params: {search_params}", None)
         return self._get_search_results_from_params(search_params)
 
     def _get_search_results(self, messages: list[dict]) -> str | dict:
@@ -282,8 +281,6 @@ class Filter:
         else:
             assert BAML_ENABLED, "BAML is not enabled! Enable it or try native tool calling instead."
             return self._baml_response_as_results_or_str(messages)
-    
-
 
     def is_inlet_body_valid(self, body: dict) -> bool:
         """Validates the structure and types of the inlet body dictionary.
@@ -404,9 +401,11 @@ class Filter:
             # Restore original user message if available
             user_message_content = body.get("user_message_content")
             if user_message_content is not None:
-                messages[-2]["content"] = user_message_content + "\n(Outlet active.)"
+                messages[-2]["content"] = user_message_content + \
+                    "\n(Outlet active.)"
 
-            # Append search parameters and result count to assistant's response if available
+            # Append search parameters and result count to assistant's response
+            # if available
             if self.search_params:
                 # Get current content and search results
                 assistant_content = messages[-1].get("content", "")
@@ -415,13 +414,13 @@ class Filter:
                     result_count = 0
                 else:
                     result_count = len(search_results)
-                
+
                 # Format search parameters as pretty JSON
                 formatted_params = json.dumps(self.search_params, indent=2)
-                
+
                 # Build summary message
                 summary = f"\n\nFound {result_count} results with search params:\n{formatted_params}"
-                
+
                 # Update assistant message with original content plus summary
                 messages[-1]["content"] = assistant_content + summary
 

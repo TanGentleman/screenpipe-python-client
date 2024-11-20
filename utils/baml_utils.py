@@ -6,15 +6,17 @@ from baml_py.errors import (
 )
 
 
-def baml_generate_search_params(query: str, current_iso_timestamp: str) -> SearchParameters | str:
+def baml_generate_search_params(
+        query: str,
+        current_iso_timestamp: str) -> SearchParameters | str:
     """
     Constructs search parameters from a user message and timestamp.
     Handles potential BAML errors and provides detailed error information.
-    
+
     Args:
         user_message: The raw query message from the user
         current_iso_timestamp: Current timestamp in ISO format
-        
+
     Returns:
         SearchParameters object or error string
     """
