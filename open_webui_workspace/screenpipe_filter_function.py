@@ -29,7 +29,7 @@ use_baml = True
 
 if use_baml:
     try:
-        from utils.baml_utils import baml_generate_search_params
+        from utils.baml_utils import baml_generate_search_params, BamlConfig
         logging.info("BAML search parameter construction enabled")
     except ImportError:
         use_baml = False
@@ -49,14 +49,11 @@ class Filter:
         LLM_API_KEY: str = Field(
             default=CONFIG.llm_api_key, description="API key for LLM access"
         )
-        BAML_MODEL: Optional[str] = Field(
-            default=CONFIG.baml_model,
+        FILTER_MODEL: Optional[str] = Field(
+            default=CONFIG.filter_model,
             description="Model to use for BAML calls")
-        TOOL_MODEL: str = Field(
-            default=CONFIG.tool_model,
-            description="Model to use for tool calls")
-        NATIVE_TOOL_CALLING: bool = Field(
-            default=CONFIG.native_tool_calling,
+        FORCE_TOOL_CALLING: bool = Field(
+            default=CONFIG.force_tool_calling,
             description="Works best with gpt-4o-mini, use JSON for other models.")
         SCREENPIPE_SERVER_URL: str = Field(
             default=CONFIG.screenpipe_server_url,
@@ -65,7 +62,6 @@ class Filter:
     def __init__(self):
         self.name = "screenpipe_pipeline"
         self.tools = [convert_to_openai_tool(screenpipe_search)]
-        self.json_schema = SearchParameters.model_json_schema()
         self.replacement_tuples = CONFIG.replacement_tuples
         self.valves = self.Valves()
         self.client = None
@@ -108,14 +104,6 @@ class Filter:
             {"screenpipe_server_url": self.valves.SCREENPIPE_SERVER_URL}
         )
         self.search_params = None
-
-    def _get_system_message(self) -> str:
-        """Get appropriate system message based on configuration"""
-        if self.valves.NATIVE_TOOL_CALLING:
-            return TOOL_SYSTEM_MESSAGE
-        else:
-            raise ValueError(
-                "Native tool calling must be enabled for System Message!")
 
     def _tool_response_as_results_or_str(self, messages: list) -> str | dict:
         # Refactor user message
@@ -185,9 +173,9 @@ class Filter:
         return search_results
 
     def _make_tool_api_call(self, messages):
-        print("Using tool model:", self.valves.TOOL_MODEL)
+        print("Using tool model:", self.valves.FILTER_MODEL)
         return self.client.chat.completions.create(
-            model=self.valves.TOOL_MODEL,
+            model=self.valves.FILTER_MODEL,
             messages=messages,
             tools=self.tools,
             tool_choice="auto",
@@ -208,15 +196,19 @@ class Filter:
             raise ValueError
         user_message = messages[-1]["content"]
         current_iso_timestamp = FilterUtils.get_current_time()
+        baml_config = BamlConfig(
+            model=self.valves.FILTER_MODEL,
+            base_url=self.valves.LLM_API_BASE_URL,
+            api_key=self.valves.LLM_API_KEY
+        )
         parsed_response = baml_generate_search_params(
-            user_message, current_iso_timestamp)
+            user_message, current_iso_timestamp, baml_config)
         if isinstance(parsed_response, str):
             print(f"WARNING: BAML error!")
             return parsed_response
 
         def fix_baml_response(baml_search_params) -> dict:
             search_params = baml_search_params.model_dump()
-            search_params["content_type"] = search_params["content_type"].value
             if search_params.get("time_range"):
                 time_range = search_params["time_range"]
                 search_params["from_time"] = time_range["from_time"]
@@ -232,7 +224,7 @@ class Filter:
         return self._get_search_results_from_params(search_params)
 
     def _get_search_results(self, messages: list[dict]) -> str | dict:
-        if self.valves.NATIVE_TOOL_CALLING:
+        if self.valves.FORCE_TOOL_CALLING:
             return self._tool_response_as_results_or_str(messages)
         else:
             assert BAML_ENABLED, "BAML is not enabled! Enable it or try native tool calling instead."

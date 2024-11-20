@@ -1,14 +1,27 @@
+from typing import Optional
 from baml_client import b
 from baml_client.types import SearchParameters
 from baml_py.errors import (
     BamlError,
     BamlValidationError
 )
+from baml_py import ClientRegistry
+cr = ClientRegistry()
 
+class BamlConfig:
+    def __init__(self, model: str, base_url: str, api_key: str):
+        self.model = model
+        self.base_url = base_url
+        self.api_key = api_key
+        # Other parameters
+        # self.temperature = 0.7
+
+BAML_MODELS = ["OllamaQwen", "GeminiFlash"]
 
 def baml_generate_search_params(
         query: str,
-        current_iso_timestamp: str) -> SearchParameters | str:
+        current_iso_timestamp: str,
+        config: Optional[BamlConfig] = None) -> SearchParameters | str:
     """
     Constructs search parameters from a user message and timestamp.
     Handles potential BAML errors and provides detailed error information.
@@ -21,7 +34,18 @@ def baml_generate_search_params(
         SearchParameters object or error string
     """
     try:
-        response = b.ConstructSearch(query, current_iso_timestamp)
+        if config:
+            if config.model in BAML_MODELS:
+                cr.set_primary(config.model)
+            else:
+                cr.add_llm_client(name='CustomClient', provider='openai', options={
+                    "model": config.model,
+                    "base_url": config.base_url,
+                    "api_key": config.api_key
+                    # TODO: Add hyperparameters
+                })
+                cr.set_primary('CustomClient')
+        response = b.ConstructSearch(query, current_iso_timestamp, { "client_registry": cr })
         return response
     except BamlValidationError as e:
         print(
