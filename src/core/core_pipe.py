@@ -9,7 +9,9 @@ version: 0.5
 import json
 from typing import Optional, Union, Generator, Iterator, List
 import logging
-from openai import OpenAI
+from openai import OpenAI, Stream
+from openai.types.chat import ChatCompletionChunk, ChatCompletion
+
 from pydantic import BaseModel, Field
 
 from ..utils.owui_utils.configuration import create_config
@@ -17,6 +19,7 @@ from ..utils.owui_utils.pipeline_utils import ResponseUtils, check_for_env_key
 
 CONFIG = create_config()
 
+MAX_RESPONSE_TOKENS = 3000
 
 class Pipe():
     """Pipe class for screenpipe functionality"""
@@ -68,93 +71,115 @@ class Pipe():
 
     def _generate_final_response(
             self,
-            client,
-            response_model: str,
             messages_with_screenpipe_data: List[dict],
-            stream: bool):
+            stream: bool) -> Union[Stream[ChatCompletionChunk], ChatCompletion]:
 
-        MAX_TOKENS = 3000
+        client = self.client
+        response_model = self.valves.RESPONSE_MODEL
+        assert client is not None
         if stream:
-            return client.chat.completions.create(
+            response: Stream[ChatCompletionChunk] = client.chat.completions.create(
                 model=response_model,
                 messages=messages_with_screenpipe_data,
                 stream=True,
-                max_tokens=MAX_TOKENS
+                max_tokens=MAX_RESPONSE_TOKENS
             )
+            return response
         else:
-            final_response = client.chat.completions.create(
+            final_response: ChatCompletion = client.chat.completions.create(
                 model=response_model,
                 messages=messages_with_screenpipe_data,
-                max_tokens=MAX_TOKENS
+                max_tokens=MAX_RESPONSE_TOKENS
             )
             return final_response.choices[0].message.content
 
     def is_pipe_body_valid(self, body: dict) -> bool:
         """Validates the structure and types of the pipe body dictionary.
 
-        The pipe body must contain a user message and stream flag, with optional search data
-        and error information.
-
         Args:
-            body (dict): The pipe body to validate containing:
-                - user_message_content (str): The user's message text
-                - stream (bool): Whether to stream the response
-                - inlet_error (str, optional): Any error from inlet processing
-                - search_results (list, optional): List of search results
-                - search_params (dict, optional): Search parameter settings
-                - messages (list, optional): Message history
+            body (dict): The pipe body containing:
+                - user_message_content (str, required): User's message text
+                - stream (bool, required): Whether to stream the response
+                - inlet_error (str, optional): Error from inlet processing
+                - search_results (list, required): List of search results
+                - search_params (dict, required): Search parameter settings
 
         Returns:
-            bool: True if body has valid structure and types, False otherwise
+            bool: True if body has valid structure and types
         """
         if not isinstance(body, dict):
+            self.safe_log_error("Body must be a dictionary", TypeError)
             return False
-        # Validate mandatory user_message_content field
-        if body.get("inlet_error") is not None:
-            return isinstance(body["inlet_error"], str)
-        # Validate required fields
+
+        # Early return if inlet_error exists and is valid
+        if body.get("inlet_error"):
+            if not isinstance(body["inlet_error"], str):
+                self.safe_log_error("inlet_error must be a string", TypeError)
+                return False
+            return True
+
+        # Validate all required fields
         required_fields = {
             "user_message_content": str,
+            "stream": bool,
             "search_results": list,
             "search_params": dict,
         }
+        
         for field, expected_type in required_fields.items():
-            if not isinstance(body.get(field), expected_type):
-                self.safe_log_error(
-                    f"Required field {field} is missing or not of type {expected_type}",
-                    ValueError)
+            if field not in body:
+                self.safe_log_error(f"Missing required field: {field}", ValueError)
                 return False
+            if not isinstance(body[field], expected_type):
+                self.safe_log_error(
+                    f"Field {field} must be of type {expected_type.__name__}", TypeError)
+                return False
+                
         return True
 
     def pipe(self, body: dict) -> Union[str, Generator, Iterator]:
-        """Main pipeline processing method"""
+        """Process the pipeline request.
+        
+        Args:
+            body (dict): The validated request body
+            
+        Returns:
+            Union[str, Generator, Iterator]: Response string or stream
+        """
+        print(f"inlet:{__name__}")
         if not self.is_pipe_body_valid(body):
-            self.safe_log_error(
-                f"Invalid! Check pipe request body", ValueError)
             return "Invalid pipe body!"
-        if body["inlet_error"]:
-            return body["inlet_error"]
-        if self.valves.GET_RESPONSE:
-            self._initialize_client()
-        try:
-            stream = body["stream"]
-            user_message_string = body["user_message_content"]
-            search_results_list = body["search_results"]
-            search_params_dict = body["search_params"]
-            # NOTE: Is it possible the values in body change between now and the outlet?
-            if not self.valves.GET_RESPONSE:
-                results_as_string = ResponseUtils.format_results_as_string(
-                    search_results_list)
-                return results_as_string
 
-            messages_with_data = ResponseUtils.get_messages_with_screenpipe_data(
-                user_message_string, search_results_list, search_params_dict)
+        if body.get("inlet_error"):
+            return body["inlet_error"]
+
+        try:
+            # Extract required fields
+            stream = body["stream"]
+            user_message = body["user_message_content"]
+            search_results = body["search_results"]
+            search_params = body["search_params"]
+            
+            # Return early if response not needed
+            if not self.valves.GET_RESPONSE:
+                return ResponseUtils.format_results_as_string(search_results)
+
+            # Initialize client and generate response
+            self._initialize_client()
+            
+            messages = ResponseUtils.get_messages_with_screenpipe_data(
+                user_message, search_results, search_params)
+            
             return self._generate_final_response(
-                self.client, self.valves.RESPONSE_MODEL, messages_with_data, stream)
+                messages, 
+                stream
+            )
+
+
         except Exception as e:
             ERROR_LOGGING_ENABLED = False
             if ERROR_LOGGING_ENABLED:
                 self.safe_log_error(str(e), e)
             else:
                 self.safe_log_error("Error in pipe", e)
-            return "An error occurred in the pipe."
+            return f"An error occurred in the pipe. {str(e)}"
