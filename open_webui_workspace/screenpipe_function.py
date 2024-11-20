@@ -13,7 +13,7 @@ from openai import OpenAI
 from pydantic import BaseModel, Field
 
 from utils.owui_utils.configuration import create_config
-from utils.owui_utils.pipeline_utils import ResponseUtils
+from utils.owui_utils.pipeline_utils import ResponseUtils, check_for_env_key
 
 CONFIG = create_config()
 
@@ -58,7 +58,7 @@ class Pipe():
         """Initialize OpenAI client"""
         self.client = OpenAI(
             base_url=self.valves.LLM_API_BASE_URL,
-            api_key=self.valves.LLM_API_KEY
+            api_key=check_for_env_key(self.valves.LLM_API_KEY)
         )
 
     def safe_log_error(self, message: str, error: Exception) -> None:
@@ -141,6 +141,7 @@ class Pipe():
             user_message_string = body["user_message_content"]
             search_results_list = body["search_results"]
             search_params_dict = body["search_params"]
+            # NOTE: Is it possible the values in body change between now and the outlet?
             if not self.valves.GET_RESPONSE:
                 results_as_string = ResponseUtils.format_results_as_string(
                     search_results_list)

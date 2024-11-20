@@ -1,3 +1,4 @@
+import os
 from typing import Optional
 from baml_client import b
 from baml_client.types import SearchParameters
@@ -6,6 +7,8 @@ from baml_py.errors import (
     BamlValidationError
 )
 from baml_py import ClientRegistry
+
+from utils.owui_utils.pipeline_utils import check_for_env_key
 cr = ClientRegistry()
 
 class BamlConfig:
@@ -41,7 +44,7 @@ def baml_generate_search_params(
                 cr.add_llm_client(name='CustomClient', provider='openai', options={
                     "model": config.model,
                     "base_url": config.base_url,
-                    "api_key": config.api_key
+                    "api_key": check_for_env_key(config.api_key)
                     # TODO: Add hyperparameters
                 })
                 cr.set_primary('CustomClient')

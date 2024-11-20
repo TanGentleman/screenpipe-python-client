@@ -10,6 +10,7 @@ version: 0.4
 # Standard library imports
 import logging
 import json
+import os
 from typing import Optional
 
 # Third-party imports
@@ -20,23 +21,21 @@ from pydantic import BaseModel, Field
 # Local imports
 from utils.owui_utils.configuration import create_config
 from utils.owui_utils.constants import TOOL_SYSTEM_MESSAGE
-from utils.owui_utils.pipeline_utils import screenpipe_search, SearchParameters, PipeSearch, FilterUtils
+from utils.owui_utils.pipeline_utils import ResponseUtils, check_for_env_key, screenpipe_search, SearchParameters, PipeSearch, FilterUtils
 
 # Unpack the config
 CONFIG = create_config()
 # Attempt to import BAML utils if enabled
-use_baml = True
 
-if use_baml:
-    try:
-        from utils.baml_utils import baml_generate_search_params, BamlConfig
-        logging.info("BAML search parameter construction enabled")
-    except ImportError:
-        use_baml = False
-        pass
+try:
+    from utils.baml_utils import baml_generate_search_params, BamlConfig
+    logging.info("BAML search parameter construction enabled")
+    use_baml = True
+except ImportError:
+    use_baml = False
+    pass
 
 BAML_ENABLED = use_baml
-
 
 class Filter:
     """Filter class for screenpipe functionality"""
@@ -62,11 +61,13 @@ class Filter:
     def __init__(self):
         self.name = "screenpipe_pipeline"
         self.tools = [convert_to_openai_tool(screenpipe_search)]
-        self.replacement_tuples = CONFIG.replacement_tuples
+        self.replacement_tuples = CONFIG.replacement_tuples or []
+        self.offset_hours = CONFIG.default_utc_offset or 0
         self.valves = self.Valves()
         self.client = None
         self.searcher = None
         self.search_params = None
+        self.search_results = None
 
     def set_valves(self, valves: Optional[dict] = None):
         """Update valve settings from a dictionary of values"""
@@ -93,9 +94,11 @@ class Filter:
 
     def _initialize_client(self):
         """Initialize OpenAI client"""
+        api_key = check_for_env_key(self.valves.LLM_API_KEY)
+        base_url = self.valves.LLM_API_BASE_URL
         self.client = OpenAI(
-            base_url=self.valves.LLM_API_BASE_URL,
-            api_key=self.valves.LLM_API_KEY
+            base_url=base_url,
+            api_key=api_key
         )
 
     def _initialize_searcher(self):
@@ -104,6 +107,7 @@ class Filter:
             {"screenpipe_server_url": self.valves.SCREENPIPE_SERVER_URL}
         )
         self.search_params = None
+        self.search_results = None
 
     def _tool_response_as_results_or_str(self, messages: list) -> str | dict:
         # Refactor user message
@@ -256,7 +260,7 @@ class Filter:
         """Process incoming messages, performing search and sanitizing results."""
         print(f"inlet:{__name__}")
         # print(f"inlet:body:{body}")
-        print(f"inlet:user:{__user__}")
+        # print(f"inlet:user:{__user__}")
         body["inlet_error"] = None
         body["user_message_content"] = None
         body["search_params"] = None
@@ -270,32 +274,32 @@ class Filter:
             # Initialize settings and prepare messages
             self.initialize_settings()
             raw_results = self._get_search_results(original_messages)
-            if not raw_results:
-                body["inlet_error"] = "No results found"
-                return body
-            # Handle error case
+            
             if isinstance(raw_results, str):
                 body["inlet_error"] = raw_results
                 return body
 
             assert self.search_params is not None
-            # Store search params
             body["search_params"] = self.search_params
-
-            # Sanitize and store results
-            search_results = FilterUtils.sanitize_results(
-                raw_results, self.replacement_tuples)
-
-            if not search_results:
-                body["inlet_error"] = "No sanitized results found"
+            
+            if not raw_results.get("data", []):
+                body["inlet_error"] = "No results found"
                 return body
 
-            body["search_results"] = search_results
+            # Sanitize and store results
+            search_results_list = FilterUtils.sanitize_results(
+                raw_results, self.replacement_tuples, self.offset_hours)
+
+            if not search_results_list:
+                body["inlet_error"] = "No search results. (Some were rejected!)"
+                return body
+
+            body["search_results"] = search_results_list
+            self.search_results = search_results_list
             # Store original user message
             REPLACE_USER_MESSAGE = False
             if REPLACE_USER_MESSAGE:
                 # NOTE: This REPLACES the user message in the body dictionary
-
                 # Append search params to user message
                 search_params_as_string = json.dumps(
                     self.search_params, indent=2)
@@ -339,13 +343,14 @@ class Filter:
         """Process outgoing messages."""
         print(f"outlet:{__name__}")
         # print(f"outlet:body:{body}")
-        print(f"outlet:user:{__user__}")
+        # print(f"outlet:user:{__user__}")
         try:
             if not self.is_outlet_body_valid(body):
                 self.safe_log_error("Invalid outlet body!!", ValueError)
                 return body
 
             messages = body["messages"]
+            
             # Restore original user message if available
             user_message_content = body.get("user_message_content")
             # TODO: Add any useful information to the user message
@@ -356,22 +361,28 @@ class Filter:
             # Append search parameters and result count to assistant's response
             # if available
             if self.search_params:
+                if body.get("search_params") is None:
+                    self.safe_log_error(f"search_params not in body!", ValueError)
                 # Get current content and search results
                 assistant_content = messages[-1].get("content", "")
-                search_results = body.get("search_results")
-                if not search_results:
-                    result_count = 0
-                else:
+                # NOTE: Why doesn't body.get("search_results") == self.search_results?
+                # TODO: Fix for consistency
+                search_results = body.get("search_results") or self.search_results
+                result_count = 0
+                results_as_string = ""
+                if search_results:
                     result_count = len(search_results)
-
+                    results_as_string = ResponseUtils.format_results_as_string(
+                        search_results)
                 # Format search parameters as pretty JSON
                 formatted_params = json.dumps(self.search_params, indent=2)
-
+                
                 # Build summary message
-                summary = f"\n\nFound {result_count} results with search params:\n{formatted_params}"
+                summary = f"\n\nUsed {result_count} results with search params:\n{formatted_params}"
 
                 # Update assistant message with original content plus summary
-                messages[-1]["content"] = assistant_content + summary
+                final_content = results_as_string + "\n\n" + assistant_content + summary
+                messages[-1]["content"] = final_content.strip()
 
         except Exception as e:
             self.safe_log_error("Error processing outlet", e)

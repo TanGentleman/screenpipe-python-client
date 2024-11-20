@@ -127,12 +127,15 @@ async def pipe_stream(body: dict) -> StreamingResponse:
         async def generate() -> AsyncGenerator[str, None]:
             """Generate streaming response chunks."""
             try:
-                for chunk in response:
-                    if chunk:  # Only process non-None chunks
-                        if isinstance(chunk, str):
-                            yield f"data: {json.dumps(chunk)}\n\n"
-                        else:
-                            yield f"data: {json.dumps(chunk.dict())}\n\n"
+                if isinstance(response, str):
+                    yield f"data: {json.dumps(response)}\n\n"
+                else:
+                    for chunk in response:
+                        if chunk:  # Only process non-None chunks
+                            if isinstance(chunk, str):
+                                yield f"data: {json.dumps(chunk)}\n\n"
+                            else:
+                                yield f"data: {json.dumps(chunk.dict())}\n\n"
                 yield "data: [DONE]\n\n"
             except Exception as e:
                 logger.error("Error in stream generation: %s", str(e))
