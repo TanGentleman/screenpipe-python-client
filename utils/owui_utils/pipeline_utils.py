@@ -1,3 +1,4 @@
+import os
 from pydantic import BaseModel, Field
 from typing import Literal, Optional, Annotated, List, Tuple
 from datetime import datetime, timezone, timedelta
@@ -129,7 +130,20 @@ class SearchParameters(BaseModel):
             # Handle content_type special case
             if field_name == 'content_type':
                 value = value.lower()
-
+            
+            # Format timestamps to include time component
+            if field_name in ['from_time', 'to_time']:
+                if not value.endswith('Z') and 'T' not in value:
+                    # Add time component if missing
+                    try:
+                        # Validate date format (YYYY-MM-DD)
+                        year, month, day = value.split('-')
+                        if not (len(year) == 4 and len(month) == 2 and len(day) == 2):
+                            raise ValueError
+                        value = f"{value}T00:00:00Z" if field_name == 'from_time' else f"{value}T23:59:59Z"
+                    except ValueError:
+                        raise ValueError(f"Invalid date format: {value}. Expected YYYY-MM-DD")
+                    
             search_params[api_param] = value
 
         # Validate against API schema
@@ -336,8 +350,8 @@ class FilterUtils:
 
     @staticmethod
     def sanitize_results(results: dict,
-                         replacement_tuples: List[Tuple[str,
-                                                        str]] = []) -> list[dict]:
+                         replacement_tuples: List[Tuple[str, str]] = [],
+                         offset_hours: Optional[float] = None) -> list[dict]:
         """Sanitize search results with improved error handling"""
         try:
             if not isinstance(results, dict) or "data" not in results:
@@ -347,7 +361,7 @@ class FilterUtils:
             for result in results["data"]:
                 sanitized_result = {
                     "timestamp": FilterUtils.format_timestamp(
-                        result["content"]["timestamp"]),
+                        result["content"]["timestamp"], offset_hours),
                     "type": result["type"]}
 
                 if result["type"] == "OCR":
@@ -480,11 +494,19 @@ class ResponseUtils:
             }
             source_string = metadata['device_name'] or f"{metadata['app_name']}" or "N/A"
             result_string = (
-                f"[Result {i} - {result_type.upper()}]\n"
-                f"{content}\n"
-                f"Source: {source_string}\n"
-                f"Timestamp: {metadata['timestamp']}\n"
-                f"---\n\n"
+                f"### Result {i} - {result_type.upper()}\n\n"
+                f"{content}\n\n"
+                f"**Source:** {source_string}  \n"
+                f"**Timestamp:** {metadata['timestamp']}  \n"
+                f"___\n\n"
             )
             response_string += result_string
         return response_string.strip()
+
+def check_for_env_key(api_key: str) -> str:
+    """Get API key from environment variable if prefixed with 'env.', otherwise return as-is"""
+    env_reference_suffix = "env."
+    if api_key[0:len(env_reference_suffix)] == env_reference_suffix:
+        env_var = api_key[len(env_reference_suffix):]
+        return os.getenv(env_var, api_key)
+    return api_key
