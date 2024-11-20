@@ -37,6 +37,8 @@ except ImportError:
 
 BAML_ENABLED = use_baml
 
+INLET_ADJUSTS_USER_MESSAGE = False
+
 class Filter:
     """Filter class for screenpipe functionality"""
 
@@ -69,7 +71,8 @@ class Filter:
         self.search_params = None
         self.search_results = None
 
-    def set_valves(self, valves: Optional[dict] = None):
+    # NOTE: Should this return anything?
+    def set_valves(self, valves: Optional[dict] = None) -> None:
         """Update valve settings from a dictionary of values"""
         if valves is None:
             self.valves = self.Valves()
@@ -109,7 +112,16 @@ class Filter:
         self.search_params = None
         self.search_results = None
 
-    def _tool_response_as_results_or_str(self, messages: list) -> str | dict:
+    def _tool_response_as_results_or_str(self, messages: list[dict]) -> str | dict:
+        """Process messages using tool-based approach and return search results.
+        
+        Args:
+            messages: List of message dictionaries containing role and content
+            
+        Returns:
+            dict: Search results if successful
+            str: Error message if processing fails
+        """
         # Refactor user message
         user_message = messages[-1]["content"]
         current_iso_timestamp = FilterUtils.get_current_time()
@@ -147,29 +159,19 @@ class Filter:
 
     def _get_search_results_from_params(
             self, search_params: dict) -> dict | str:
-        """Execute search using provided parameters and return results.
-
-        Args:
-            search_params: Dictionary containing search parameters like limit, content_type, etc.
-
-        Returns:
-            dict: Search results if successful
-            str: Error message if search fails or no results found
-        """
-        # NOTE: validate search_params here
+        """Execute search using provided parameters and return results."""
         try:
-            # Create and validate search parameters object
             search_param_object = SearchParameters(**search_params)
-            # self.safe_log_error(f"Search params: {search_param_object}", None)
-
-            # Store search parameters for later reference
             self.search_params = search_param_object.to_dict()
-            # Convert to API-compatible format and execute search
             api_params = search_param_object.to_api_dict()
             search_results = self.searcher.search(**api_params)
+        except ValueError as e:
+            self.safe_log_error("Invalid search parameters", e)
+            return f"Invalid search parameters: {str(e)}"
         except Exception as e:
-            self.safe_log_error("Error unpacking SearchParameters object!", e)
-            raise ValueError
+            self.safe_log_error("Error during search execution", e)
+            return "Error executing search"
+
         if not search_results:
             return "No results found"
         if "error" in search_results:
@@ -186,7 +188,8 @@ class Filter:
             stream=False
         )
 
-    def _process_tool_calls(self, tool_calls) -> dict | str:
+    def _process_tool_calls(self, tool_calls: list[dict]) -> dict | str:
+        """Process tool calls and return results"""
         for tool_call in tool_calls:
             if tool_call['function']['name'] == 'screenpipe_search':
                 function_args = json.loads(tool_call['function']['arguments'])
@@ -257,7 +260,21 @@ class Filter:
         return True
 
     def inlet(self, body: dict, __user__: Optional[dict] = None) -> dict:
-        """Process incoming messages, performing search and sanitizing results."""
+        """Process incoming messages, performing search and sanitizing results.
+        
+        Args:
+            body: Dictionary containing messages and other request data
+            __user__: Optional user information dictionary
+            
+        Returns:
+            dict: Processed body with search results and any error messages
+            
+        The function will add the following keys to the body:
+        - inlet_error: Error message if any
+        - user_message_content: Original user message
+        - search_params: Parameters used for search
+        - search_results: Sanitized search results
+        """
         print(f"inlet:{__name__}")
         # print(f"inlet:body:{body}")
         # print(f"inlet:user:{__user__}")
@@ -297,8 +314,7 @@ class Filter:
             body["search_results"] = search_results_list
             self.search_results = search_results_list
             # Store original user message
-            REPLACE_USER_MESSAGE = False
-            if REPLACE_USER_MESSAGE:
+            if INLET_ADJUSTS_USER_MESSAGE:
                 # NOTE: This REPLACES the user message in the body dictionary
                 # Append search params to user message
                 search_params_as_string = json.dumps(
@@ -361,13 +377,8 @@ class Filter:
             # Append search parameters and result count to assistant's response
             # if available
             if self.search_params:
-                if body.get("search_params") is None:
-                    self.safe_log_error(f"search_params not in body!", ValueError)
-                # Get current content and search results
                 assistant_content = messages[-1].get("content", "")
-                # NOTE: Why doesn't body.get("search_results") == self.search_results?
-                # TODO: Fix for consistency
-                search_results = body.get("search_results") or self.search_results
+                search_results = self.search_results
                 result_count = 0
                 results_as_string = ""
                 if search_results:
