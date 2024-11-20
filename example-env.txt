@@ -5,11 +5,10 @@ SCREENPIPE_PORT=3030
 IS_DOCKER=False
 
 # Model Configuration
-BAML_MODEL=qwen2.5-coder:latest
-TOOL_MODEL=gpt-4o-mini
+FILTER_MODEL=qwen2.5-coder:latest
 RESPONSE_MODEL=qwen2.5:3b
 
-NATIVE_TOOL_CALLING=true
+FORCE_TOOL_CALLING=true
 GET_RESPONSE=true
 
 # Pipeline Settings

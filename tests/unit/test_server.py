@@ -26,8 +26,7 @@ def test_update_valves():
     """Test valve configuration updates."""
     test_config = {
         "filter_config": {
-            "NATIVE_TOOL_CALLING": True,
-            "TOOL_MODEL": Models.SMART_MODEL
+            "FORCE_TOOL_CALLING": True,
         },
         "pipe_config": {
             "RESPONSE_MODEL": Models.FLASH_MODEL

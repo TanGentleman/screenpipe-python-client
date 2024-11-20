@@ -14,8 +14,7 @@ if LLM_API_KEY is None:
 CUSTOM_FILTER_VALVES = {
     "LLM_API_BASE_URL": "http://localhost:4000/v1",
     "LLM_API_KEY": LLM_API_KEY,
-    "NATIVE_TOOL_CALLING": False,
-    "TOOL_MODEL": "gpt-4o-mini",
+    "FORCE_TOOL_CALLING": False,
     "SCREENPIPE_SERVER_URL": "http://localhost:3030",
 }
 
@@ -29,7 +28,7 @@ CUSTOM_PIPE_VALVES = {
 OLLAMA_FILTER_VALVES = {
     "LLM_API_BASE_URL": "http://localhost:11434/v1",
     "LLM_API_KEY": "ollama-key",
-    "NATIVE_TOOL_CALLING": False,
+    "FORCE_TOOL_CALLING": False,
     "SCREENPIPE_SERVER_URL": "http://localhost:3030",
 }
 

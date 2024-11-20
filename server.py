@@ -63,8 +63,7 @@ class Models:
 FILTER_CONFIG = {
     # "LLM_API_BASE_URL": "http://localhost:4000/v1",
     # "JSON_MODEL": Models.FLASH_MODEL,
-    # "TOOL_MODEL": Models.SMART_MODEL,
-    # "NATIVE_TOOL_CALLING": False,
+    # "FORCE_TOOL_CALLING": False,
     # "SCREENPIPE_SERVER_URL": "http://localhost:3030"
 }
 
@@ -231,9 +230,8 @@ async def refresh_valves_from_env() -> Dict[str, str]:
             "LLM_API_BASE_URL": config.llm_api_base_url,
             "LLM_API_KEY": config.llm_api_key,
             "SCREENPIPE_SERVER_URL": config.screenpipe_server_url,
-            "NATIVE_TOOL_CALLING": config.native_tool_calling,
-            "JSON_MODEL": config.json_model,
-            "TOOL_MODEL": config.tool_model
+            "FORCE_TOOL_CALLING": config.force_tool_calling,
+            "FILTER_MODEL": config.filter_model,
         }
 
         # Build pipe config from env vars

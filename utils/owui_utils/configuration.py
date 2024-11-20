@@ -13,10 +13,9 @@ DEFAULT_LLM_API_BASE_URL = f"{URL_BASE}:11434/v1"
 DEFAULT_LLM_API_KEY = "API-KEY-HERE"
 
 # Model settings
-DEFAULT_TOOL_MODEL = "gpt-4o-mini"
-DEFAULT_BAML_MODEL = "qwen2.5-coder:latest"
+DEFAULT_FILTER_MODEL = "qwen2.5-coder:latest"
 DEFAULT_RESPONSE_MODEL = "qwen2.5:3b"
-DEFAULT_NATIVE_TOOL_CALLING = False
+DEFAULT_FORCE_TOOL_CALLING = False
 GET_RESPONSE = False
 
 # Time settings
@@ -33,9 +32,8 @@ class PipelineConfig:
     is_docker: bool
 
     # Model settings
-    tool_model: str
-    baml_model: str
-    native_tool_calling: bool
+    filter_model: str
+    force_tool_calling: bool
     get_response: bool
     response_model: str
 
@@ -57,9 +55,8 @@ class PipelineConfig:
             llm_api_key=os.getenv('LLM_API_KEY', DEFAULT_LLM_API_KEY),
             screenpipe_port=get_int_env('SCREENPIPE_PORT', DEFAULT_SCREENPIPE_PORT),
             is_docker=get_bool_env('IS_DOCKER', IS_DOCKER),
-            tool_model=os.getenv('TOOL_MODEL', DEFAULT_TOOL_MODEL),
-            baml_model=os.getenv('BAML_MODEL', DEFAULT_BAML_MODEL),
-            native_tool_calling=get_bool_env('NATIVE_TOOL_CALLING', DEFAULT_NATIVE_TOOL_CALLING),
+            filter_model=os.getenv('FILTER_MODEL', DEFAULT_FILTER_MODEL),
+            force_tool_calling=get_bool_env('FORCE_TOOL_CALLING', DEFAULT_FORCE_TOOL_CALLING),
             get_response=get_bool_env('GET_RESPONSE', GET_RESPONSE),
             response_model=os.getenv('RESPONSE_MODEL', DEFAULT_RESPONSE_MODEL),
             default_utc_offset=get_int_env('DEFAULT_UTC_OFFSET', DEFAULT_UTC_OFFSET),
