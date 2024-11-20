@@ -356,9 +356,10 @@ class Filter:
             messages = body["messages"]
             # Restore original user message if available
             user_message_content = body.get("user_message_content")
+            # TODO: Add any useful information to the user message
             if user_message_content is not None:
-                messages[-2]["content"] = user_message_content + \
-                    "\n(Outlet active.)"
+                # + "\n(Outlet active.)"
+                messages[-2]["content"] = user_message_content
 
             # Append search parameters and result count to assistant's response
             # if available

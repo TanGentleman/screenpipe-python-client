@@ -30,8 +30,8 @@ from .types import Checked, Check
 
 
 class SearchParameters(BaseModel):
-    
-    
+
+
     content_type: Optional[types.ContentType] = None
     time_range: Optional["TimeRange"] = None
     limit: Optional[int] = None
@@ -39,7 +39,7 @@ class SearchParameters(BaseModel):
     application: Optional[str] = None
 
 class TimeRange(BaseModel):
-    
-    
+
+
     from_time: Optional[str] = None
     to_time: Optional[str] = None

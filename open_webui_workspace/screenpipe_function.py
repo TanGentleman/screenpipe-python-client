@@ -72,7 +72,7 @@ class Pipe():
             response_model: str,
             messages_with_screenpipe_data: List[dict],
             stream: bool):
-        
+
         MAX_TOKENS = 3000
         if stream:
             return client.chat.completions.create(
@@ -115,19 +115,22 @@ class Pipe():
         # Validate required fields
         required_fields = {
             "user_message_content": str,
-            "search_results": list, 
+            "search_results": list,
             "search_params": dict,
         }
         for field, expected_type in required_fields.items():
             if not isinstance(body.get(field), expected_type):
-                self.safe_log_error(f"Required field {field} is missing or not of type {expected_type}", ValueError)
+                self.safe_log_error(
+                    f"Required field {field} is missing or not of type {expected_type}",
+                    ValueError)
                 return False
         return True
 
     def pipe(self, body: dict) -> Union[str, Generator, Iterator]:
         """Main pipeline processing method"""
         if not self.is_pipe_body_valid(body):
-            self.safe_log_error(f"Invalid! Check pipe request body", ValueError)
+            self.safe_log_error(
+                f"Invalid! Check pipe request body", ValueError)
             return "Invalid pipe body!"
         if body["inlet_error"]:
             return body["inlet_error"]

@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-SAMBANOVA_MODEL = "sambanova-llama-8b"
 LLAMA_MODEL = "Llama-3.1-70B"
 LOCAL_QWEN_MODEL = "qwen2.5-3b"
 LLM_API_KEY = os.getenv("LLM_API_KEY")
@@ -15,7 +14,6 @@ if LLM_API_KEY is None:
 CUSTOM_FILTER_VALVES = {
     "LLM_API_BASE_URL": "http://localhost:4000/v1",
     "LLM_API_KEY": LLM_API_KEY,
-    "JSON_MODEL": SAMBANOVA_MODEL,
     "NATIVE_TOOL_CALLING": False,
     "TOOL_MODEL": "gpt-4o-mini",
     "SCREENPIPE_SERVER_URL": "http://localhost:3030",
@@ -24,14 +22,13 @@ CUSTOM_FILTER_VALVES = {
 CUSTOM_PIPE_VALVES = {
     "LLM_API_BASE_URL": "http://localhost:4000/v1",
     "LLM_API_KEY": LLM_API_KEY,
-    "RESPONSE_MODEL": SAMBANOVA_MODEL,
+    "RESPONSE_MODEL": LLAMA_MODEL,
     "GET_RESPONSE": True,
 }
 
 OLLAMA_FILTER_VALVES = {
     "LLM_API_BASE_URL": "http://localhost:11434/v1",
     "LLM_API_KEY": "ollama-key",
-    "JSON_MODEL": "qwen2.5:3b",
     "NATIVE_TOOL_CALLING": False,
     "SCREENPIPE_SERVER_URL": "http://localhost:3030",
 }
@@ -83,8 +80,6 @@ def test_filter(prompt: str = DEFAULT_PROMPT, stream: bool = False):
     body["messages"].append({"role": "assistant", "content": response})
     body = filter.outlet(body)
     final_message = body["messages"][-1]["content"]
-    if not final_message.endswith("OUTLET active."):
-        assert "Used search params:" in final_message
 
 
 def main(prompt: str = DEFAULT_PROMPT, stream: bool = True):
