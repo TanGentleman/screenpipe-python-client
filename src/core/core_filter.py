@@ -16,6 +16,7 @@ from typing import Optional
 # Third-party imports
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from openai import OpenAI
+from openai.types.chat import ChatCompletion
 from pydantic import BaseModel, Field
 
 # Local imports
@@ -70,6 +71,7 @@ class Filter:
         self.searcher = None
         self.search_params = None
         self.search_results = None
+        # NOTE: The convert_to_openai_tool should have strict=True, but error is handled differently.
 
     # NOTE: Should this return anything?
     def set_valves(self, valves: Optional[dict] = None) -> None:
@@ -180,13 +182,14 @@ class Filter:
 
     def _make_tool_api_call(self, messages):
         print("Using tool model:", self.valves.FILTER_MODEL)
-        return self.client.chat.completions.create(
+        response: ChatCompletion = self.client.chat.completions.create(
             model=self.valves.FILTER_MODEL,
             messages=messages,
             tools=self.tools,
             tool_choice="auto",
             stream=False
         )
+        return response
 
     def _process_tool_calls(self, tool_calls: list[dict]) -> dict | str:
         """Process tool calls and return results"""

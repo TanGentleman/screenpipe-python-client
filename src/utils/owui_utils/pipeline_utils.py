@@ -6,7 +6,7 @@ import logging
 import requests
 import json
 
-from .constants import DEFAULT_QUERY, DEFAULT_STREAM, EXAMPLE_SEARCH_RESULTS, FINAL_RESPONSE_SYSTEM_MESSAGE, FINAL_RESPONSE_USER_MESSAGE
+from .constants import DEFAULT_QUERY, DEFAULT_STREAM, EXAMPLE_SEARCH_PARAMS, EXAMPLE_SEARCH_RESULTS, FINAL_RESPONSE_SYSTEM_MESSAGE, FINAL_RESPONSE_USER_MESSAGE
 
 MAX_SEARCH_LIMIT = 99
 
@@ -35,8 +35,8 @@ def get_pipe_body(
     return {
         "user_message_content": query or DEFAULT_QUERY,
         "search_results": search_results or EXAMPLE_SEARCH_RESULTS,
-        "search_params": search_params or EXAMPLE_SEARCH_RESULTS,
-        "stream": DEFAULT_STREAM if stream is None else stream,
+        "search_params": search_params or EXAMPLE_SEARCH_PARAMS,
+        "stream": stream if stream is not None else DEFAULT_STREAM,
         "inlet_error": None
     }
 
@@ -484,8 +484,8 @@ class ResponseUtils:
         """Formats search results as a string"""
         response_string = ""
         for i, result in enumerate(search_results, 1):
-            content = result["content"].strip()
-            result_type = result["type"]
+            content = result.get("content", "").strip()
+            result_type = result.get("type", "")
             metadata = {
                 "device_name": result.get("device_name", ""),
                 "app_name": result.get("app_name", ""),
