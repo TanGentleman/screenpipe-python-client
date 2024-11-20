@@ -14,7 +14,7 @@ DEFAULT_LLM_API_KEY = "API-KEY-HERE"
 
 # Model settings
 DEFAULT_TOOL_MODEL = "gpt-4o-mini"
-DEFAULT_JSON_MODEL = "qwen2.5:3b"
+DEFAULT_BAML_MODEL = "qwen2.5-coder:latest"
 DEFAULT_RESPONSE_MODEL = "qwen2.5:3b"
 DEFAULT_NATIVE_TOOL_CALLING = False
 GET_RESPONSE = False
@@ -34,7 +34,7 @@ class PipelineConfig:
 
     # Model settings
     tool_model: str
-    json_model: str
+    baml_model: str
     native_tool_calling: bool
     get_response: bool
     response_model: str
@@ -58,7 +58,7 @@ class PipelineConfig:
             screenpipe_port=get_int_env('SCREENPIPE_PORT', DEFAULT_SCREENPIPE_PORT),
             is_docker=get_bool_env('IS_DOCKER', IS_DOCKER),
             tool_model=os.getenv('TOOL_MODEL', DEFAULT_TOOL_MODEL),
-            json_model=os.getenv('JSON_MODEL', DEFAULT_JSON_MODEL),
+            baml_model=os.getenv('BAML_MODEL', DEFAULT_BAML_MODEL),
             native_tool_calling=get_bool_env('NATIVE_TOOL_CALLING', DEFAULT_NATIVE_TOOL_CALLING),
             get_response=get_bool_env('GET_RESPONSE', GET_RESPONSE),
             response_model=os.getenv('RESPONSE_MODEL', DEFAULT_RESPONSE_MODEL),

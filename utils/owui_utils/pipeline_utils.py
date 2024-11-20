@@ -6,7 +6,7 @@ import requests
 import json
 from pydantic import ValidationError
 
-from utils.owui_utils.constants import DEFAULT_QUERY, DEFAULT_STREAM, EXAMPLE_SEARCH_RESULTS, FINAL_RESPONSE_SYSTEM_MESSAGE
+from utils.owui_utils.constants import DEFAULT_QUERY, DEFAULT_STREAM, EXAMPLE_SEARCH_RESULTS, FINAL_RESPONSE_SYSTEM_MESSAGE, FINAL_RESPONSE_USER_MESSAGE
 
 MAX_SEARCH_LIMIT = 99
 
@@ -435,17 +435,8 @@ class ResponseUtils:
         context = sanitized_results
         search_params = search_parameters
         # TODO: Add the search parameters to the context
-        reformatted_message = f"""<user_query>
-{query}
-</user_query>
-
-<search_parameters>
-{search_params}
-</search_parameters>
-
-<context>
-{context}
-</context>"""
+        reformatted_message = FINAL_RESPONSE_USER_MESSAGE.format(
+            query=query, search_params=search_params, context=context)
         return reformatted_message
 
     @staticmethod

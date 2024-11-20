@@ -30,3 +30,16 @@ EXAMPLE_SEARCH_RESULTS = [
         "source": "Project Management Dashboard (ocr)"
     }
 ]
+
+FINAL_RESPONSE_USER_MESSAGE = """\
+<user_query>
+{query}
+</user_query>
+
+<search_parameters>
+{search_params}
+</search_parameters>
+
+<context>
+{context}
+</context>"""
