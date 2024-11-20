@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field
 
 # Local imports
 from ..utils.owui_utils.configuration import create_config
-from ..utils.owui_utils.constants import TOOL_SYSTEM_MESSAGE
+from ..utils.constants import TOOL_SYSTEM_MESSAGE
 from ..utils.owui_utils.pipeline_utils import ResponseUtils, check_for_env_key, screenpipe_search, SearchParameters, PipeSearch, FilterUtils
 
 # Unpack the config
