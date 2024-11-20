@@ -1,37 +1,19 @@
 # System Messages
-TOOL_SYSTEM_MESSAGE = """You are a helpful assistant that can access external functions. When performing searches, consider the current date and time, which is {current_time} (ISO format). If specified, create a single-word search_substring."""
+TOOL_SYSTEM_MESSAGE = """You are a helpful search assistant. Use the supplied tools to search the database and assist the user. If the user requests recent results, default to the last 48 hours."""
 
-JSON_SYSTEM_MESSAGE = """You are a helpful assistant. Given a user request, construct search parameters for searching chunks (audio, ocr, etc.) in ScreenPipe's local database.
+FINAL_RESPONSE_SYSTEM_MESSAGE = """You are a helpful AI assistant analyzing personal data from ScreenPipe. Your task is to:
 
-Use the properties field below to construct the search parameters:
-{schema}
+1. Understand the user's intent from their original query
+2. Carefully analyze the provided results (audio/OCR data)
+3. Give clear, relevant insights from the context, even if it's not directly related to the query
 
-Ensure the following rules are met:
-    - limit must be between 1 and 100. defaults to 5 if not specified.
-    - content_type must be one of: "ocr", "audio", "all"
-    - time values should be null unless the query specifies a time range
-    - only include a search_substring if specified in the query
+The data will be provided in XML tags:
+- <user_query>: The original user question
+- <search_parameters>: The parameters used to filter the data
+- <context>: The results of the search
 
-Example search JSON objects:
-{examples}
+Focus on making connections between the user's intent and the retrieved data to provide meaningful analysis."""
 
-ONLY Output the search JSON object, nothing else.
-"""
-
-EXAMPLE_SEARCH_JSON = """\
-{
-    "limit": 10,
-    "content_type": "audio",
-    "search_substring": "jason",
-    "start_time": null,
-    "end_time": null
-}
-{
-    "limit": 1,
-    "content_type": "all",
-    "start_time": "2024-03-20T00:00:00Z",
-    "end_time": "2024-03-20T23:59:59Z"
-}"""
 
 DEFAULT_QUERY = "Search the past 10 days for audio. Try your best to contextualize my conversations."
 DEFAULT_STREAM = True
