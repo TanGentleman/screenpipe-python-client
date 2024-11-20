@@ -324,6 +324,7 @@ class Filter:
                     "\n\n" + prologue + "\n" + search_params_as_string
                 original_messages[-1]["content"] = refactored_last_message
         except Exception as e:
+            # self.safe_log_error(f"{e}", None)
             self.safe_log_error("Error processing inlet", e)
             body["inlet_error"] = "Error in Filter inlet!"
 
@@ -396,6 +397,7 @@ class Filter:
                 messages[-1]["content"] = final_content.strip()
 
         except Exception as e:
+            # self.safe_log_error(f"{e}", None)
             self.safe_log_error("Error processing outlet", e)
 
         return body

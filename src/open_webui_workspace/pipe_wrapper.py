@@ -11,42 +11,7 @@ CORE_API_URL = f"{URL_BASE}:{CORE_API_PORT}"
 
 DEFAULT_STREAMING = True
 
-
-def yield_stream_response(response: requests.Response) -> Generator:
-    """Yield lines from a streaming response"""
-    if not response or not response.ok:
-        logging.error(f"Invalid response: {response}")
-        return
-
-    for line in response.iter_lines():
-        try:
-            if not line:
-                continue
-
-            line = line.decode('utf-8')
-            if not line.startswith('data: '):
-                continue
-
-            data = line[6:]  # Remove 'data: ' prefix
-            if data == '[DONE]':
-                continue
-
-            chunk_data = json.loads(data)
-            chunk_content = ""
-            if isinstance(chunk_data, str):
-                chunk_content = chunk_data
-            elif isinstance(chunk_data, dict) and 'choices' in chunk_data:
-                delta = chunk_data['choices'][0].get('delta', {})
-                chunk_content = delta.get('content', '')
-
-            if chunk_content:  # Only yield non-empty content
-                yield chunk_content
-
-        except Exception as e:
-            logging.error(f"Error processing stream chunk: {e}")
-            continue
-
-
+# TODO: Prefer OWUI-native stream setting (With other hyperparameters)
 class Pipe():
     """Pipe class for screenpipe functionality"""
 
@@ -98,10 +63,36 @@ class Pipe():
             return "An error occurred in the pipe."
 
 
-if __name__ == "__main__":
-    QUERY = "1 audio please. Tell me about it."
-    STREAM = True
-    pipe = Pipe()
-    body = {"stream": STREAM, "messages": [{"role": "user", "content": QUERY}]}
-    pipe_response = pipe.pipe(body)
-    assert isinstance(pipe_response, str)
+def yield_stream_response(response: requests.Response) -> Generator:
+    """Yield lines from a streaming response"""
+    if not response or not response.ok:
+        logging.error(f"Invalid response: {response}")
+        return
+
+    for line in response.iter_lines():
+        try:
+            if not line:
+                continue
+
+            line = line.decode('utf-8')
+            if not line.startswith('data: '):
+                continue
+
+            data = line[6:]  # Remove 'data: ' prefix
+            if data == '[DONE]':
+                continue
+
+            chunk_data = json.loads(data)
+            chunk_content = ""
+            if isinstance(chunk_data, str):
+                chunk_content = chunk_data
+            elif isinstance(chunk_data, dict) and 'choices' in chunk_data:
+                delta = chunk_data['choices'][0].get('delta', {})
+                chunk_content = delta.get('content', '')
+
+            if chunk_content:  # Only yield non-empty content
+                yield chunk_content
+
+        except Exception as e:
+            logging.error(f"Error processing stream chunk: {e}")
+            continue

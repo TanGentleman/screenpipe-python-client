@@ -15,7 +15,7 @@ The data will be provided in XML tags:
 Focus on making connections between the user's intent and the retrieved data to provide meaningful analysis."""
 
 
-DEFAULT_QUERY = "Search the past 10 days for audio. Try your best to contextualize my conversations."
+DEFAULT_QUERY = "Search the past 10 days for audio. Try your best to contextualize my conversations with a limit of 2 results."
 DEFAULT_STREAM = True
 
 EXAMPLE_SEARCH_RESULTS = [

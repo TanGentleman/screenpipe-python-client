@@ -19,8 +19,7 @@ DEFAULT_FORCE_TOOL_CALLING = False
 GET_RESPONSE = False
 
 # Time settings
-DEFAULT_UTC_OFFSET = -7  # PDT
-
+DEFAULT_UTC_OFFSET = 0  # -7 is PDT
 
 @dataclass
 class PipelineConfig:
