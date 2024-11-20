@@ -117,6 +117,7 @@ async def filter_inlet(body: dict) -> dict:
 async def pipe_stream(body: dict) -> StreamingResponse:
     """Handle streaming pipe requests."""
     try:
+        body["stream"] = True
         response = app_pipe.pipe(body)
         if not response:
             raise ValueError("Empty response from pipe")
@@ -151,6 +152,7 @@ async def pipe_stream(body: dict) -> StreamingResponse:
 async def pipe_completion(body: dict) -> Dict[str, str]:
     """Handle non-streaming pipe completion requests."""
     try:
+        body["stream"] = False
         response = app_pipe.pipe(body)
         if not isinstance(response, str):
             raise ValueError("Pipe must return a string")
