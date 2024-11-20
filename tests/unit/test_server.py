@@ -1,3 +1,4 @@
+import json
 import pytest
 from fastapi.testclient import TestClient
 from server import app, Models
@@ -17,6 +18,9 @@ def test_filter_inlet():
     response = client.post("/filter/inlet", json=test_body)
     assert response.status_code == 200
     # Add more specific assertions based on expected response
+    # save response to file
+    with open("test_filter_inlet_response.json", "w") as f:
+        json.dump(response.json(), f)
 
 def test_update_valves():
     """Test valve configuration updates."""
