@@ -25,8 +25,7 @@ from utils.owui_utils.pipeline_utils import screenpipe_search, SearchParameters,
 # Unpack the config
 CONFIG = create_config()
 # Attempt to import BAML utils if enabled
-use_baml = False
-construct_search_params = None
+use_baml = True
 
 if use_baml:
     try:
@@ -36,10 +35,7 @@ if use_baml:
         use_baml = False
         pass
 
-ENABLE_BAML = use_baml
-
-
-
+BAML_ENABLED = use_baml
 
 class Filter:
     """Filter class for screenpipe functionality"""
@@ -114,16 +110,27 @@ class Filter:
 
     def _get_system_message(self) -> str:
         """Get appropriate system message based on configuration"""
-        current_time = FilterUtils.get_current_time()
         if self.valves.NATIVE_TOOL_CALLING:
-            return TOOL_SYSTEM_MESSAGE.format(current_time=current_time)
-        return JSON_SYSTEM_MESSAGE.format(
-            schema=self.json_schema,
-            current_time=current_time,
-            examples=EXAMPLE_SEARCH_JSON
-        )
+            return TOOL_SYSTEM_MESSAGE
+        else:
+            raise ValueError("Native tool calling must be enabled for System Message!")
+        # Deprecated JSON system message
+        # return JSON_SYSTEM_MESSAGE.format(
+        #     schema=self.json_schema,
+        #     current_time=current_time,
+        #     examples=EXAMPLE_SEARCH_JSON
+        # )
 
     def _tool_response_as_results_or_str(self, messages: list) -> str | dict:
+        # Refactor user message
+        user_message = messages[-1]["content"]
+        current_iso_timestamp = FilterUtils.get_current_time()
+        new_user_message = f"USER MESSAGE: {user_message}\n(CURRENT TIME: {current_iso_timestamp})"
+        system_message = TOOL_SYSTEM_MESSAGE
+        messages = [
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": new_user_message}
+        ]
         try:
             response = self._make_tool_api_call(messages)
             # Extract tool calls
@@ -147,22 +154,22 @@ class Filter:
             print("Max tool calls exceeded! Only the first tool call will be processed.")
             tool_calls = tool_calls[:1]
         results = self._process_tool_calls(tool_calls)
-        # Can be a string or search_results dict
+        # Can be a string or search_results dicts
         return results
 
-    def _get_json_response_format(self) -> dict:
-        lm_studio_condition = self.valves.JSON_MODEL.startswith("lmstudio")
-        if lm_studio_condition:
-            assert self.json_schema is not None
-            return {
-                "type": "json_schema",
-                "json_schema": {
-                    "strict": True,
-                    "schema": self.json_schema
-                }
-            }
-        # Note: Ollama + OpenAI compatible
-        return {"type": "json_object"}
+    # def _get_json_response_format(self) -> dict:
+    #     lm_studio_condition = self.valves.JSON_MODEL.startswith("lmstudio")
+    #     if lm_studio_condition:
+    #         assert self.json_schema is not None
+    #         return {
+    #             "type": "json_schema",
+    #             "json_schema": {
+    #                 "strict": True,
+    #                 "schema": self.json_schema
+    #             }
+    #         }
+    #     # Note: Ollama + OpenAI compatible
+    #     return {"type": "json_object"}
 
     def _get_search_results_from_params(
             self, search_params: dict) -> dict | str:
@@ -176,38 +183,48 @@ class Filter:
             str: Error message if search fails or no results found
         """
         # NOTE: validate search_params here
-        print("Constructed search params:", search_params)
-        self.search_params = search_params
-        search_results = self.searcher.search(**search_params)
+        try:
+            # Create and validate search parameters object
+            search_param_object = SearchParameters(**search_params)
+            # self.safe_log_error(f"Search params: {search_param_object}", None)
+            
+            # Store search parameters for later reference
+            self.search_params = search_param_object.to_dict()
+            # Convert to API-compatible format and execute search
+            api_params = search_param_object.to_api_dict()
+            search_results = self.searcher.search(**api_params)
+        except Exception as e:
+            self.safe_log_error("Error unpacking SearchParameters object!", e)
+            raise ValueError
         if not search_results:
             return "No results found"
         if "error" in search_results:
             return search_results["error"]
         return search_results
 
-    def _json_response_as_results_or_str(
-            self, messages: list) -> str | dict:
-        # Replace system message
-        assert messages[0]["role"] == "system", "There should be a system message here!"
-        # NOTE: Response format varies by provider
-        print("Using json model:", self.valves.JSON_MODEL)
-        try:
-            response = self.client.chat.completions.create(
-                model=self.valves.JSON_MODEL,
-                messages=messages,
-                response_format=self._get_json_response_format(),
-            )
-            response_text = response.choices[0].message.content
-            if not response_text:
-                return "No response generated."
-            parsed_search_schema = FilterUtils.parse_schema_from_response(
-                response_text, SearchParameters)
-            if isinstance(parsed_search_schema, str):
-                return response_text
-            search_params = parsed_search_schema
-            return self._get_search_results_from_params(search_params)
-        except Exception:
-            return "Failed json mode api call."
+    # def _json_response_as_results_or_str(
+    #         self, messages: list) -> str | dict:
+    #     # Replace system message
+    #     assert messages[0]["role"] == "system", "There should be a system message here!"
+    #     # NOTE: Response format varies by provider
+    #     print("Using json model:", self.valves.JSON_MODEL)
+    #     try:
+    #         response = self.client.chat.completions.create(
+    #             model=self.valves.JSON_MODEL,
+    #             messages=messages,
+    #             response_format=self._get_json_response_format(),
+    #         )
+    #         response_text = response.choices[0].message.content
+    #         if not response_text:
+    #             return "No response generated."
+    #         parsed_search_schema = FilterUtils.parse_schema_from_response(
+    #             response_text, SearchParameters)
+    #         if isinstance(parsed_search_schema, str):
+    #             return response_text
+    #         search_params = parsed_search_schema
+    #         return self._get_search_results_from_params(search_params)
+    #     except Exception:
+    #         return "Failed json mode api call."
 
     def _make_tool_api_call(self, messages):
         print("Using tool model:", self.valves.TOOL_MODEL)
@@ -227,29 +244,46 @@ class Filter:
                 return self._get_search_results_from_params(search_params)
         raise ValueError("No valid tool call found")
 
-    def _get_search_results(self, messages: list[dict]) -> dict:
-        if ENABLE_BAML:
-            raw_query = messages[-1]["content"]
-            current_iso_timestamp = FilterUtils.get_current_time()
-            results = baml_generate_search_params(
-                raw_query, current_iso_timestamp)
-            if isinstance(results, str):
-                return results
-            search_params = results.model_dump()
-            return self._get_search_results_from_params(search_params)
-
-        # Refactor user message
+    def _baml_response_as_results_or_str(self, messages: list) -> str | dict:
+        if not BAML_ENABLED:
+            self.safe_log_error("BAML is not enabled!", ValueError)
+            raise ValueError
         user_message = messages[-1]["content"]
-        user_message_refactored = FilterUtils.refactor_user_message(
-            user_message)
-        messages[-1]["content"] = user_message_refactored
-        system_message = self._get_system_message()
-        messages = FilterUtils._prepare_initial_messages(
-            messages, system_message)
+        current_iso_timestamp = FilterUtils.get_current_time()
+        parsed_response = baml_generate_search_params(
+            user_message, current_iso_timestamp)
+        if isinstance(parsed_response, str):
+            print(f"WARNING: BAML error!")
+            return parsed_response
+        
+        def fix_baml_response(baml_search_params) -> dict:
+            search_params = baml_search_params.model_dump()
+            search_params["content_type"] = search_params["content_type"].value
+            if search_params.get("time_range"):
+                time_range = search_params["time_range"]
+                search_params["from_time"] = time_range["from_time"]
+                search_params["to_time"] = time_range["to_time"]
+            
+            # self.safe_log_error(f"BAML search params: {search_params}", None)
+            fixed_search_params = SearchParameters(**search_params).to_dict()
+            return fixed_search_params
+        
+        try:
+            search_params = fix_baml_response(parsed_response)
+        except Exception as e:
+            self.safe_log_error("Error fixing BAML search params!", e)
+            raise ValueError
+        self.safe_log_error(f"BAML search params: {search_params}", None)
+        return self._get_search_results_from_params(search_params)
+
+    def _get_search_results(self, messages: list[dict]) -> str | dict:
         if self.valves.NATIVE_TOOL_CALLING:
             return self._tool_response_as_results_or_str(messages)
         else:
-            return self._json_response_as_results_or_str(messages)
+            assert BAML_ENABLED, "BAML is not enabled! Enable it or try native tool calling instead."
+            return self._baml_response_as_results_or_str(messages)
+    
+
 
     def is_inlet_body_valid(self, body: dict) -> bool:
         """Validates the structure and types of the inlet body dictionary.
@@ -363,22 +397,33 @@ class Filter:
         print(f"outlet:user:{__user__}")
         try:
             if not self.is_outlet_body_valid(body):
-                print("Invalid outlet body!!")
+                self.safe_log_error("Invalid outlet body!!", ValueError)
                 return body
 
             messages = body["messages"]
             # Restore original user message if available
             user_message_content = body.get("user_message_content")
             if user_message_content is not None:
-                messages[-2]["content"] = user_message_content
+                messages[-2]["content"] = user_message_content + "\n(Outlet active.)"
 
-            # Add search params to assistant message if available
+            # Append search parameters and result count to assistant's response if available
             if self.search_params:
-                content = messages[-1].get("content", "")
-                pruned_params = {
-                    k: v for k, v in self.search_params.items() if v}
-                params_str = json.dumps(pruned_params, indent=2)
-                messages[-1]["content"] = f"{content}\n\nUsed search params:\n{params_str}"
+                # Get current content and search results
+                assistant_content = messages[-1].get("content", "")
+                search_results = body.get("search_results")
+                if not search_results:
+                    result_count = 0
+                else:
+                    result_count = len(search_results)
+                
+                # Format search parameters as pretty JSON
+                formatted_params = json.dumps(self.search_params, indent=2)
+                
+                # Build summary message
+                summary = f"\n\nFound {result_count} results with search params:\n{formatted_params}"
+                
+                # Update assistant message with original content plus summary
+                messages[-1]["content"] = assistant_content + summary
 
         except Exception as e:
             self.safe_log_error("Error processing outlet", e)

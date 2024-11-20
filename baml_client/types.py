@@ -49,8 +49,13 @@ class SearchParameters(BaseModel):
     
     
     content_type: "ContentType"
-    from_time: Optional[str] = None
-    to_time: Optional[str] = None
+    time_range: Optional["TimeRange"] = None
     limit: Optional[int] = None
     search_substring: Optional[str] = None
     application: Optional[str] = None
+
+class TimeRange(BaseModel):
+    
+    
+    from_time: str
+    to_time: str

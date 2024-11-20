@@ -6,15 +6,29 @@ enum ContentType {
   ALL
 }
 
+class TimeRange {
+  from_time string @description("ISO timestamp to filter results after this time")
+  to_time string @description("ISO timestamp to filter results before this time")
+}
+
 // Search parameters for filtering content
+// class SearchParameters {
+//   content_type ContentType @description("Type of content to search for, defaults to ALL")
+//   from_time string? @description("ISO timestamp to filter results after this time")
+//   to_time string? @description("ISO timestamp to filter results before this time")
+//   limit int? @description("Maximum number of results to return")
+//   search_substring string? @description("Optional substring to filter text content")
+//   application string? @description("Optional filter to only show results from this application")
+// }
+
 class SearchParameters {
   content_type ContentType @description("Type of content to search for, defaults to ALL")
-  from_time string? @description("ISO timestamp to filter results after this time")
-  to_time string? @description("ISO timestamp to filter results before this time")
+  time_range TimeRange? @description("Time range to filter results")
   limit int? @description("Maximum number of results to return")
   search_substring string? @description("Optional substring to filter text content")
   application string? @description("Optional filter to only show results from this application")
 }
+
 // class SearchParameters {
 //   content_type string @description("Type of content to search for, defaults to ALL")
 //   from_time string? @description("ISO timestamp to filter results after this time")
@@ -28,7 +42,7 @@ class SearchParameters {
 function ConstructSearch(query: string, current_iso_timestamp: string) -> SearchParameters {
   client GeminiFlash
   prompt #"
-    Parse the following query and construct a search request to retrieve content from the database. All fields are optional except for content_type.
+    Construct a search request to retrieve content from the database. All fields are optional except for content_type. If the user requests recent results, default to the last 48 hours.
     {{ ctx.output_format }}
 
     {{ _.role("user") }}
