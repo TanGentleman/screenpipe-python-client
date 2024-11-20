@@ -1,5 +1,5 @@
 from typing import List, Optional
-from utils.time_utils import format_timestamp
+from .time_utils import format_timestamp
 
 FRAME_DATA_SUPPORTED = True
 if FRAME_DATA_SUPPORTED:

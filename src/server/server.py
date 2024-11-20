@@ -13,19 +13,16 @@ from typing import Optional, List, Dict, AsyncGenerator, Any
 from typing_extensions import TypedDict
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.responses import StreamingResponse
-from open_webui_workspace.screenpipe_filter_function import Filter as ScreenFilter
-from open_webui_workspace.screenpipe_function import Pipe as ScreenPipe
 
-from utils.owui_utils.configuration import create_config
-from utils.owui_utils.pipeline_utils import get_inlet_body
-from utils.owui_utils.constants import DEFAULT_QUERY
+from ..core.core_filter import Filter as ScreenFilter
+from ..core.core_pipe import Pipe as ScreenPipe
+from ..utils.owui_utils.configuration import create_config
+from ..utils.owui_utils.pipeline_utils import get_inlet_body
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 # Type definitions
-
-
 class Message(TypedDict):
     """Message type for chat interactions"""
     role: str

@@ -2,8 +2,7 @@ import requests
 import logging
 import argparse
 import json
-from utils.screenpipe import ScreenpipeClient
-from utils.outputs import SearchOutput, HealthCheck
+from src import ScreenpipeClient, SearchOutput, HealthCheck
 
 
 def main():

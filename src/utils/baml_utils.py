@@ -1,14 +1,14 @@
-import os
 from typing import Optional
-from baml_client import b
-from baml_client.types import SearchParameters
+
 from baml_py.errors import (
     BamlError,
     BamlValidationError
 )
 from baml_py import ClientRegistry
 
-from utils.owui_utils.pipeline_utils import check_for_env_key
+from ..baml_client import b
+from ..baml_client.types import SearchParameters
+from .owui_utils.pipeline_utils import check_for_env_key
 cr = ClientRegistry()
 
 class BamlConfig:

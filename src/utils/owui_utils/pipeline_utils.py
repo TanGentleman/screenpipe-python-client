@@ -5,9 +5,8 @@ from datetime import datetime, timezone, timedelta
 import logging
 import requests
 import json
-from pydantic import ValidationError
 
-from utils.owui_utils.constants import DEFAULT_QUERY, DEFAULT_STREAM, EXAMPLE_SEARCH_RESULTS, FINAL_RESPONSE_SYSTEM_MESSAGE, FINAL_RESPONSE_USER_MESSAGE
+from .constants import DEFAULT_QUERY, DEFAULT_STREAM, EXAMPLE_SEARCH_RESULTS, FINAL_RESPONSE_SYSTEM_MESSAGE, FINAL_RESPONSE_USER_MESSAGE
 
 MAX_SEARCH_LIMIT = 99
 

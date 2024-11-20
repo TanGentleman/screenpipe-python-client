@@ -1,7 +1,7 @@
 # Search for the most recent OCR chunk
 from typing import Optional
-from utils.screenpipe import ScreenpipeClient
-from utils.outputs import OCR
+from src.utils.screenpipe import ScreenpipeClient
+from src.utils.outputs import OCR
 
 
 def get_most_recent_ocr_chunk(

@@ -12,8 +12,8 @@ import logging
 from openai import OpenAI
 from pydantic import BaseModel, Field
 
-from utils.owui_utils.configuration import create_config
-from utils.owui_utils.pipeline_utils import ResponseUtils, check_for_env_key
+from ..utils.owui_utils.configuration import create_config
+from ..utils.owui_utils.pipeline_utils import ResponseUtils, check_for_env_key
 
 CONFIG = create_config()
 
