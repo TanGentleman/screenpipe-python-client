@@ -23,6 +23,8 @@ from ..utils.owui_utils.pipeline_utils import get_inlet_body
 logger = logging.getLogger(__name__)
 
 # Type definitions
+
+
 class Message(TypedDict):
     """Message type for chat interactions"""
     role: str

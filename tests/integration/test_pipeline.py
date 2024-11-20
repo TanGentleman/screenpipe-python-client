@@ -15,19 +15,20 @@ def test_full_pipeline():
         ],
         "stream": False
     }
-    
+
     try:
         response = run_pipeline(test_body)
         assert response is not None
     except Exception as e:
         pytest.fail(f"Pipeline test failed: {e}")
 
+
 def test_chat_pipeline():
     """Test the chat interface pipeline."""
     messages = [
         {"role": "user", "content": "Search audio from the last month, limit of 3"}
     ]
-    
+
     response = chat_with_api(messages)
     assert isinstance(response, dict)
-    assert "messages" in response 
+    assert "messages" in response

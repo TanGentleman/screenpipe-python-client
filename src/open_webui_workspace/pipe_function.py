@@ -12,6 +12,8 @@ CORE_API_URL = f"{URL_BASE}:{CORE_API_PORT}"
 DEFAULT_STREAMING = True
 
 # TODO: Prefer OWUI-native stream setting (With other hyperparameters)
+
+
 class Pipe():
     """Pipe class for screenpipe functionality"""
 

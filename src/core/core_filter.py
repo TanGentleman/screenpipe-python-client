@@ -40,6 +40,7 @@ BAML_ENABLED = use_baml
 
 INLET_ADJUSTS_USER_MESSAGE = False
 
+
 class Filter:
     """Filter class for screenpipe functionality"""
 
@@ -71,7 +72,8 @@ class Filter:
         self.searcher = None
         self.search_params = None
         self.search_results = None
-        # NOTE: The convert_to_openai_tool should have strict=True, but error is handled differently.
+        # NOTE: The convert_to_openai_tool should have strict=True, but error
+        # is handled differently.
 
     # NOTE: Should this return anything?
     def set_valves(self, valves: Optional[dict] = None) -> None:
@@ -114,12 +116,13 @@ class Filter:
         self.search_params = None
         self.search_results = None
 
-    def _tool_response_as_results_or_str(self, messages: list[dict]) -> str | dict:
+    def _tool_response_as_results_or_str(
+            self, messages: list[dict]) -> str | dict:
         """Process messages using tool-based approach and return search results.
-        
+
         Args:
             messages: List of message dictionaries containing role and content
-            
+
         Returns:
             dict: Search results if successful
             str: Error message if processing fails
@@ -255,7 +258,8 @@ class Filter:
         """
         if not BAML_ENABLED:
             if not self.valves.FORCE_TOOL_CALLING:
-                self.safe_log_error("BAML and Tool calling are both disabled!", ValueError)
+                self.safe_log_error(
+                    "BAML and Tool calling are both disabled!", ValueError)
                 return False
         if not isinstance(body, dict):
             return False
@@ -268,14 +272,14 @@ class Filter:
 
     def inlet(self, body: dict, __user__: Optional[dict] = None) -> dict:
         """Process incoming messages, performing search and sanitizing results.
-        
+
         Args:
             body: Dictionary containing messages and other request data
             __user__: Optional user information dictionary
-            
+
         Returns:
             dict: Processed body with search results and any error messages
-            
+
         The function will add the following keys to the body:
         - inlet_error: Error message if any
         - user_message_content: Original user message
@@ -298,14 +302,14 @@ class Filter:
             # Initialize settings and prepare messages
             self.initialize_settings()
             raw_results = self._get_search_results(original_messages)
-            
+
             if isinstance(raw_results, str):
                 body["inlet_error"] = raw_results
                 return body
 
             assert self.search_params is not None
             body["search_params"] = self.search_params
-            
+
             if not raw_results.get("data", []):
                 body["inlet_error"] = "No results found"
                 return body
@@ -374,7 +378,7 @@ class Filter:
                 return body
 
             messages = body["messages"]
-            
+
             # Restore original user message if available
             user_message_content = body.get("user_message_content")
             # TODO: Add any useful information to the user message
@@ -395,7 +399,7 @@ class Filter:
                         search_results)
                 # Format search parameters as pretty JSON
                 formatted_params = json.dumps(self.search_params, indent=2)
-                
+
                 # Build summary message
                 summary = f"\n\nUsed {result_count} results with search params:\n{formatted_params}"
 

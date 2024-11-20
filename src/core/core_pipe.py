@@ -21,6 +21,7 @@ CONFIG = create_config()
 
 MAX_RESPONSE_TOKENS = 3000
 
+
 class Pipe():
     """Pipe class for screenpipe functionality"""
     class Valves(BaseModel):
@@ -125,24 +126,25 @@ class Pipe():
             "search_results": list,
             "search_params": dict,
         }
-        
+
         for field, expected_type in required_fields.items():
             if field not in body:
-                self.safe_log_error(f"Missing required field: {field}", ValueError)
+                self.safe_log_error(
+                    f"Missing required field: {field}", ValueError)
                 return False
             if not isinstance(body[field], expected_type):
                 self.safe_log_error(
                     f"Field {field} must be of type {expected_type.__name__}", TypeError)
                 return False
-                
+
         return True
 
     def pipe(self, body: dict) -> Union[str, Generator, Iterator]:
         """Process the pipeline request.
-        
+
         Args:
             body (dict): The validated request body
-            
+
         Returns:
             Union[str, Generator, Iterator]: Response string or stream
         """
@@ -159,22 +161,21 @@ class Pipe():
             user_message = body["user_message_content"]
             search_results = body["search_results"]
             search_params = body["search_params"]
-            
+
             # Return early if response not needed
             if not self.valves.GET_RESPONSE:
                 return ResponseUtils.format_results_as_string(search_results)
 
             # Initialize client and generate response
             self._initialize_client()
-            
+
             messages = ResponseUtils.get_messages_with_screenpipe_data(
                 user_message, search_results, search_params)
-            
+
             return self._generate_final_response(
-                messages, 
+                messages,
                 stream
             )
-
 
         except Exception as e:
             ERROR_LOGGING_ENABLED = False

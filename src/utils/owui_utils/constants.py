@@ -26,7 +26,7 @@ EXAMPLE_SEARCH_RESULTS = [
         "device_name": "MacBook Pro Microphone ",
     },
     {
-        "content": "Project Status: In Progress\nDeadline: March 25, 2024", 
+        "content": "Project Status: In Progress\nDeadline: March 25, 2024",
         "timestamp": "11/13/24 14:31",
         "type": "OCR",
         "app_name": "Project Management Dashboard"
@@ -34,7 +34,7 @@ EXAMPLE_SEARCH_RESULTS = [
 ]
 EXAMPLE_SEARCH_PARAMS = {
     "content_type": "AUDIO",
-    "from_time": "2024-07-10T00:00:00Z", 
+    "from_time": "2024-07-10T00:00:00Z",
     "to_time": "2024-12-01T23:59:59Z",
     "limit": 2,
     "search_substring": None,

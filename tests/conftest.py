@@ -9,6 +9,7 @@ src_path = os.path.join(project_root, "src")
 # Add the src directory to Python path
 sys.path.insert(0, src_path)
 
+
 @pytest.fixture(scope="session")
 def base_fixture():
     """
@@ -16,4 +17,4 @@ def base_fixture():
     """
     # Setup code
     yield
-    # Teardown code 
+    # Teardown code

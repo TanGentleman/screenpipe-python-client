@@ -21,6 +21,7 @@ GET_RESPONSE = False
 # Time settings
 DEFAULT_UTC_OFFSET = 0  # -7 is PDT
 
+
 @dataclass
 class PipelineConfig:
     """Configuration management for Screenpipe Pipeline"""

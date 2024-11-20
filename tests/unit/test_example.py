@@ -4,9 +4,10 @@ def test_unit_example():
     """
     assert True
 
+
 class TestExampleClass:
     def test_method(self):
         """
         Example class-based test.
         """
-        assert True 
+        assert True

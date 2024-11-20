@@ -11,6 +11,7 @@ from ..baml_client.types import SearchParameters
 from .owui_utils.pipeline_utils import check_for_env_key
 cr = ClientRegistry()
 
+
 class BamlConfig:
     def __init__(self, model: str, base_url: str, api_key: str):
         self.model = model
@@ -19,7 +20,9 @@ class BamlConfig:
         # Other parameters
         # self.temperature = 0.7
 
+
 BAML_MODELS = ["OllamaQwen", "GeminiFlash"]
+
 
 def baml_generate_search_params(
         query: str,
@@ -48,7 +51,9 @@ def baml_generate_search_params(
                     # TODO: Add hyperparameters
                 })
                 cr.set_primary('CustomClient')
-        response = b.ConstructSearch(query, current_iso_timestamp, { "client_registry": cr })
+        response = b.ConstructSearch(
+            query, current_iso_timestamp, {
+                "client_registry": cr})
         return response
     except BamlValidationError as e:
         print(

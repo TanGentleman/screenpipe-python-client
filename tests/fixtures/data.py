@@ -9,4 +9,4 @@ TEST_USER = {
 MOCK_RESPONSES = {
     "success": {"status": "ok", "data": {}},
     "error": {"status": "error", "message": "Something went wrong"}
-} 
+}
