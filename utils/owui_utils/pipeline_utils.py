@@ -379,32 +379,6 @@ class FilterUtils:
             logging.error(f"Error sanitizing results: {str(e)}")
             return []
 
-    # @staticmethod
-    # def parse_schema_from_response(
-    #         response_text: str,
-    #         target_schema) -> dict | str:
-    #     """
-    # Parses the response text into a dictionary using the provided Pydantic
-    # schema.
-
-    #     Args:
-    #         response_text (str): The response text to parse.
-    # schema (BaseModel): The Pydantic schema to validate the parsed data
-    # against.
-
-    #     Returns:
-    #         dict: The parsed and validated data as a dictionary. If parsing fails, returns an empty dictionary.
-    #     """
-    #     assert issubclass(
-    #         target_schema, BaseModel), "Schema must be a Pydantic BaseModel"
-    #     try:
-    #         response_object = json.loads(response_text)
-    #         pydantic_object = target_schema(**response_object)
-    #         return pydantic_object.model_dump()
-    #     except (json.JSONDecodeError, ValidationError) as e:
-    #         print(f"DECODING ERROR (MODEL MAY NOT SUPPORT JSON): {e}")
-    #         return response_text
-
     @staticmethod
     def catch_malformed_tool(response_text: str) -> str | dict:
         """Parse response text to extract tool call if present, otherwise return original text."""

@@ -49,9 +49,9 @@ class Filter:
         LLM_API_KEY: str = Field(
             default=CONFIG.llm_api_key, description="API key for LLM access"
         )
-        JSON_MODEL: Optional[str] = Field(
-            default=CONFIG.json_model,
-            description="Model to use for JSON calls")
+        BAML_MODEL: Optional[str] = Field(
+            default=CONFIG.baml_model,
+            description="Model to use for BAML calls")
         TOOL_MODEL: str = Field(
             default=CONFIG.tool_model,
             description="Model to use for tool calls")
@@ -116,12 +116,6 @@ class Filter:
         else:
             raise ValueError(
                 "Native tool calling must be enabled for System Message!")
-        # Deprecated JSON system message
-        # return JSON_SYSTEM_MESSAGE.format(
-        #     schema=self.json_schema,
-        #     current_time=current_time,
-        #     examples=EXAMPLE_SEARCH_JSON
-        # )
 
     def _tool_response_as_results_or_str(self, messages: list) -> str | dict:
         # Refactor user message
@@ -159,20 +153,6 @@ class Filter:
         # Can be a string or search_results dicts
         return results
 
-    # def _get_json_response_format(self) -> dict:
-    #     lm_studio_condition = self.valves.JSON_MODEL.startswith("lmstudio")
-    #     if lm_studio_condition:
-    #         assert self.json_schema is not None
-    #         return {
-    #             "type": "json_schema",
-    #             "json_schema": {
-    #                 "strict": True,
-    #                 "schema": self.json_schema
-    #             }
-    #         }
-    #     # Note: Ollama + OpenAI compatible
-    #     return {"type": "json_object"}
-
     def _get_search_results_from_params(
             self, search_params: dict) -> dict | str:
         """Execute search using provided parameters and return results.
@@ -203,30 +183,6 @@ class Filter:
         if "error" in search_results:
             return search_results["error"]
         return search_results
-
-    # def _json_response_as_results_or_str(
-    #         self, messages: list) -> str | dict:
-    #     # Replace system message
-    #     assert messages[0]["role"] == "system", "There should be a system message here!"
-    #     # NOTE: Response format varies by provider
-    #     print("Using json model:", self.valves.JSON_MODEL)
-    #     try:
-    #         response = self.client.chat.completions.create(
-    #             model=self.valves.JSON_MODEL,
-    #             messages=messages,
-    #             response_format=self._get_json_response_format(),
-    #         )
-    #         response_text = response.choices[0].message.content
-    #         if not response_text:
-    #             return "No response generated."
-    #         parsed_search_schema = FilterUtils.parse_schema_from_response(
-    #             response_text, SearchParameters)
-    #         if isinstance(parsed_search_schema, str):
-    #             return response_text
-    #         search_params = parsed_search_schema
-    #         return self._get_search_results_from_params(search_params)
-    #     except Exception:
-    #         return "Failed json mode api call."
 
     def _make_tool_api_call(self, messages):
         print("Using tool model:", self.valves.TOOL_MODEL)

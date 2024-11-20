@@ -5,13 +5,12 @@ SCREENPIPE_PORT=3030
 IS_DOCKER=False
 
 # Model Configuration
+BAML_MODEL=qwen2.5-coder:latest
 TOOL_MODEL=gpt-4o-mini
-JSON_MODEL=qwen2.5:3b
 RESPONSE_MODEL=qwen2.5:3b
 
-NATIVE_TOOL_CALLING=false
+NATIVE_TOOL_CALLING=true
 GET_RESPONSE=true
 
 # Pipeline Settings
-PREFER_24_HOUR_FORMAT=true
 DEFAULT_UTC_OFFSET=-7
