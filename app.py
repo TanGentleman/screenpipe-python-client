@@ -11,6 +11,11 @@ import time
 import requests
 from typing import Optional, Dict, Any, Union
 
+try:
+    import gnureadline
+except ImportError:
+    pass
+
 # Configuration
 API_BASE_URL = "http://localhost:3333"
 
@@ -132,7 +137,7 @@ def chat_with_api(messages: list) -> Union[Dict[str, Any], str]:
 def update_valves() -> dict:
     """Call the update valves endpoint and return status message."""
     try:
-        response = requests.post(f"{API_BASE_URL}/valves/update")
+        response = requests.get(f"{API_BASE_URL}/valves/refresh")
         if response.status_code == 200:
             return response.json()
         return {
@@ -162,6 +167,17 @@ def chat_loop():
         if user_input.lower() == "refresh":
             status = update_valves()
             print(f"\nAssistant: {status}")
+            continue
+
+        if user_input.lower() == "history":
+            if not messages:
+                print("\nAssistant: No messages to display.")
+                continue
+            print("\nAssistant: Here are your recent messages:")
+            for i, msg in enumerate(messages):
+                role = msg["role"].capitalize()
+                content = msg["content"]
+                print(f"\n{role}: {content}")
             continue
 
         messages.append({"role": "user", "content": user_input})
