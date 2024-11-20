@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "screenpipe-python-client"
+version = "0.1.0"
+description = "Interface with the Screenpipe Rust API, and so, so much more!"
+authors = ["Tanuj <Tanuj@cmu.edu>"]
+license = "MIT"
+readme = "README.md"
+packages = [
+    { include = "src" },
+]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+openai = "^1.54.5"
+requests = "^2.32.3"
+fastapi = "^0.115.5"
+langchain-core = "^0.3.19"
+python-dotenv = "^1.0.1"
+uvicorn = "^0.32.0"
+baml-py = "^0.68.0"
+gnureadline = { version = "^8.2.13", markers = "platform_system != 'Windows'" }
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
