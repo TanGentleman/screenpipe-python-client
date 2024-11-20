@@ -21,7 +21,7 @@ class TypeBuilder(_TypeBuilder):
         super().__init__(classes=set(
           ["SearchParameters",]
         ), enums=set(
-          []
+          ["ContentType",]
         ))
 
 

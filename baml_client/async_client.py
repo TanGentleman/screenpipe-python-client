@@ -50,7 +50,7 @@ class BamlAsyncClient:
 
 
     
-    async def ConstructSearchParameters(
+    async def ConstructSearch(
         self,
         query: str,current_iso_timestamp: str,
         baml_options: BamlCallOptions = {},
@@ -63,7 +63,7 @@ class BamlAsyncClient:
       __cr__ = baml_options.get("client_registry", None)
 
       raw = await self.__runtime.call_function(
-        "ConstructSearchParameters",
+        "ConstructSearch",
         {
           "query": query,"current_iso_timestamp": current_iso_timestamp,
         },
@@ -84,7 +84,7 @@ class BamlStreamClient:
       self.__ctx_manager = ctx_manager
 
     
-    def ConstructSearchParameters(
+    def ConstructSearch(
         self,
         query: str,current_iso_timestamp: str,
         baml_options: BamlCallOptions = {},
@@ -97,7 +97,7 @@ class BamlStreamClient:
       __cr__ = baml_options.get("client_registry", None)
 
       raw = self.__runtime.stream_function(
-        "ConstructSearchParameters",
+        "ConstructSearch",
         {
           "query": query,
           "current_iso_timestamp": current_iso_timestamp,

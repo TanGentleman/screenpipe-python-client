@@ -39,12 +39,18 @@ def all_succeeded(checks: Dict[CheckName, Check]) -> bool:
 
 
 
+class ContentType(str, Enum):
+    
+    OCR = "OCR"
+    AUDIO = "AUDIO"
+    ALL = "ALL"
+
 class SearchParameters(BaseModel):
     
     
-    limit: int
-    content_type: str
+    content_type: "ContentType"
+    from_time: Optional[str] = None
+    to_time: Optional[str] = None
+    limit: Optional[int] = None
     search_substring: Optional[str] = None
-    start_time: Optional[str] = None
-    end_time: Optional[str] = None
-    app_name: Optional[str] = None
+    application: Optional[str] = None

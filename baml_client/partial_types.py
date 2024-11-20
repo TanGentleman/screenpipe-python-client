@@ -32,9 +32,9 @@ from .types import Checked, Check
 class SearchParameters(BaseModel):
     
     
+    content_type: Optional[types.ContentType] = None
+    from_time: Optional[str] = None
+    to_time: Optional[str] = None
     limit: Optional[int] = None
-    content_type: Optional[str] = None
     search_substring: Optional[str] = None
-    start_time: Optional[str] = None
-    end_time: Optional[str] = None
-    app_name: Optional[str] = None
+    application: Optional[str] = None

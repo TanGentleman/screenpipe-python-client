@@ -3,7 +3,7 @@
 client<llm> CustomLlama {
   provider openai
   options {
-    model "sambanova-llama-8b"
+    model "sambanova/Meta-Llama-3.1-70B"
     base_url "http://localhost:4000/v1"
     api_key env.LLM_API_KEY
   }
