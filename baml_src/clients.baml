@@ -1,20 +1,11 @@
 // Learn more about clients at https://docs.boundaryml.com/docs/snippets/clients/overview
 
-client<llm> CustomLlama {
-  provider openai
+client<llm> OllamaQwen {
+  provider ollama
   options {
-    model "sambanova/Meta-Llama-3.1-70B"
-    base_url "http://localhost:4000/v1"
-    api_key env.LLM_API_KEY
-  }
-}
-
-client<llm> SmallNova {
-  provider openai
-  options {
-    model "sambanova-llama-3b"
-    base_url "http://localhost:4000/v1"
-    api_key env.LLM_API_KEY
+    model "qwen2.5-coder:latest"
+    base_url "http://localhost:11434/v1"
+    api_key ollama-key
   }
 }
 

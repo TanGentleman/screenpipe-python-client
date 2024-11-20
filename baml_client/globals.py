@@ -28,14 +28,14 @@ DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_RUNTIME = BamlRuntime.from_
 DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_CTX = BamlCtxManager(DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_RUNTIME)
 
 def reset_baml_env_vars(env_vars: Dict[str, str]):
-    if DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_CTX.allow_reset():
-        DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_RUNTIME.reset(
-          "baml_src",
-          get_baml_files(),
-          env_vars
-        )
-        DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_CTX.reset()
-    else:
-        raise BamlError("Cannot reset BAML environment variables while there are active BAML contexts.")
+  if DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_CTX.allow_reset():
+    DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_RUNTIME.reset(
+      "baml_src",
+      get_baml_files(),
+      env_vars
+    )
+    DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_CTX.reset()
+  else:
+    raise BamlError("Cannot reset BAML environment variables while there are active BAML contexts.")
 
 __all__ = []

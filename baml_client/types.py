@@ -27,7 +27,7 @@ class Check(BaseModel):
     expression: str
     status: str
 
-class Checked(BaseModel, Generic[T, CheckName]):
+class Checked(BaseModel, Generic[T,CheckName]):
     value: T
     checks: Dict[CheckName, Check]
 
@@ -39,23 +39,17 @@ def all_succeeded(checks: Dict[CheckName, Check]) -> bool:
 
 
 
-class ContentType(str, Enum):
-
-    OCR = "OCR"
-    AUDIO = "AUDIO"
-    ALL = "ALL"
-
 class SearchParameters(BaseModel):
-
-
-    content_type: "ContentType"
+    
+    
+    content_type: Union[Literal["OCR"], Literal["AUDIO"], Literal["ALL"]]
     time_range: Optional["TimeRange"] = None
     limit: Optional[int] = None
     search_substring: Optional[str] = None
     application: Optional[str] = None
 
 class TimeRange(BaseModel):
-
-
+    
+    
     from_time: str
     to_time: str

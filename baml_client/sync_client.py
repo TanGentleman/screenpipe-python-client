@@ -38,38 +38,38 @@ class BamlSyncClient:
     __stream_client: "BamlStreamClient"
 
     def __init__(self, runtime: baml_py.BamlRuntime, ctx_manager: baml_py.BamlCtxManager):
-        self.__runtime = runtime
-        self.__ctx_manager = ctx_manager
-        self.__stream_client = BamlStreamClient(self.__runtime, self.__ctx_manager)
+      self.__runtime = runtime
+      self.__ctx_manager = ctx_manager
+      self.__stream_client = BamlStreamClient(self.__runtime, self.__ctx_manager)
 
     @property
     def stream(self):
-        return self.__stream_client
+      return self.__stream_client
 
-
+    
     def ConstructSearch(
         self,
-        query: str, current_iso_timestamp: str,
+        query: str,current_iso_timestamp: str,
         baml_options: BamlCallOptions = {},
     ) -> types.SearchParameters:
-        __tb__ = baml_options.get("tb", None)
-        if __tb__ is not None:
-            tb = __tb__._tb
-        else:
-            tb = None
-        __cr__ = baml_options.get("client_registry", None)
+      __tb__ = baml_options.get("tb", None)
+      if __tb__ is not None:
+        tb = __tb__._tb
+      else:
+        tb = None
+      __cr__ = baml_options.get("client_registry", None)
 
-        raw = self.__runtime.call_function_sync(
-          "ConstructSearch",
-          {
-            "query": query, "current_iso_timestamp": current_iso_timestamp,
-          },
-          self.__ctx_manager.get(),
-          tb,
-          __cr__,
-        )
-        return cast(types.SearchParameters, raw.cast_to(types, types))
-
+      raw = self.__runtime.call_function_sync(
+        "ConstructSearch",
+        {
+          "query": query,"current_iso_timestamp": current_iso_timestamp,
+        },
+        self.__ctx_manager.get(),
+        tb,
+        __cr__,
+      )
+      return cast(types.SearchParameters, raw.cast_to(types, types))
+    
 
 
 
@@ -78,41 +78,41 @@ class BamlStreamClient:
     __ctx_manager: baml_py.BamlCtxManager
 
     def __init__(self, runtime: baml_py.BamlRuntime, ctx_manager: baml_py.BamlCtxManager):
-        self.__runtime = runtime
-        self.__ctx_manager = ctx_manager
+      self.__runtime = runtime
+      self.__ctx_manager = ctx_manager
 
-
+    
     def ConstructSearch(
         self,
-        query: str, current_iso_timestamp: str,
+        query: str,current_iso_timestamp: str,
         baml_options: BamlCallOptions = {},
     ) -> baml_py.BamlSyncStream[partial_types.SearchParameters, types.SearchParameters]:
-        __tb__ = baml_options.get("tb", None)
-        if __tb__ is not None:
-            tb = __tb__._tb
-        else:
-            tb = None
-        __cr__ = baml_options.get("client_registry", None)
+      __tb__ = baml_options.get("tb", None)
+      if __tb__ is not None:
+        tb = __tb__._tb
+      else:
+        tb = None
+      __cr__ = baml_options.get("client_registry", None)
 
-        raw = self.__runtime.stream_function_sync(
-          "ConstructSearch",
-          {
-            "query": query,
-            "current_iso_timestamp": current_iso_timestamp,
-          },
-          None,
-          self.__ctx_manager.get(),
-          tb,
-          __cr__,
-        )
+      raw = self.__runtime.stream_function_sync(
+        "ConstructSearch",
+        {
+          "query": query,
+          "current_iso_timestamp": current_iso_timestamp,
+        },
+        None,
+        self.__ctx_manager.get(),
+        tb,
+        __cr__,
+      )
 
-        return baml_py.BamlSyncStream[partial_types.SearchParameters, types.SearchParameters](
-          raw,
-          lambda x: cast(partial_types.SearchParameters, x.cast_to(types, partial_types)),
-          lambda x: cast(types.SearchParameters, x.cast_to(types, types)),
-          self.__ctx_manager.get(),
-        )
-
+      return baml_py.BamlSyncStream[partial_types.SearchParameters, types.SearchParameters](
+        raw,
+        lambda x: cast(partial_types.SearchParameters, x.cast_to(types, partial_types)),
+        lambda x: cast(types.SearchParameters, x.cast_to(types, types)),
+        self.__ctx_manager.get(),
+      )
+    
 
 b = BamlSyncClient(DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_RUNTIME, DO_NOT_USE_DIRECTLY_UNLESS_YOU_KNOW_WHAT_YOURE_DOING_CTX)
 

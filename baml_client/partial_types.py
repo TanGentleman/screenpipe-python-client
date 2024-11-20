@@ -30,16 +30,16 @@ from .types import Checked, Check
 
 
 class SearchParameters(BaseModel):
-
-
-    content_type: Optional[types.ContentType] = None
+    
+    
+    content_type: Optional[Union[Literal["OCR"], Literal["AUDIO"], Literal["ALL"]]] = None
     time_range: Optional["TimeRange"] = None
     limit: Optional[int] = None
     search_substring: Optional[str] = None
     application: Optional[str] = None
 
 class TimeRange(BaseModel):
-
-
+    
+    
     from_time: Optional[str] = None
     to_time: Optional[str] = None
