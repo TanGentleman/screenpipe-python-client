@@ -1,4 +1,4 @@
-from .utils.screenpipe import ScreenpipeClient
+from .core.screenpipe import ScreenpipeClient
 from .utils.outputs import SearchOutput, HealthCheck
 
 __all__ = [
