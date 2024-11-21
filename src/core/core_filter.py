@@ -40,6 +40,36 @@ BAML_ENABLED = use_baml
 
 INLET_ADJUSTS_USER_MESSAGE = False
 
+### 2. ERROR CLASSES ###
+class CoreError(Exception):
+    """Base class for core pipeline errors"""
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(self.message)
+
+class InvalidBodyError(CoreError):
+    """Raised when the request body is invalid"""
+    pass
+
+class EmptySearchError(CoreError):
+    """Raised when no search results are found"""
+    pass
+
+class SearchError(CoreError):
+    """Raised when there's an error during search execution"""
+    pass
+
+class ConfigurationError(CoreError):
+    """Raised when there's an error in pipeline configuration"""
+    pass
+
+class ToolCallError(CoreError):
+    """Raised when there's an error processing tool calls"""
+    pass
+
+class BAMLError(CoreError):
+    """Raised when there's an error in BAML processing"""
+    pass
 
 class Filter:
     """Filter class for screenpipe functionality"""
@@ -142,7 +172,7 @@ class Filter:
             tool_calls = response.choices[0].message.model_dump().get(
                 'tool_calls', [])
         except Exception:
-            return "Failed tool api call."
+            raise ToolCallError("Failed tool api call.")
 
         if not tool_calls:
             response_text = response.choices[0].message.content
@@ -158,32 +188,52 @@ class Filter:
         if len(tool_calls) > 1:
             print("Max tool calls exceeded! Only the first tool call will be processed.")
             tool_calls = tool_calls[:1]
-        results = self._process_tool_calls(tool_calls)
+        try:
+            results = self._process_tool_calls(tool_calls)
+        except Exception:
+            raise ToolCallError(f"Error processing tool calls.")
         # Can be a string or search_results dicts
         return results
 
     def _get_search_results_from_params(
             self, search_params: dict) -> dict | str:
-        """Execute search using provided parameters and return results."""
+        """Execute search using provided parameters and return results.
+        
+        Args:
+            search_params: Dictionary containing search parameters
+            
+        Returns:
+            dict: Search results if successful
+            str: Error message if search fails
+            
+        Raises:
+            SearchError: If search parameters are invalid or search fails
+        """
+        # Validate and convert search parameters
         try:
             search_param_object = SearchParameters(**search_params)
             self.search_params = search_param_object.to_dict()
             api_params = search_param_object.to_api_dict()
-            search_results = self.searcher.search(**api_params)
         except ValueError as e:
             self.safe_log_error("Invalid search parameters", e)
-            return f"Invalid search parameters: {str(e)}"
+            raise SearchError("Invalid search parameters.")
+
+        # Execute search
+        try:
+            search_results = self.searcher.search(**api_params)
         except Exception as e:
             self.safe_log_error("Error during search execution", e)
-            return "Error executing search"
+            raise SearchError("Error executing search")
 
+        # Validate search results
         if not search_results:
-            return "No results found"
-        if "error" in search_results:
-            return search_results["error"]
+            raise EmptySearchError("No results found")
+        if "search_error" in search_results:
+            raise SearchError(search_results["search_error"])
+
         return search_results
 
-    def _make_tool_api_call(self, messages):
+    def _make_tool_api_call(self, messages) -> ChatCompletion:
         print("Using tool model:", self.valves.FILTER_MODEL)
         response: ChatCompletion = self.client.chat.completions.create(
             model=self.valves.FILTER_MODEL,
@@ -200,7 +250,10 @@ class Filter:
             if tool_call['function']['name'] == 'screenpipe_search':
                 function_args = json.loads(tool_call['function']['arguments'])
                 search_params = function_args
-                return self._get_search_results_from_params(search_params)
+                try:
+                    return self._get_search_results_from_params(search_params)
+                except SearchError as e:
+                    raise e
         raise ValueError("No valid tool call found")
 
     def _baml_response_as_results_or_str(self, messages: list) -> str | dict:
@@ -234,7 +287,10 @@ class Filter:
         except Exception as e:
             self.safe_log_error("Error fixing BAML search params!", e)
             raise ValueError
-        return self._get_search_results_from_params(search_params)
+        try:
+            return self._get_search_results_from_params(search_params)
+        except SearchError as e:
+            return e.message
 
     def _get_search_results(self, messages: list[dict]) -> str | dict:
         if self.valves.FORCE_TOOL_CALLING:
@@ -290,12 +346,12 @@ class Filter:
         # print(f"inlet:body:{body}")
         # print(f"inlet:user:{__user__}")
         body["inlet_error"] = None
+        body["core_error"] = None
         body["user_message_content"] = None
         body["search_params"] = None
         body["search_results"] = None
         if not self.is_inlet_body_valid(body):
-            body["inlet_error"] = "Invalid inlet body"
-            return body
+            raise InvalidBodyError("Invalid inlet body")
         original_messages = body["messages"]
         body["user_message_content"] = original_messages[-1]["content"]
         try:
@@ -304,23 +360,20 @@ class Filter:
             raw_results = self._get_search_results(original_messages)
 
             if isinstance(raw_results, str):
-                body["inlet_error"] = raw_results
-                return body
+                raise SearchError(raw_results)
 
             assert self.search_params is not None
             body["search_params"] = self.search_params
 
             if not raw_results.get("data", []):
-                body["inlet_error"] = "No results found"
-                return body
+                raise EmptySearchError("No results found")
 
             # Sanitize and store results
             search_results_list = FilterUtils.sanitize_results(
                 raw_results, self.replacement_tuples, self.offset_hours)
 
             if not search_results_list:
-                body["inlet_error"] = "No search results. (Some were rejected!)"
-                return body
+                raise SearchError("No search results. (Some were rejected!)")
 
             body["search_results"] = search_results_list
             self.search_results = search_results_list
@@ -334,11 +387,15 @@ class Filter:
                 refactored_last_message = original_messages[-1]["content"] + \
                     "\n\n" + prologue + "\n" + search_params_as_string
                 original_messages[-1]["content"] = refactored_last_message
+        except CoreError as e:
+            self.safe_log_error(f"Core error in inlet: {e.message}", e)
+            body["core_error"] = e.message
+            body["inlet_error"] = e.message
         except Exception as e:
-            self.safe_log_error(f"{e}", None)
-            self.safe_log_error("Error processing inlet", e)
-            body["inlet_error"] = "Error in Filter inlet!"
-
+            # self.safe_log_error(f"{e}", None)
+            self.safe_log_error("Unexpected error in inlet", e)
+            body["core_error"] = "Unexpected error in Filter inlet"
+            body["inlet_error"] = "Unexpected error in Filter inlet"
         return body
 
     def is_outlet_body_valid(self, body: dict) -> bool:
