@@ -1,6 +1,6 @@
 import logging
 from typing import Dict, List, Literal, Optional
-from httpx import Client, HTTPError
+from httpx import Client, AsyncClient, HTTPError
 
 
 class ScreenpipeClient:
@@ -13,46 +13,132 @@ class ScreenpipeClient:
             port (int): Port number for the ScreenPipe server. Defaults to 3030.
             host (str): Host address for the ScreenPipe server. Defaults to "localhost".
         """
-        # Configure logging
+        self._configure_logging()
+        self._configure_api(host, port)
+        self._configure_valid_types()
+
+    def _configure_logging(self) -> None:
+        """Configure logging settings."""
         logging.basicConfig(
             level=logging.INFO,
             format='%(asctime)s - %(levelname)s - %(message)s'
         )
         self.logger = logging.getLogger(__name__)
 
-        # API configuration
+    def _configure_api(self, host: str, port: int) -> None:
+        """Configure API connection settings.
+        
+        Args:
+            host: Host address for the ScreenPipe server
+            port: Port number for the ScreenPipe server
+        """
         self._base_url = f"http://{host}:{port}"
-        self._session = Client()
-        self._pipe_download_timeout = 20  # seconds
+        self._sync_session: Optional[Client] = None
+        self._async_session: Optional[AsyncClient] = None
 
-        # Valid content types
-        self._valid_content_types = {"ocr", "audio", "all"}
-        self._valid_tag_types = {"audio", "vision"}
+    def _configure_valid_types(self) -> None:
+        """Configure valid content and tag types."""
+        self._valid_content_types = frozenset({"ocr", "audio", "all"})
+        self._valid_tag_types = frozenset({"audio", "vision"})
+
+    @property
+    def sync_session(self) -> Client:
+        """Get or create synchronous HTTP session.
+        
+        Returns:
+            Client: Synchronous HTTP client session
+        """
+        if self._sync_session is None:
+            self._sync_session = Client()
+        return self._sync_session
+
+    @property
+    def async_session(self) -> AsyncClient:
+        """Get or create asynchronous HTTP session.
+        
+        Returns:
+            AsyncClient: Asynchronous HTTP client session
+        """
+        if self._async_session is None:
+            self._async_session = AsyncClient()
+        return self._async_session
+
+    def __enter__(self) -> 'ScreenpipeClient':
+        """Context manager entry for synchronous usage.
+        
+        Returns:
+            ScreenpipeClient: The client instance
+        """
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Context manager exit for synchronous usage."""
+        self.close()
+
+    async def __aenter__(self) -> 'ScreenpipeClient':
+        """Context manager entry for asynchronous usage.
+        
+        Returns:
+            ScreenpipeClient: The client instance
+        """
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Context manager exit for asynchronous usage."""
+        await self.aclose()
 
     def _make_request(
             self,
             method: str,
             endpoint: str,
             **kwargs) -> Optional[Dict]:
-        """Make an HTTP request to the ScreenPipe API.
+        """Make a synchronous HTTP request.
 
         Args:
-            method (str): HTTP method (get, post, delete)
-            endpoint (str): API endpoint
-            **kwargs: Additional arguments for the request
+            method: HTTP method (GET, POST, etc.)
+            endpoint: API endpoint path
+            **kwargs: Additional request parameters
 
         Returns:
-            Optional[Dict]: JSON response or None if request fails
+            Optional[Dict]: JSON response data if successful, None otherwise
         """
         try:
             url = f"{self._base_url}/{endpoint.lstrip('/')}"
-            response = self._session.request(method, url, **kwargs)
+            response = self.sync_session.request(method, url, **kwargs)
             response.raise_for_status()
             return response.json()
         except HTTPError as e:
             self.logger.error("API request failed!")
             self.logger.debug(f"Error: {e}")
             return None
+
+    async def _make_request_async(
+            self,
+            method: str,
+            endpoint: str,
+            **kwargs) -> Optional[Dict]:
+        """Make an asynchronous HTTP request."""
+        try:
+            url = f"{self._base_url}/{endpoint.lstrip('/')}"
+            response = await self.async_session.request(method, url, **kwargs)
+            response.raise_for_status()
+            return response.json()
+        except HTTPError as e:
+            self.logger.error("API request failed!")
+            self.logger.debug(f"Error: {e}")
+            return None
+
+    def close(self) -> None:
+        """Close synchronous session."""
+        if self._sync_session:
+            self._sync_session.close()
+            self._sync_session = None
+
+    async def aclose(self) -> None:
+        """Close asynchronous session."""
+        if self._async_session:
+            await self._async_session.aclose()
+            self._async_session = None
 
     def health_check(self) -> Optional[Dict]:
         """Check the health status of the ScreenPipe system.
@@ -361,3 +447,11 @@ class ScreenpipeClient:
             json={"query": query}
         )
 
+
+if __name__ == "__main__":
+    with ScreenpipeClient() as client:
+        health = client.health_check()
+        if health and health.get("status") == "healthy":
+            print("Screenpipe is active")
+        else:
+            print("Screenpipe is not active")
