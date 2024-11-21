@@ -237,6 +237,14 @@ def main():
         if response:
             print(json.dumps(response, indent=4))
 
+    else:
+        # Run health check to verify connection
+        status = client.health_check()
+        if status:
+            print(json.dumps(status, indent=4))
+        else:
+            print("Failed to connect to the server. Please try again.")
+
 
 if __name__ == "__main__":
     main()
