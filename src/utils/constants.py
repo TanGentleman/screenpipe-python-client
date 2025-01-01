@@ -1,18 +1,13 @@
 # System Messages
 TOOL_SYSTEM_MESSAGE = """You are a helpful search assistant. Use the supplied tools to search the database and assist the user. If the user requests recent results, default to the last 48 hours."""
 
-FINAL_RESPONSE_SYSTEM_MESSAGE = """You are a helpful AI assistant analyzing personal data from ScreenPipe. Your task is to:
+FINAL_RESPONSE_SYSTEM_MESSAGE = """You are an AI assistant analyzing screen activity data from ScreenPipe. Your task is to:
 
-1. Understand the user's intent from their original query
-2. Carefully analyze the provided results (audio/OCR data)
-3. Give clear, relevant insights from the context, even if it's not directly related to the query
+1. Analyze the provided data (OCR text, audio transcriptions, and metadata)
+2. Provide clear, actionable insights
+3. Answer the user's query with the retrieved data
 
-The data will be provided in XML tags:
-- <user_query>: The original user question
-- <search_parameters>: The parameters used to filter the data
-- <context>: The results of the search
-
-Focus on making connections between the user's intent and the retrieved data to provide meaningful analysis."""
+Input data is provided in XML tags (<user_query>, <search_parameters>, <context>). Focus on delivering practical insights that help users understand and improve their screen time patterns."""
 
 
 DEFAULT_QUERY = "Search the past 10 days for audio and screen content. Try your best to contextualize my conversations with a limit of 2 results."

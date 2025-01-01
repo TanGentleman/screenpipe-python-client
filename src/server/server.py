@@ -55,7 +55,7 @@ class OutletRequestBody(TypedDict):
 class Models:
     """Model configuration constants"""
     FLASH_MODEL = "openrouter/google/gemini-flash-1.5-8b"
-    SMART_MODEL = "Llama-3.1-70B"
+    SMART_MODEL = "Llama-3.3-70B"
 
 
 # Configuration
@@ -68,7 +68,7 @@ FILTER_CONFIG = {
 
 PIPE_CONFIG = {
     # "LLM_API_BASE_URL": "http://localhost:4000/v1",
-    # "RESPONSE_MODEL": Models.FLASH_MODEL,
+    "RESPONSE_MODEL": Models.SMART_MODEL,
     # "GET_RESPONSE": True,
 }
 

@@ -265,14 +265,14 @@ class PipeSearch:
             results = response.json()
 
             return results if results.get("data") else {
-                "error": "No results found"}
+                "search_error": "No results found"}
 
         except requests.exceptions.RequestException as e:
             logging.error(f"Search request failed: {e}")
-            return {"error": f"Search failed: {str(e)}"}
+            return {"search_error": f"Search request failed."}
         except Exception as e:
             logging.error(f"Unexpected error in search: {e}")
-            return {"error": f"Unexpected error: {str(e)}"}
+            return {"search_error": f"Unexpected error in search!"}
 
     def _process_search_params(self, params: dict) -> dict:
         """Process and validate search parameters"""
@@ -397,7 +397,8 @@ class FilterUtils:
     @staticmethod
     def catch_malformed_tool(response_text: str) -> str | dict:
         """Parse response text to extract tool call if present, otherwise return original text."""
-        TOOL_PREFIX = "<function=screenpipe_search>"
+        FUNCTION_NAME = "screenpipe_search"
+        TOOL_PREFIX = f"<function={FUNCTION_NAME}>"
 
         if not response_text.startswith(TOOL_PREFIX):
             return response_text
