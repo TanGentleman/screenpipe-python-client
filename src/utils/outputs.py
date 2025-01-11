@@ -188,8 +188,11 @@ class Audio:
             tags: List[str],
             device_name: str,
             device_type: str,
+            start_time: str,
+            end_time: str,
             file_path: Optional[str] = None,
-            offset_index: Optional[int] = None):
+            offset_index: Optional[int] = None,
+            speaker: Optional[dict] = None):
         """
         Represents an audio output.
 
@@ -215,6 +218,9 @@ class Audio:
             "offset_index": offset_index
         }
 
+        self.speaker = speaker
+        self.start_time = start_time
+        self.end_time = end_time
         CLEAN_DATA = True
         if CLEAN_DATA:
             self._clean_data()
