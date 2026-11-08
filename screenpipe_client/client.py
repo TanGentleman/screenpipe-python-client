@@ -347,24 +347,16 @@ class ScreenpipeClient:
         if content_type not in self._valid_add_types:
             raise ValueError(f"Invalid content_type. Must be one of: {self._valid_add_types}")
 
-        content = {
-            "content_type": content_type,
-            "data": {}
-        }
-        
-        if frames:
-            content["data"]["frames"] = frames
-        elif transcription:
-            content["data"]["transcription"] = transcription
-        else:
-            raise ValueError("Either frames or transcription must be provided")
-            
+        data = frames if content_type == "frames" else transcription
+        if not data:
+            raise ValueError(f"content_type {content_type!r} needs {content_type}=")
+
         return self._make_request(
             "post",
             "add",
             json={
                 "device_name": device_name,
-                "content": content
+                "content": {"content_type": content_type, "data": data},
             }
         )
 
