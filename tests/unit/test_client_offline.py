@@ -1,4 +1,6 @@
 """ScreenpipeClient against a fake server; no screenpipe needed."""
+import socket
+
 import pytest
 
 from screenpipe_client import ScreenpipeClient
@@ -59,3 +61,33 @@ def test_http_error_returns_none(client):
 
 def test_list_audio_devices(client):
     assert client.list_audio_devices() == [{"name": "mic", "is_default": True}]
+
+
+def closed_port():
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+def test_server_down_returns_none():
+    with ScreenpipeClient(host="127.0.0.1", port=closed_port()) as c:
+        assert c.health_check() is None
+        assert c.search(query="x") is None
+
+
+def test_remove_tags_sends_delete_with_body(client, fake):
+    client.remove_tags_from_content("audio", 7, ["a", "b"])
+    request = fake.requests[-1]
+    assert (request["method"], request["path"]) == ("DELETE", "/tags/audio/7")
+    assert request["json"] == {"tags": ["a", "b"]}
+
+
+def test_tags_reject_unknown_content_type(client, fake):
+    with pytest.raises(ValueError):
+        client.add_tags_to_content("input", 7, ["a"])
+    assert fake.requests == []
+
+
+def test_unnamed_speakers_sends_paging_and_ids(client, fake):
+    client.get_unnamed_speakers(limit=3, speaker_ids=[4, 5])
+    assert fake.requests[-1]["query"] == {"limit": "3", "offset": "0", "speaker_ids": "4,5"}

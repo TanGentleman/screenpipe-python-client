@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
 from screenpipe_client.time_utils import format_timestamp, get_past_time
 
 
@@ -12,3 +14,10 @@ def test_get_past_time_is_utc():
 def test_format_timestamp():
     assert format_timestamp("2024-10-01T12:00:00.123Z") == "10/01/24 12:00"
     assert format_timestamp("2024-10-01T12:00:00Z", offset_hours=-7) == "10/01/24 05:00"
+
+
+def test_format_timestamp_rejects_bad_input():
+    with pytest.raises(ValueError):
+        format_timestamp("yesterday")
+    with pytest.raises(ValueError):
+        format_timestamp(1730000000)
