@@ -46,14 +46,14 @@ Cut: generated `src/baml_client/` and `src/baml_src/`, the Open-WebUI functions 
 
 ## Applying a branch upstream
 
-`b369f08` is the kranti-sandbox import commit. Run the first two lines in kranti-sandbox, the rest in
-a clean upstream clone at `997496a`:
+`b369f08` is the kranti-sandbox import commit. Run the four `format-patch` lines in a kranti-sandbox
+clone, the rest in a clean upstream clone at `997496a`:
 
 ```bash
-git format-patch --relative=screenpipe-python-client -o /tmp/spc-1 b369f08..screenpipe-python-client-1
-git format-patch --relative=screenpipe-python-client -o /tmp/spc-2 screenpipe-python-client-1..screenpipe-python-client-2
-git format-patch --relative=screenpipe-python-client -o /tmp/spc-3 screenpipe-python-client-2..screenpipe-python-client-3
-git format-patch --relative=screenpipe-python-client -o /tmp/spc-4 screenpipe-python-client-3..screenpipe-python-client-4
+git format-patch --relative=screenpipe-python-client -o /tmp/spc-1 b369f08..origin/screenpipe-python-client-1
+git format-patch --relative=screenpipe-python-client -o /tmp/spc-2 origin/screenpipe-python-client-1..origin/screenpipe-python-client-2
+git format-patch --relative=screenpipe-python-client -o /tmp/spc-3 origin/screenpipe-python-client-2..origin/screenpipe-python-client-3
+git format-patch --relative=screenpipe-python-client -o /tmp/spc-4 origin/screenpipe-python-client-3..origin/screenpipe-python-client-4
 cd screenpipe-python-client && git am /tmp/spc-1/*.patch    # then /tmp/spc-2, -3, -4 in order
 uv venv && uv pip install -e . pytest && .venv/bin/pytest -q   # -1 and -2
 uv run pytest -q                                              # -3 and later
