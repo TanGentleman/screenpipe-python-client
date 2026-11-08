@@ -20,7 +20,11 @@ def main():
 
         python cli.py add-tags-to-content --content-type CONTENT_TYPE --id ID --tags TAGS [TAGS ...]
 
-        python cli.py download-pipe --url URL
+        python cli.py install-pipe --source URL_OR_PATH
+
+        python cli.py enable-pipe --pipe-id PIPE_ID
+
+        python cli.py disable-pipe --pipe-id PIPE_ID
 
         python cli.py run-pipe --pipe-id PIPE_ID
 
@@ -39,7 +43,7 @@ def main():
     Command Line Arguments:
         search:
             --query: The search term
-            --content-type: The type of content to search (ocr, audio, all)
+            --content-type: all, ocr, audio, input, accessibility or memory
             --limit: The maximum number of results per page
             --offset: The pagination offset
             --start-time: The start timestamp
@@ -58,13 +62,10 @@ def main():
             --id: The ID of the content item
             --tags: A list of tags to add
 
-        download-pipe:
-            --url: The URL of the pipe
+        install-pipe (alias download-pipe):
+            --source: URL or local path of the pipe
 
-        run-pipe:
-            --pipe-id: The ID of the pipe
-
-        stop-pipe:
+        enable-pipe, disable-pipe, run-pipe, stop-pipe:
             --pipe-id: The ID of the pipe
 
         health-check:
@@ -91,7 +92,7 @@ def main():
     search_parser.add_argument("--query", help="The search term")
     search_parser.add_argument(
         "--content-type",
-        help="The type of content to search (ocr, audio, all)")
+        help="all, ocr, audio, input, accessibility or memory")
     search_parser.add_argument(
         "--limit",
         type=int,
@@ -128,14 +129,18 @@ def main():
     add_tags_to_content_parser.add_argument(
         "--tags", nargs="+", help="A list of tags to add")
 
-    download_pipe_parser = subparsers.add_parser("download-pipe")
-    download_pipe_parser.add_argument("--url", help="The URL of the pipe")
+    install_pipe_parser = subparsers.add_parser(
+        "install-pipe", aliases=["download-pipe"])
+    install_pipe_parser.add_argument(
+        "--source", "--url", dest="source", help="URL or local path of the pipe")
 
-    run_pipe_parser = subparsers.add_parser("run-pipe")
-    run_pipe_parser.add_argument("--pipe-id", help="The ID of the pipe")
-
-    stop_pipe_parser = subparsers.add_parser("stop-pipe")
-    stop_pipe_parser.add_argument("--pipe-id", help="The ID of the pipe")
+    for name, help_text in [
+            ("enable-pipe", "Enable a pipe's schedule"),
+            ("disable-pipe", "Disable a pipe's schedule"),
+            ("run-pipe", "Run a pipe once, now"),
+            ("stop-pipe", "Stop a pipe's current run")]:
+        pipe_parser = subparsers.add_parser(name, help=help_text)
+        pipe_parser.add_argument("--pipe-id", help="The ID of the pipe")
 
     health_check_parser = subparsers.add_parser("health-check")  # No args
 
@@ -202,8 +207,12 @@ def run_command(client: ScreenpipeClient, args: argparse.Namespace):
         return client.list_pipes()
     if args.command == "get-pipe-info":
         return client.get_pipe_info(args.pipe_id)
-    if args.command == "download-pipe":
-        return client.download_pipe(args.url)
+    if args.command in ("install-pipe", "download-pipe"):
+        return client.install_pipe(args.source)
+    if args.command == "enable-pipe":
+        return client.enable_pipe(args.pipe_id)
+    if args.command == "disable-pipe":
+        return client.enable_pipe(args.pipe_id, enabled=False)
     if args.command == "run-pipe":
         return client.run_pipe(args.pipe_id)
     if args.command == "stop-pipe":
