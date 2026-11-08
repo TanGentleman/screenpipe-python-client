@@ -38,7 +38,8 @@ Cut: generated `src/baml_client/` and `src/baml_src/`, the Open-WebUI functions 
   `SCREENPIPE_LIVE=1`), CLI exit code, GitHub Actions.
 - `-2` done: current screenpipe API (pipe routes, bearer auth via `SCREENPIPE_API_KEY`, new
   content types) and the matching CLI commands, tested against a fake server.
-- `-3` planned: cut to client + CLI; Poetry to uv with a lockfile; `httpx` as the only dependency.
+- `-3` done: cut to client + CLI (-5,200 lines, 51 files); Poetry to uv with `uv.lock`; `httpx` is
+  the only dependency; CI on 3.10 and 3.13.
 - `-4` planned: real package name, `screenpipe-client` console script, 30-second README.
 
 ## Applying a branch upstream
@@ -50,7 +51,8 @@ a clean upstream clone at `997496a`:
 git format-patch --relative=screenpipe-python-client -o /tmp/spc-1 b369f08..screenpipe-python-client-1
 git format-patch --relative=screenpipe-python-client -o /tmp/spc-2 screenpipe-python-client-1..screenpipe-python-client-2
 cd screenpipe-python-client && git am /tmp/spc-1/*.patch    # then /tmp/spc-2, and so on
-uv venv && uv pip install -e . pytest && .venv/bin/pytest -q
+uv venv && uv pip install -e . pytest && .venv/bin/pytest -q   # -1 and -2
+uv run pytest -q                                              # -3 and later
 ```
 
 ## Needs Tan
