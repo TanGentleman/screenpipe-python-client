@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
-from src.utils.time_utils import format_timestamp, get_past_time
+from screenpipe_client.time_utils import format_timestamp, get_past_time
 
 
 def test_get_past_time_is_utc():

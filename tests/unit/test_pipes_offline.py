@@ -1,7 +1,7 @@
 """Pipe and auth calls against a fake server shaped like screenpipe 0.4.x."""
 import pytest
 
-from src import ScreenpipeClient
+from screenpipe_client import ScreenpipeClient
 from tests.fake_screenpipe import FakeScreenpipe
 
 PIPE = {"config": {"name": "daily"}, "is_running": False}

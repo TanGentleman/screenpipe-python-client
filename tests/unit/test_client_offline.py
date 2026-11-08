@@ -1,7 +1,7 @@
 """ScreenpipeClient against a fake server; no screenpipe needed."""
 import pytest
 
-from src import ScreenpipeClient
+from screenpipe_client import ScreenpipeClient
 from tests.fake_screenpipe import FakeScreenpipe
 
 SEARCH_RESPONSE = {

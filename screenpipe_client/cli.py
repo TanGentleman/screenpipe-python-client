@@ -1,91 +1,20 @@
 import argparse
 import json
 import sys
-from src import ScreenpipeClient
+import logging
+
+from .client import ScreenpipeClient
 
 
-def main():
-    """
-    Entry point of the ScreenPipe API Client.
-
-    This function parses command line arguments and executes the corresponding actions based on the provided command.
-
-    Usage:
-        python cli.py search [--query QUERY] [--content-type CONTENT_TYPE] [--limit LIMIT] [--offset OFFSET]
-                             [--start-time START_TIME] [--end-time END_TIME] [--app-name APP_NAME]
-                             [--window-name WINDOW_NAME] [--include-frames] [--min-length MIN_LENGTH]
-                             [--max-length MAX_LENGTH]
-
-        python cli.py list-audio-devices
-
-        python cli.py add-tags-to-content --content-type CONTENT_TYPE --id ID --tags TAGS [TAGS ...]
-
-        python cli.py install-pipe --source URL_OR_PATH
-
-        python cli.py enable-pipe --pipe-id PIPE_ID
-
-        python cli.py disable-pipe --pipe-id PIPE_ID
-
-        python cli.py run-pipe --pipe-id PIPE_ID
-
-        python cli.py stop-pipe --pipe-id PIPE_ID
-
-        python cli.py health-check
-
-        python cli.py list-monitors
-
-        python cli.py list-pipes
-
-        python cli.py get-pipe-info --pipe-id PIPE_ID
-
-        python cli.py remove-tags-from-content --content-type CONTENT_TYPE --id ID --tags TAGS [TAGS ...]
-
-    Command Line Arguments:
-        search:
-            --query: The search term
-            --content-type: all, ocr, audio, input, accessibility or memory
-            --limit: The maximum number of results per page
-            --offset: The pagination offset
-            --start-time: The start timestamp
-            --end-time: The end timestamp
-            --app-name: The application name
-            --window-name: The window name
-            --include-frames: If True, fetch frame data for OCR content
-            --min-length: Minimum length of the content
-            --max-length: Maximum length of the content
-
-        list-audio-devices:
-            No additional arguments required.
-
-        add-tags-to-content:
-            --content-type: The type of content
-            --id: The ID of the content item
-            --tags: A list of tags to add
-
-        install-pipe (alias download-pipe):
-            --source: URL or local path of the pipe
-
-        enable-pipe, disable-pipe, run-pipe, stop-pipe:
-            --pipe-id: The ID of the pipe
-
-        health-check:
-            No additional arguments required.
-
-        list-monitors:
-            No additional arguments required.
-
-        list-pipes:
-            No additional arguments required.
-
-        get-pipe-info:
-            --pipe-id: The ID of the pipe
-
-        remove-tags-from-content:
-            --content-type: The type of content
-            --id: The ID of the content item
-            --tags: A list of tags to remove
-    """
-    parser = argparse.ArgumentParser(description="ScreenPipe API Client")
+def main(argv=None) -> int:
+    """Run the screenpipe-client command line."""
+    parser = argparse.ArgumentParser(
+        prog="screenpipe-client",
+        description="Query a running screenpipe. Defaults to health-check.")
+    parser.add_argument("--host", default="localhost")
+    parser.add_argument("--port", type=int, default=3030)
+    parser.add_argument(
+        "--api-key", help="Bearer token; defaults to $SCREENPIPE_API_KEY")
     subparsers = parser.add_subparsers(dest="command")
 
     search_parser = subparsers.add_parser("search")
@@ -160,14 +89,16 @@ def main():
     remove_tags_from_content_parser.add_argument(
         "--tags", nargs="+", help="A list of tags to remove")
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+    logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
 
-    client = ScreenpipeClient()
+    client = ScreenpipeClient(host=args.host, port=args.port, api_key=args.api_key)
     if args.command is None:
         args.command = "health-check"
-    response = run_command(client, args)
+    with client:
+        response = run_command(client, args)
     if response is None:
-        print("Request failed. Is screenpipe running on localhost:3030?",
+        print(f"Request failed. Is screenpipe running on {args.host}:{args.port}?",
               file=sys.stderr)
         return 1
     print(json.dumps(response, indent=4))
