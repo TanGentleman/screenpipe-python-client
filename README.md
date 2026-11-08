@@ -61,8 +61,8 @@ Exit codes:
 | Code | Meaning |
 | --- | --- |
 | 0 | screenpipe answered; its JSON is on stdout |
-| 1 | request failed (connection refused, HTTP error, or a pipe `error` body); the reason is on stderr. An unknown `--content-type` also exits 1, with a `ValueError` traceback |
-| 2 | bad usage (argparse) |
+| 1 | request failed (connection refused, HTTP error, or a pipe `error` body); the reason is on stderr |
+| 2 | bad usage (argparse), including an unknown `--content-type` |
 
 Environment variables:
 

@@ -82,3 +82,19 @@ def test_commands_map_to_routes(capsys, argv, method, path, body):
     assert json.loads(out) == {"success": True}
     request = fake.requests[-1]
     assert (request["method"], request["path"], request["json"]) == (method, path, body)
+
+
+@pytest.mark.parametrize("argv", [
+    ["search", "--content-type", "video"],
+    ["add-tags-to-content", "--content-type", "frames", "--id", "7", "--tags", "a"],
+    ["remove-tags-from-content", "--content-type", "all", "--id", "7", "--tags", "a"],
+])
+def test_unknown_content_type_is_a_usage_error(capsys, argv):
+    with FakeScreenpipe() as fake:
+        with pytest.raises(SystemExit) as exc:
+            main(["--port", str(fake.port), *argv])
+    assert exc.value.code == 2
+    err = capsys.readouterr().err
+    assert "argument --content-type: invalid choice" in err
+    assert "Traceback" not in err
+    assert fake.requests == []

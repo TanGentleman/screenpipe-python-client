@@ -2,8 +2,11 @@ import argparse
 import json
 import logging
 import sys
+from typing import get_args
 
-from .client import ScreenpipeClient
+from .client import ScreenpipeClient, SearchContentType
+
+TAG_CONTENT_TYPES = ("audio", "vision", "ocr")
 
 
 def main(argv=None) -> int:
@@ -21,6 +24,7 @@ def main(argv=None) -> int:
     search_parser.add_argument("--query", help="The search term")
     search_parser.add_argument(
         "--content-type",
+        choices=get_args(SearchContentType),
         help="all, ocr, audio, input, accessibility, memory or parsed")
     search_parser.add_argument(
         "--limit",
@@ -51,7 +55,7 @@ def main(argv=None) -> int:
 
     add_tags_to_content_parser = subparsers.add_parser("add-tags-to-content")
     add_tags_to_content_parser.add_argument(
-        "--content-type", help="The type of content")
+        "--content-type", choices=TAG_CONTENT_TYPES, help="The type of content")
     add_tags_to_content_parser.add_argument(
         "--id", type=int, help="The ID of the content item")
     add_tags_to_content_parser.add_argument(
@@ -82,7 +86,7 @@ def main(argv=None) -> int:
     remove_tags_from_content_parser = subparsers.add_parser(
         "remove-tags-from-content")
     remove_tags_from_content_parser.add_argument(
-        "--content-type", help="The type of content")
+        "--content-type", choices=TAG_CONTENT_TYPES, help="The type of content")
     remove_tags_from_content_parser.add_argument(
         "--id", type=int, help="The ID of the content item")
     remove_tags_from_content_parser.add_argument(
