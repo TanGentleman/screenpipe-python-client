@@ -14,7 +14,8 @@ A Python client library and CLI tool for interacting with the Screenpipe API. Th
 ## Installation
 
 ```bash
-cd screenpipe_python_client
+git clone https://github.com/TanGentleman/screenpipe-python-client.git
+cd screenpipe-python-client
 poetry install
 ```
 
@@ -29,7 +30,7 @@ For developers:
 - See `INSTRUCTIONS.md` for getting started
 - Check the `open-webui-workspace` folder for Open-WebUI integration
 - Use `ScreenpipeClient` from `src/core/screenpipe.py` as the Python interface for the SP server.
-- Reference `docs.md` for under-the-hood API documentation (based on [screenpipe-server source](https://github.com/mediar-ai/screenpipe/blob/main/screenpipe-server/src/server.rs))
+- Reference `docs.md` for under-the-hood API documentation (a late-2024 snapshot; the current routes are in [screenpipe-engine/src/server.rs](https://github.com/mediar-ai/screenpipe/blob/main/crates/screenpipe-engine/src/server.rs) and the [API reference](https://docs.screenpi.pe/api-reference))
 
 ## CLI Commands
 

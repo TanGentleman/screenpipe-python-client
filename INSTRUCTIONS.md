@@ -39,13 +39,13 @@ docker run -d \
 #### Option A: Using Poetry (Recommended)
 
 ```bash
-cd screenpipe_python_client
+cd screenpipe-python-client
 poetry install
 ```
 
 #### Option B: Using Pip
 ```bash
-cd screenpipe_python_client
+cd screenpipe-python-client
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .

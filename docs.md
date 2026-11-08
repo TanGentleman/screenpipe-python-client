@@ -1,4 +1,6 @@
 ### API Documentation for `server.rs`
+
+This describes screenpipe's server as of late 2024. Some routes have changed since (pipes in particular); see the current [server.rs](https://github.com/mediar-ai/screenpipe/blob/main/crates/screenpipe-engine/src/server.rs) and the [API reference](https://docs.screenpi.pe/api-reference).
 #### Overview
 This document provides a detailed overview of the API endpoints defined in the `server.rs` file. Each endpoint is described with its HTTP method, URL, request parameters, request body, and response format.
 #### Server Configuration
@@ -288,7 +290,7 @@ The server can be configured with the following options through the `Server` str
    - **Request Body**:
      ```json
      {
-       "url": "https://github.com/mediar-ai/screenpipe/tree/main/examples/typescript/pipe-stream-ocr-text"
+       "url": "https://github.com/<owner>/<repo>/tree/main/<pipe-dir>"
      }
      ```
    - **Response**:
@@ -459,7 +461,7 @@ The server can be configured with the following options through the `Server` str
             "audio_status": "stale",
             "ui_status": "stale",
             "message": "some systems are not functioning properly: vision, audio, ui monitoring. frame status: stale, audio status: stale, ui status: stale",
-            "verbose_instructions": "if you're experiencing issues, please try the following steps:\n1. restart the application.\n2. if using a desktop app, reset your screenpipe os audio/screen recording permissions.\n3. if the problem persists, please contact support with the details of this health check at louis@screenpi.pe.\n4. last, here are some faq to help you troubleshoot: https://github.com/mediar-ai/screenpipe/blob/main/content/docs/notes.md"
+            "verbose_instructions": "if you're experiencing issues, please try the following steps:\n1. restart the application.\n2. if using a desktop app, reset your screenpipe os audio/screen recording permissions.\n3. if the problem persists, please contact support with the details of this health check at louis@screenpi.pe.\n4. last, here are some faq to help you troubleshoot: <faq link>"
           }
           ```
 14. **Execute Raw SQL Query**
