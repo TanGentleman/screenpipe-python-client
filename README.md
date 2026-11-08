@@ -1,15 +1,6 @@
 # Screenpipe Python Client
 
-A Python client library and CLI tool for interacting with the Screenpipe API. This client provides an intuitive interface for developers to integrate with and test Screenpipe functionality. No desktop app required.
-
-> **New**: Open-WebUI integration is now available for testing! Detailed guides coming soon.
-
-## Features
-
-- Complete Python SDK for Screenpipe API integration
-- Command-line interface for testing and troubleshooting
-- Robust Open-WebUI integration and proxy server
-- Comprehensive API for Agentic use cases
+A Python client library and CLI for the [screenpipe](https://github.com/mediar-ai/screenpipe) REST API.
 
 ## Installation
 
@@ -26,11 +17,9 @@ Verify the server connection:
 poetry run python cli/cli.py health-check
 ```
 
-For developers:
-- See `INSTRUCTIONS.md` for getting started
-- Check the `open-webui-workspace` folder for Open-WebUI integration
-- Use `ScreenpipeClient` from `src/core/screenpipe.py` as the Python interface for the SP server.
-- Reference `docs.md` for under-the-hood API documentation (a late-2024 snapshot; the current routes are in [screenpipe-engine/src/server.rs](https://github.com/mediar-ai/screenpipe/blob/main/crates/screenpipe-engine/src/server.rs) and the [API reference](https://docs.screenpi.pe/api-reference))
+Use `ScreenpipeClient` from `src/core/screenpipe.py` as the Python interface. The server's routes
+are in [screenpipe-engine/src/server.rs](https://github.com/mediar-ai/screenpipe/blob/main/crates/screenpipe-engine/src/server.rs)
+and the [API reference](https://docs.screenpi.pe/api-reference).
 
 ## CLI Commands
 
@@ -56,25 +45,6 @@ For detailed usage and parameters, run:
 ```bash
 python cli/cli.py --help
 ```
-
-## API Functionality
-
-The Screenpipe API offers a range of powerful features for data processing and analysis:
-
-- **Inlet and Outlet Filters**: Process incoming and outgoing data through customizable filters.
-- **Pipe Streaming and Completion**: Handle both streaming and non-streaming data processing requests.
-- **Valve Configuration**: Dynamically update and refresh configuration settings for filters and pipes.
-- **Search and Analysis**: Perform complex searches and analyses on screen recordings and audio data.
-
-## Roadmap
-
-We are committed to enhancing the Screenpipe API with the following features:
-
-- **Enhanced Search Capabilities**: Implement advanced search algorithms and machine learning models for more accurate results.
-- **Real-time Data Processing**: Improve the performance and scalability of streaming data processing.
-- **Expanded Integration**: Support additional third-party services and tools for broader compatibility.
-- **User Interface Improvements**: Develop a more intuitive and user-friendly interface for API interactions.
-- **Security Enhancements**: Strengthen data protection and privacy measures.
 
 ## Community
 

@@ -1,7 +1,7 @@
 import argparse
 import json
 import sys
-from src import ScreenpipeClient, SearchOutput, HealthCheck
+from src import ScreenpipeClient
 
 
 def main():
@@ -177,7 +177,7 @@ def main():
 def run_command(client: ScreenpipeClient, args: argparse.Namespace):
     """Run one subcommand and return its JSON-ready response, or None on failure."""
     if args.command == "search":
-        results = client.search(
+        return client.search(
             query=args.query,
             content_type=args.content_type,
             limit=args.limit,
@@ -190,15 +190,8 @@ def run_command(client: ScreenpipeClient, args: argparse.Namespace):
             min_length=args.min_length,
             max_length=args.max_length
         )
-        return SearchOutput(results).to_dict() if results else None
     if args.command == "health-check":
-        status = client.health_check()
-        if not status:
-            return None
-        try:
-            return HealthCheck(**status).to_dict()
-        except Exception:
-            return status
+        return client.health_check()
     if args.command == "list-audio-devices":
         return client.list_audio_devices()
     if args.command == "list-monitors":
