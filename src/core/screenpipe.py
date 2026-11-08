@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Dict, List, Literal, Optional
 from httpx import Client, AsyncClient, HTTPError
 
@@ -7,15 +8,20 @@ DEFAULT_SEARCH_LIMIT = 20  # Updated to match server default
 class ScreenpipeClient:
     """Client for interacting with the ScreenPipe API."""
 
-    def __init__(self, port: int = 3030, host: str = "localhost"):
+    def __init__(self, port: int = 3030, host: str = "localhost",
+                 api_key: Optional[str] = None):
         """Initialize the ScreenPipe client.
 
         Args:
             port (int): Port number for the ScreenPipe server. Defaults to 3030.
             host (str): Host address for the ScreenPipe server. Defaults to "localhost".
+            api_key (str): Sent as a Bearer token when screenpipe has API auth on.
+                Defaults to the SCREENPIPE_API_KEY environment variable.
         """
         self._configure_logging()
         self._configure_api(host, port)
+        api_key = api_key or os.environ.get("SCREENPIPE_API_KEY")
+        self._headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
         self._configure_valid_types()
 
     def _configure_logging(self) -> None:
@@ -39,7 +45,8 @@ class ScreenpipeClient:
 
     def _configure_valid_types(self) -> None:
         """Configure valid content and tag types."""
-        self._valid_content_types = frozenset({"ocr", "audio", "all"})
+        self._valid_content_types = frozenset(
+            {"all", "ocr", "audio", "input", "accessibility", "memory"})
         self._valid_tag_types = frozenset({"audio", "vision"})
         # Add new valid types for content addition
         self._valid_add_types = frozenset({"frames", "transcription"})
@@ -52,7 +59,7 @@ class ScreenpipeClient:
             Client: Synchronous HTTP client session
         """
         if self._sync_session is None:
-            self._sync_session = Client()
+            self._sync_session = Client(headers=self._headers)
         return self._sync_session
 
     @property
@@ -63,7 +70,7 @@ class ScreenpipeClient:
             AsyncClient: Asynchronous HTTP client session
         """
         if self._async_session is None:
-            self._async_session = AsyncClient()
+            self._async_session = AsyncClient(headers=self._headers)
         return self._async_session
 
     def __enter__(self) -> 'ScreenpipeClient':
@@ -164,7 +171,7 @@ class ScreenpipeClient:
         self,
         limit: int = DEFAULT_SEARCH_LIMIT,
         query: Optional[str] = None,
-        content_type: Optional[Literal["ocr", "audio", "all"]] = "all",
+        content_type: Optional[Literal["all", "ocr", "audio", "input", "accessibility", "memory"]] = "all",
         offset: Optional[int] = None,
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,
@@ -270,87 +277,56 @@ class ScreenpipeClient:
                 "tags": tags})
 
     # Pipe-related methods
-    def get_pipe_info(self, pipe_id: str) -> Optional[Dict]:
-        """Get information about a specific pipe.
-        
-        Returns:
-            Optional[Dict]: Pipe details including id, name, description, enabled status,
-                          configuration and current status
-        """
-        return self._make_request("get", f"pipes/info/{pipe_id}")
+    def _pipe_request(self, method: str, endpoint: str, **kwargs):
+        """Pipe routes wrap results in "data" and report most errors as
+        HTTP 200 with an "error" field."""
+        response = self._make_request(method, endpoint, **kwargs)
+        if isinstance(response, dict):
+            if "error" in response:
+                self.logger.error("Pipe request failed: %s", response["error"])
+                return None
+            if "data" in response:
+                return response["data"]
+        return response
 
     def list_pipes(self) -> Optional[List]:
-        """List all available pipes.
-        
-        Returns:
-            Optional[List]: List of pipes with their details
-        """
-        return self._make_request("get", "pipes/list")
+        """List installed pipes."""
+        return self._pipe_request("get", "pipes")
 
-    def download_pipe(self, url: str) -> Optional[Dict]:
-        """Download a pipe from URL.
-        
-        Returns:
-            Optional[Dict]: Success message and pipe ID
-        """
-        PIPE_DOWNLOAD_TIMEOUT = 30
-        return self._make_request(
-            "post",
-            "pipes/download",
-            json={"url": url},
-            timeout=PIPE_DOWNLOAD_TIMEOUT
-        )
+    def get_pipe_info(self, pipe_id: str) -> Optional[Dict]:
+        """Get one pipe's config and status."""
+        return self._pipe_request("get", f"pipes/{pipe_id}")
+
+    def install_pipe(self, source: str) -> Optional[Dict]:
+        """Install a pipe from a URL or local path."""
+        return self._pipe_request(
+            "post", "pipes/install", json={"source": source}, timeout=30)
+
+    download_pipe = install_pipe
+
+    def enable_pipe(self, pipe_id: str, enabled: bool = True) -> Optional[Dict]:
+        """Enable or disable a pipe's schedule."""
+        return self._pipe_request(
+            "post", f"pipes/{pipe_id}/enable", json={"enabled": enabled})
 
     def run_pipe(self, pipe_id: str) -> Optional[Dict]:
-        """Enable and run a pipe.
-        
-        Returns:
-            Optional[Dict]: Success message and pipe ID
-        """
-        return self._make_request(
-            "post",
-            "pipes/enable",
-            json={
-                "pipe_id": pipe_id})
+        """Run a pipe once, now."""
+        return self._pipe_request("post", f"pipes/{pipe_id}/run")
 
     def stop_pipe(self, pipe_id: str) -> Optional[Dict]:
-        """Stop a running pipe.
-        
-        Returns:
-            Optional[Dict]: Success message and pipe ID
-        """
-        return self._make_request(
-            "post",
-            "pipes/disable",
-            json={
-                "pipe_id": pipe_id})
+        """Stop a pipe's current run."""
+        return self._pipe_request("post", f"pipes/{pipe_id}/stop")
 
     def update_pipe_configuration(
             self,
             pipe_id: str,
             config: Dict) -> Optional[Dict]:
-        """Update pipe configuration.
-        
-        Returns:
-            Optional[Dict]: Success message and pipe ID
-        """
-        return self._make_request(
-            "post",
-            "pipes/update",
-            json={"pipe_id": pipe_id, "config": config}
-        )
+        """Merge config keys into a pipe's config."""
+        return self._pipe_request("post", f"pipes/{pipe_id}/config", json=config)
 
     def delete_pipe(self, pipe_id: str) -> Optional[Dict]:
-        """Delete a pipe.
-        
-        Returns:
-            Optional[Dict]: Success message
-        """
-        return self._make_request(
-            "post",
-            "pipes/delete",
-            json={"pipe_id": pipe_id}
-        )
+        """Delete a pipe."""
+        return self._pipe_request("delete", f"pipes/{pipe_id}")
 
     def add_content(
             self,

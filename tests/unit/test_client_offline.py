@@ -54,7 +54,7 @@ def test_ocr_tags_map_to_vision(client, fake):
 
 
 def test_http_error_returns_none(client):
-    assert client.list_pipes() is None
+    assert client.list_monitors() is None
 
 
 def test_list_audio_devices(client):
