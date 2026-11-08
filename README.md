@@ -1,55 +1,59 @@
-# Screenpipe Python Client
+# screenpipe-python-client
 
-A Python client library and CLI for the [screenpipe](https://github.com/mediar-ai/screenpipe) REST API.
+A Python client and CLI for the local REST API of [screenpipe](https://github.com/mediar-ai/screenpipe),
+the open-source screen and audio recorder. Search what you saw and heard, check recorder health, and
+manage tags and pipes from Python or the shell.
 
-## Installation
+## Install
 
 ```bash
-git clone https://github.com/TanGentleman/screenpipe-python-client.git
-cd screenpipe-python-client
-uv sync
+pip install git+https://github.com/TanGentleman/screenpipe-python-client
 ```
 
-## Quick Start
+## Use
 
-Verify the server connection:
+With screenpipe running on `localhost:3030`:
+
 ```bash
-uv run python cli/cli.py health-check
+screenpipe-client health-check
+screenpipe-client search --query standup --content-type audio --limit 5
 ```
 
-Use `ScreenpipeClient` from `src/core/screenpipe.py` as the Python interface. The server's routes
-are in [screenpipe-engine/src/server.rs](https://github.com/mediar-ai/screenpipe/blob/main/crates/screenpipe-engine/src/server.rs)
+```python
+from screenpipe_client import ScreenpipeClient
+
+with ScreenpipeClient() as client:
+    results = client.search(query="standup", content_type="audio", limit=5)
+    for hit in results["data"]:
+        print(hit["type"], hit["content"]["timestamp"], hit["content"]["text"])
+```
+
+Methods return screenpipe's JSON, or `None` if the request fails (the error is logged). The CLI
+prints the JSON and exits 1 on failure.
+
+If screenpipe has API auth on, set `SCREENPIPE_API_KEY` (from `screenpipe auth token`), or pass
+`api_key=` / `--api-key`. Use `--host` and `--port` for a non-default server.
+
+## Commands
+
+`search`, `health-check`, `list-audio-devices`, `list-monitors`, `add-tags-to-content`,
+`remove-tags-from-content`, `list-pipes`, `get-pipe-info`, `install-pipe`, `enable-pipe`,
+`disable-pipe`, `run-pipe`, `stop-pipe`. Run `screenpipe-client <command> --help` for options.
+
+The client also has `add_content`, `execute_raw_sql`, `get_unnamed_speakers` and `update_speaker`.
+screenpipe's routes are in
+[server.rs](https://github.com/mediar-ai/screenpipe/blob/main/crates/screenpipe-engine/src/server.rs)
 and the [API reference](https://docs.screenpi.pe/api-reference).
 
-## CLI Commands
+## Develop
 
-The CLI supports the following operations:
-
-- `search`: Search content with filters
-- `list-audio-devices`: List available audio devices
-- `add-tags-to-content`: Add tags to content items
-- `install-pipe`: Install a pipe from a URL or path
-- `enable-pipe` / `disable-pipe`: Turn a pipe's schedule on or off
-- `run-pipe`: Run a pipe once, now
-- `stop-pipe`: Stop a pipe's current run
-- `health-check`: Check server status
-- `list-monitors`: List available monitors
-- `list-pipes`: List available pipes
-- `get-pipe-info`: Get pipe details
-- `remove-tags-from-content`: Remove tags from content
-
-If screenpipe has API auth on, set `SCREENPIPE_API_KEY` (from `screenpipe auth token`) or pass
-`ScreenpipeClient(api_key=...)`.
-
-For detailed usage and parameters, run:
 ```bash
-python cli/cli.py --help
+uv sync
+uv run pytest
 ```
 
-## Community
+The tests run against an in-process fake server, so they don't need screenpipe.
 
-Have questions or found this useful? Feel free to:
-- Reach out on Discord
-- Open an issue or discussion on this repo
+## License
 
----
+MIT
