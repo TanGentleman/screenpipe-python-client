@@ -148,16 +148,12 @@ class ScreenpipeClient:
         """Check the health status of the ScreenPipe system.
         
         Returns:
-            Optional[Dict]: Health status containing:
-                - status: "healthy" or "unhealthy"
-                - last_frame_timestamp: Last frame processing time
-                - last_audio_timestamp: Last audio processing time  
-                - last_ui_timestamp: Last UI monitoring time
-                - frame_status: Status of frame processing
-                - audio_status: Status of audio processing
-                - ui_status: Status of UI monitoring
-                - message: Status message
-                - verbose_instructions: Troubleshooting steps if unhealthy
+            Optional[Dict]: screenpipe's HealthCheckResponse, including:
+                - status, status_code: e.g. "healthy", 200
+                - frame_status, audio_status, vision_reason, loop_stage
+                - last_frame_timestamp, last_audio_timestamp (may be None)
+                - capture_status: status, severity, reason, audio device counts
+                - message, verbose_instructions (troubleshooting, may be None)
         """
         return self._make_request("get", "health")
 
@@ -180,8 +176,9 @@ class ScreenpipeClient:
         
         Returns:
             Optional[Dict]: Search results containing:
-                - data: List of content items (OCR or Audio)
-                - pagination: Pagination info (limit, offset, total)
+                - data: hits like {"type": "OCR" | "Audio" | "Input" | "Memory"
+                  | "Parsed" | "UI", "content": {...}}
+                - pagination: limit, offset, total
         """
         # Validate content type
         if content_type and content_type not in self._valid_content_types:
@@ -343,7 +340,7 @@ class ScreenpipeClient:
                 - transcription_engine: Engine used for transcription
                 
         Returns:
-            Optional[Dict]: Success message
+            Optional[Dict]: {"success": bool, "message": str or None}
         """
         if content_type not in self._valid_add_types:
             raise ValueError(f"Invalid content_type. Must be one of: {self._valid_add_types}")
