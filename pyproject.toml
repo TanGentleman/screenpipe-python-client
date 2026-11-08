@@ -1,25 +1,19 @@
-[tool.poetry]
+[project]
 name = "screenpipe-python-client"
 version = "0.1.0"
-description = "Interface with the Screenpipe Rust API, and so, so much more!"
-authors = ["Tanuj <Tanuj@cmu.edu>"]
-license = "MIT"
+description = "Python client and CLI for the screenpipe REST API"
 readme = "README.md"
-packages = [
-    { include = "src" },
-]
+license = "MIT"
+authors = [{ name = "Tanuj", email = "Tanuj@cmu.edu" }]
+requires-python = ">=3.10"
+dependencies = ["httpx>=0.28.1,<1"]
 
-[tool.poetry.dependencies]
-python = "^3.10"
-openai = "^1.54.5"
-requests = "^2.32.3"
-fastapi = "^0.115.5"
-langchain-core = "^0.3.19"
-python-dotenv = "^1.0.1"
-uvicorn = "^0.32.0"
-baml-py = "^0.68.0"
-gnureadline = { version = "^8.2.13", markers = "platform_system != 'Windows'" }
+[dependency-groups]
+dev = ["pytest>=8"]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]

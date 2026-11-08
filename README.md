@@ -7,14 +7,14 @@ A Python client library and CLI for the [screenpipe](https://github.com/mediar-a
 ```bash
 git clone https://github.com/TanGentleman/screenpipe-python-client.git
 cd screenpipe-python-client
-poetry install
+uv sync
 ```
 
 ## Quick Start
 
 Verify the server connection:
 ```bash
-poetry run python cli/cli.py health-check
+uv run python cli/cli.py health-check
 ```
 
 Use `ScreenpipeClient` from `src/core/screenpipe.py` as the Python interface. The server's routes
