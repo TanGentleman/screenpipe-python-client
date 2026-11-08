@@ -19,16 +19,16 @@ classifiers = [
 [project.urls]
 Homepage = "https://github.com/TanGentleman/screenpipe-python-client"
 Issues = "https://github.com/TanGentleman/screenpipe-python-client/issues"
-screenpipe = "https://github.com/mediar-ai/screenpipe"
+screenpipe = "https://github.com/screenpipe/screenpipe"
 
 [project.scripts]
 screenpipe-client = "screenpipe_client.cli:main"
 
 [dependency-groups]
-dev = ["pytest>=8"]
+dev = ["pytest==9.2.0", "ruff==0.17.4"]
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling==1.33.0"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
