@@ -1,10 +1,9 @@
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 
 def format_timestamp(
         timestamp: str,
-        offset_hours: Optional[float] = None) -> str:
+        offset_hours: float | None = None) -> str:
     """Formats ISO UTC timestamp to UTC time with optional hour offset.
     Args:
         timestamp (str): ISO UTC timestamp (YYYY-MM-DDTHH:MM:SS[.ssssss]Z)
@@ -21,8 +20,8 @@ def format_timestamp(
         dt = datetime.strptime(
             timestamp.rstrip('Z').split('.')[0],
             "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
-    except ValueError:
-        raise ValueError(f"Invalid timestamp format: {timestamp}")
+    except ValueError as err:
+        raise ValueError(f"Invalid timestamp format: {timestamp}") from err
 
     if offset_hours is not None:
         dt = dt + timedelta(hours=offset_hours)

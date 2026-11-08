@@ -1,7 +1,7 @@
 import argparse
 import json
-import sys
 import logging
+import sys
 
 from .client import ScreenpipeClient
 
@@ -47,8 +47,7 @@ def main(argv=None) -> int:
         type=int,
         help="Maximum length of the content")
 
-    list_audio_devices_parser = subparsers.add_parser(
-        "list-audio-devices")  # No args
+    subparsers.add_parser("list-audio-devices")  # No args
 
     add_tags_to_content_parser = subparsers.add_parser("add-tags-to-content")
     add_tags_to_content_parser.add_argument(
@@ -71,11 +70,11 @@ def main(argv=None) -> int:
         pipe_parser = subparsers.add_parser(name, help=help_text)
         pipe_parser.add_argument("--pipe-id", help="The ID of the pipe")
 
-    health_check_parser = subparsers.add_parser("health-check")  # No args
+    subparsers.add_parser("health-check")  # No args
 
-    list_monitors_parser = subparsers.add_parser("list-monitors")
+    subparsers.add_parser("list-monitors")
 
-    list_pipes_parser = subparsers.add_parser("list-pipes")
+    subparsers.add_parser("list-pipes")
 
     get_pipe_info_parser = subparsers.add_parser("get-pipe-info")
     get_pipe_info_parser.add_argument("--pipe-id", help="The ID of the pipe")

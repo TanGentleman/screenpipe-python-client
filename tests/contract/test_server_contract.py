@@ -79,7 +79,7 @@ def route_for(method, path):
         pattern = re.sub(r"{\w+}", "([^/]+)", template)
         match = re.fullmatch(pattern, path)
         if route_method == method and match:
-            values = dict(zip(params, match.groups()))
+            values = dict(zip(params, match.groups(), strict=False))
             for name, allowed in route.get("path_params", {}).items():
                 assert values[name] in allowed, f"{key}: {name}={values[name]}"
             return key, route

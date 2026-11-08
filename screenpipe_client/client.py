@@ -1,10 +1,14 @@
 import json
 import logging
 import os
-from typing import Dict, List, Literal, Optional, Union
-from httpx import Client, AsyncClient, HTTPError
+from typing import Literal
+
+from httpx import AsyncClient, Client, HTTPError
 
 DEFAULT_SEARCH_LIMIT = 20
+
+SearchContentType = Literal[
+    "all", "ocr", "audio", "input", "accessibility", "memory", "parsed"]
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +17,7 @@ class ScreenpipeClient:
     """Client for interacting with the ScreenPipe API."""
 
     def __init__(self, port: int = 3030, host: str = "localhost",
-                 api_key: Optional[str] = None):
+                 api_key: str | None = None):
         """Initialize the ScreenPipe client.
 
         Args:
@@ -30,14 +34,14 @@ class ScreenpipeClient:
 
     def _configure_api(self, host: str, port: int) -> None:
         """Configure API connection settings.
-        
+
         Args:
             host: Host address for the ScreenPipe server
             port: Port number for the ScreenPipe server
         """
         self._base_url = f"http://{host}:{port}"
-        self._sync_session: Optional[Client] = None
-        self._async_session: Optional[AsyncClient] = None
+        self._sync_session: Client | None = None
+        self._async_session: AsyncClient | None = None
 
     def _configure_valid_types(self) -> None:
         """Configure valid content and tag types."""
@@ -50,7 +54,7 @@ class ScreenpipeClient:
     @property
     def sync_session(self) -> Client:
         """Get or create synchronous HTTP session.
-        
+
         Returns:
             Client: Synchronous HTTP client session
         """
@@ -61,7 +65,7 @@ class ScreenpipeClient:
     @property
     def async_session(self) -> AsyncClient:
         """Get or create asynchronous HTTP session.
-        
+
         Returns:
             AsyncClient: Asynchronous HTTP client session
         """
@@ -71,7 +75,7 @@ class ScreenpipeClient:
 
     def __enter__(self) -> 'ScreenpipeClient':
         """Context manager entry for synchronous usage.
-        
+
         Returns:
             ScreenpipeClient: The client instance
         """
@@ -83,7 +87,7 @@ class ScreenpipeClient:
 
     async def __aenter__(self) -> 'ScreenpipeClient':
         """Context manager entry for asynchronous usage.
-        
+
         Returns:
             ScreenpipeClient: The client instance
         """
@@ -97,7 +101,7 @@ class ScreenpipeClient:
             self,
             method: str,
             endpoint: str,
-            **kwargs) -> Optional[Dict]:
+            **kwargs) -> dict | None:
         """Make a synchronous HTTP request.
 
         Args:
@@ -121,7 +125,7 @@ class ScreenpipeClient:
             self,
             method: str,
             endpoint: str,
-            **kwargs) -> Optional[Dict]:
+            **kwargs) -> dict | None:
         """Make an asynchronous HTTP request."""
         try:
             url = f"{self._base_url}/{endpoint.lstrip('/')}"
@@ -144,9 +148,9 @@ class ScreenpipeClient:
             await self._async_session.aclose()
             self._async_session = None
 
-    def health_check(self) -> Optional[Dict]:
+    def health_check(self) -> dict | None:
         """Check the health status of the ScreenPipe system.
-        
+
         Returns:
             Optional[Dict]: screenpipe's HealthCheckResponse, including:
                 - status, status_code: e.g. "healthy", 200
@@ -160,20 +164,20 @@ class ScreenpipeClient:
     def search(
         self,
         limit: int = DEFAULT_SEARCH_LIMIT,
-        query: Optional[str] = None,
-        content_type: Optional[Literal["all", "ocr", "audio", "input", "accessibility", "memory", "parsed"]] = "all",
-        offset: Optional[int] = None,
-        start_time: Optional[str] = None,
-        end_time: Optional[str] = None,
-        app_name: Optional[str] = None,
-        window_name: Optional[str] = None,
+        query: str | None = None,
+        content_type: SearchContentType | None = "all",
+        offset: int | None = None,
+        start_time: str | None = None,
+        end_time: str | None = None,
+        app_name: str | None = None,
+        window_name: str | None = None,
         include_frames: bool = False,
-        min_length: Optional[int] = None,
-        max_length: Optional[int] = None,
-        speaker_ids: Optional[List[int]] = None
-    ) -> Optional[Dict]:
+        min_length: int | None = None,
+        max_length: int | None = None,
+        speaker_ids: list[int] | None = None
+    ) -> dict | None:
         """Search captured data in ScreenPipe's database.
-        
+
         Returns:
             Optional[Dict]: Search results containing:
                 - data: hits like {"type": "OCR" | "Audio" | "Input" | "Memory"
@@ -204,17 +208,17 @@ class ScreenpipeClient:
 
         return self._make_request("get", "search", params=params)
 
-    def list_audio_devices(self) -> Optional[List]:
+    def list_audio_devices(self) -> list | None:
         """List all available audio devices.
-        
+
         Returns:
             Optional[List]: List of audio devices with name and default status
         """
         return self._make_request("get", "audio/list")
 
-    def list_monitors(self) -> Optional[List]:
+    def list_monitors(self) -> list | None:
         """List all available monitors.
-        
+
         Returns:
             Optional[List]: List of monitors with id, name, dimensions and default status
         """
@@ -235,9 +239,9 @@ class ScreenpipeClient:
             self,
             content_type: str,
             id: int,
-            tags: List[str]) -> Optional[Dict]:
+            tags: list[str]) -> dict | None:
         """Add tags to content items.
-        
+
         Returns:
             Optional[Dict]: Success status
         """
@@ -252,9 +256,9 @@ class ScreenpipeClient:
             self,
             content_type: str,
             id: int,
-            tags: List[str]) -> Optional[Dict]:
+            tags: list[str]) -> dict | None:
         """Remove tags from content items.
-        
+
         Returns:
             Optional[Dict]: Success status
         """
@@ -278,42 +282,42 @@ class ScreenpipeClient:
                 return response["data"]
         return response
 
-    def list_pipes(self) -> Optional[List]:
+    def list_pipes(self) -> list | None:
         """List installed pipes."""
         return self._pipe_request("get", "pipes")
 
-    def get_pipe_info(self, pipe_id: str) -> Optional[Dict]:
+    def get_pipe_info(self, pipe_id: str) -> dict | None:
         """Get one pipe's config and status."""
         return self._pipe_request("get", f"pipes/{pipe_id}")
 
-    def install_pipe(self, source: str) -> Optional[Dict]:
+    def install_pipe(self, source: str) -> dict | None:
         """Install a pipe from a URL or local path."""
         return self._pipe_request(
             "post", "pipes/install", json={"source": source}, timeout=30)
 
     download_pipe = install_pipe
 
-    def enable_pipe(self, pipe_id: str, enabled: bool = True) -> Optional[Dict]:
+    def enable_pipe(self, pipe_id: str, enabled: bool = True) -> dict | None:
         """Enable or disable a pipe's schedule."""
         return self._pipe_request(
             "post", f"pipes/{pipe_id}/enable", json={"enabled": enabled})
 
-    def run_pipe(self, pipe_id: str) -> Optional[Dict]:
+    def run_pipe(self, pipe_id: str) -> dict | None:
         """Run a pipe once, now."""
         return self._pipe_request("post", f"pipes/{pipe_id}/run")
 
-    def stop_pipe(self, pipe_id: str) -> Optional[Dict]:
+    def stop_pipe(self, pipe_id: str) -> dict | None:
         """Stop a pipe's current run."""
         return self._pipe_request("post", f"pipes/{pipe_id}/stop")
 
     def update_pipe_configuration(
             self,
             pipe_id: str,
-            config: Dict) -> Optional[Dict]:
+            config: dict) -> dict | None:
         """Merge config keys into a pipe's config."""
         return self._pipe_request("post", f"pipes/{pipe_id}/config", json=config)
 
-    def delete_pipe(self, pipe_id: str) -> Optional[Dict]:
+    def delete_pipe(self, pipe_id: str) -> dict | None:
         """Delete a pipe."""
         return self._pipe_request("delete", f"pipes/{pipe_id}")
 
@@ -321,10 +325,10 @@ class ScreenpipeClient:
             self,
             device_name: str,
             content_type: str,
-            frames: Optional[List[Dict]] = None,
-            transcription: Optional[Dict] = None) -> Optional[Dict]:
+            frames: list[dict] | None = None,
+            transcription: dict | None = None) -> dict | None:
         """Add content (frames or transcription) to the database.
-        
+
         Args:
             device_name: Name of the device
             content_type: Type of content ("frames" or "transcription")
@@ -338,7 +342,7 @@ class ScreenpipeClient:
             transcription: Audio transcription data including:
                 - transcription: Transcription text
                 - transcription_engine: Engine used for transcription
-                
+
         Returns:
             Optional[Dict]: {"success": bool, "message": str or None}
         """
@@ -358,12 +362,12 @@ class ScreenpipeClient:
             }
         )
 
-    def execute_raw_sql(self, query: str) -> Optional[List[Dict]]:
+    def execute_raw_sql(self, query: str) -> list[dict] | None:
         """Execute raw SQL query against the database.
-        
+
         Args:
             query: SQL query string
-            
+
         Returns:
             Optional[List[Dict]]: List of query results as dictionaries
         """
@@ -373,12 +377,12 @@ class ScreenpipeClient:
             json={"query": query}
         )
 
-    def merge_frames(self, video_paths: List[str]) -> Optional[Dict]:
+    def merge_frames(self, video_paths: list[str]) -> dict | None:
         """Merge multiple video frames into a single video.
-        
+
         Args:
             video_paths: List of paths to video files to merge
-            
+
         Returns:
             Optional[Dict]: Path to merged video file
         """
@@ -388,12 +392,12 @@ class ScreenpipeClient:
             json={"video_paths": video_paths}
         )
 
-    def validate_media(self, file_path: str) -> Optional[Dict]:
+    def validate_media(self, file_path: str) -> dict | None:
         """Validate a media file.
-        
+
         Args:
             file_path: Path to media file to validate
-            
+
         Returns:
             Optional[Dict]: Validation status
         """
@@ -405,18 +409,18 @@ class ScreenpipeClient:
 
     # Add new speaker-related methods
     def get_unnamed_speakers(
-        self, 
+        self,
         limit: int = DEFAULT_SEARCH_LIMIT,
         offset: int = 0,
-        speaker_ids: Optional[List[int]] = None
-    ) -> Optional[List[Dict]]:
+        speaker_ids: list[int] | None = None
+    ) -> list[dict] | None:
         """Get unnamed speakers.
-        
+
         Args:
             limit: Maximum number of results to return
             offset: Pagination offset
             speaker_ids: List of speaker IDs to include
-            
+
         Returns:
             Optional[List[Dict]]: List of unnamed speakers
         """
@@ -431,9 +435,9 @@ class ScreenpipeClient:
     def update_speaker(
         self,
         speaker_id: int,
-        name: Optional[str] = None,
-        metadata: Optional[Union[Dict, str]] = None
-    ) -> Optional[Dict]:
+        name: str | None = None,
+        metadata: dict | str | None = None
+    ) -> dict | None:
         """Update a speaker's name and/or metadata.
 
         screenpipe stores metadata as a JSON string; a dict is encoded for you.
