@@ -36,7 +36,8 @@ Cut: generated `src/baml_client/` and `src/baml_src/`, the Open-WebUI functions 
 
 - `-1` done: dead links, timestamp fixes, offline tests with a fake server (live tests behind
   `SCREENPIPE_LIVE=1`), CLI exit code, GitHub Actions.
-- `-2` planned: current screenpipe API (pipe routes, bearer auth via `SCREENPIPE_API_KEY`).
+- `-2` done: current screenpipe API (pipe routes, bearer auth via `SCREENPIPE_API_KEY`, new
+  content types) and the matching CLI commands, tested against a fake server.
 - `-3` planned: cut to client + CLI; Poetry to uv with a lockfile; `httpx` as the only dependency.
 - `-4` planned: real package name, `screenpipe-client` console script, 30-second README.
 
