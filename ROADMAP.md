@@ -40,7 +40,9 @@ Cut: generated `src/baml_client/` and `src/baml_src/`, the Open-WebUI functions 
   content types) and the matching CLI commands, tested against a fake server.
 - `-3` done: cut to client + CLI (-5,200 lines, 51 files); Poetry to uv with `uv.lock`; `httpx` is
   the only dependency; CI on 3.10 and 3.13.
-- `-4` planned: real package name, `screenpipe-client` console script, 30-second README.
+- `-4` done: package renamed `src` -> `screenpipe_client`, `screenpipe-client` console script with
+  `--host/--port/--api-key`, library no longer calls `logging.basicConfig`, PyPI metadata
+  (`uv build` + `twine check` pass), new README.
 
 ## Applying a branch upstream
 
@@ -50,13 +52,23 @@ a clean upstream clone at `997496a`:
 ```bash
 git format-patch --relative=screenpipe-python-client -o /tmp/spc-1 b369f08..screenpipe-python-client-1
 git format-patch --relative=screenpipe-python-client -o /tmp/spc-2 screenpipe-python-client-1..screenpipe-python-client-2
-cd screenpipe-python-client && git am /tmp/spc-1/*.patch    # then /tmp/spc-2, and so on
+git format-patch --relative=screenpipe-python-client -o /tmp/spc-3 screenpipe-python-client-2..screenpipe-python-client-3
+git format-patch --relative=screenpipe-python-client -o /tmp/spc-4 screenpipe-python-client-3..screenpipe-python-client-4
+cd screenpipe-python-client && git am /tmp/spc-1/*.patch    # then /tmp/spc-2, -3, -4 in order
 uv venv && uv pip install -e . pytest && .venv/bin/pytest -q   # -1 and -2
 uv run pytest -q                                              # -3 and later
 ```
 
+Verified: all four apply in order with plain `git am` to a fresh clone, and the tests pass after
+each one.
+
 ## Needs Tan
 
-- Live tests and the Open-WebUI/LLM paths were not run: no screenpipe install or LLM key here.
+- Nothing was run against a real screenpipe. Route and response shapes come from screenpipe's source
+  at `32e9049` (Nov 2026) and are covered by fake-server tests.
+- Breaking for SDK users: `-2` makes `run_pipe` run once (use `enable_pipe` to schedule); `-3`
+  drops `SearchOutput`, `HealthCheck` and the Open-WebUI/BAML code; `-4` changes the import to
+  `from screenpipe_client import ScreenpipeClient`.
+- PyPI: the name `screenpipe-python-client` is free (pypi.org returns 404). Not published.
 - The `.github/workflows/test.yml` only runs once applied upstream (kranti-sandbox ignores nested workflows).
 - Cutting the Open-WebUI pipe (`-3`) drops the code issue #48 is about; close it with a note if you agree.
