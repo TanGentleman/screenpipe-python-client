@@ -83,10 +83,11 @@ audio) only returned their headless errors. Pipe install/enable/run/stop/config/
 - `-7` done: an unknown `--content-type` (`search`, `add-tags-to-content`,
   `remove-tags-from-content`) is an argparse usage error (`choices`, exit 2) instead of a
   `ValueError` traceback with exit 1; README exit-code table updated; tests for all three commands.
+- `-8` done: README cut to 29 words; details moved to IMPLEMENTATION.md.
 
 ## Applying a branch upstream
 
-`b369f08` is the kranti-sandbox import commit. Run the seven `format-patch` lines in a kranti-sandbox
+`b369f08` is the kranti-sandbox import commit. Run the eight `format-patch` lines in a kranti-sandbox
 clone, the rest in a clean upstream clone at `997496a`:
 
 ```bash
@@ -97,13 +98,14 @@ git format-patch --relative=screenpipe-python-client -o /tmp/spc-4 origin/screen
 git format-patch --relative=screenpipe-python-client -o /tmp/spc-5 origin/screenpipe-python-client-4..origin/screenpipe-python-client-5
 git format-patch --relative=screenpipe-python-client -o /tmp/spc-6 origin/screenpipe-python-client-5..origin/screenpipe-python-client-6
 git format-patch --relative=screenpipe-python-client -o /tmp/spc-7 origin/screenpipe-python-client-6..origin/screenpipe-python-client-7
-cd screenpipe-python-client && git am /tmp/spc-1/*.patch    # then /tmp/spc-2 ... /tmp/spc-7 in order
+git format-patch --relative=screenpipe-python-client -o /tmp/spc-8 origin/screenpipe-python-client-7..origin/screenpipe-python-client-8
+cd screenpipe-python-client && git am /tmp/spc-1/*.patch    # then /tmp/spc-2 ... /tmp/spc-8 in order
 uv venv && uv pip install -e . pytest && .venv/bin/pytest -q   # -1 and -2
 uv run pytest -q                                              # -3 to -5
-uv sync --locked && uv run ruff check . && uv run pytest -q   # -6 and -7
+uv sync --locked && uv run ruff check . && uv run pytest -q   # -6 to -8
 ```
 
-Verified: all seven apply in order with plain `git am` to a fresh clone, and the tests pass after
+Verified: all eight apply in order with plain `git am` to a fresh clone, and the tests pass after
 each one. `git am` of `-5` prints a harmless "new blank line at EOF" warning.
 
 ## Needs Tan
