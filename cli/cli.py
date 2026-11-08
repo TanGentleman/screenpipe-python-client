@@ -1,7 +1,6 @@
-import requests
-import logging
 import argparse
 import json
+import sys
 from src import ScreenpipeClient, SearchOutput, HealthCheck
 
 
@@ -159,6 +158,19 @@ def main():
     args = parser.parse_args()
 
     client = ScreenpipeClient()
+    if args.command is None:
+        args.command = "health-check"
+    response = run_command(client, args)
+    if response is None:
+        print("Request failed. Is screenpipe running on localhost:3030?",
+              file=sys.stderr)
+        return 1
+    print(json.dumps(response, indent=4))
+    return 0
+
+
+def run_command(client: ScreenpipeClient, args: argparse.Namespace):
+    """Run one subcommand and return its JSON-ready response, or None on failure."""
     if args.command == "search":
         results = client.search(
             query=args.query,
@@ -173,78 +185,36 @@ def main():
             min_length=args.min_length,
             max_length=args.max_length
         )
-        if results:
-            try:
-                results = SearchOutput(results)
-                print(json.dumps(results.to_dict(), indent=4))
-            except Exception as e:
-                print(f"Error converting results: {e}")
-
-    elif args.command == "list-audio-devices":
-        devices = client.list_audio_devices()
-        if devices:
-            print(json.dumps(devices, indent=4))
-
-    elif args.command == "add-tags-to-content":
-        response = client.add_tags_to_content(
-            args.content_type, args.id, args.tags)
-        if response:
-            print(json.dumps(response, indent=4))
-
-    elif args.command == "download-pipe":
-        response = client.download_pipe(args.url)
-        if response:
-            print(json.dumps(response, indent=4))
-
-    elif args.command == "run-pipe":
-        response = client.run_pipe(args.pipe_id)
-        if response:
-            print(json.dumps(response, indent=4))
-
-    elif args.command == "stop-pipe":
-        response = client.stop_pipe(args.pipe_id)
-        if response:
-            print(json.dumps(response, indent=4))
-
-    elif args.command == "health-check":
+        return SearchOutput(results).to_dict() if results else None
+    if args.command == "health-check":
         status = client.health_check()
-        if status:
-            try:
-                status = HealthCheck(**status)
-                print(json.dumps(status.to_dict(), indent=4))
-            except Exception as e:
-                print(f"Error converting status!")
-                print(json.dumps(status, indent=4))
-
-    elif args.command == "list-monitors":
-        monitors = client.list_monitors()
-        if monitors:
-            print(json.dumps(monitors, indent=4))
-
-    elif args.command == "list-pipes":
-        pipes = client.list_pipes()
-        if pipes:
-            print(json.dumps(pipes, indent=4))
-
-    elif args.command == "get-pipe-info":
-        info = client.get_pipe_info(args.pipe_id)
-        if info:
-            print(json.dumps(info, indent=4))
-
-    elif args.command == "remove-tags-from-content":
-        response = client.remove_tags_from_content(
+        if not status:
+            return None
+        try:
+            return HealthCheck(**status).to_dict()
+        except Exception:
+            return status
+    if args.command == "list-audio-devices":
+        return client.list_audio_devices()
+    if args.command == "list-monitors":
+        return client.list_monitors()
+    if args.command == "list-pipes":
+        return client.list_pipes()
+    if args.command == "get-pipe-info":
+        return client.get_pipe_info(args.pipe_id)
+    if args.command == "download-pipe":
+        return client.download_pipe(args.url)
+    if args.command == "run-pipe":
+        return client.run_pipe(args.pipe_id)
+    if args.command == "stop-pipe":
+        return client.stop_pipe(args.pipe_id)
+    if args.command == "add-tags-to-content":
+        return client.add_tags_to_content(args.content_type, args.id, args.tags)
+    if args.command == "remove-tags-from-content":
+        return client.remove_tags_from_content(
             args.content_type, args.id, args.tags)
-        if response:
-            print(json.dumps(response, indent=4))
-
-    else:
-        # Run health check to verify connection
-        status = client.health_check()
-        if status:
-            print(json.dumps(status, indent=4))
-        else:
-            print("Failed to connect to the server. Please try again.")
+    raise ValueError(f"Unknown command: {args.command}")
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
