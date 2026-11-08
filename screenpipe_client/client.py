@@ -3,7 +3,10 @@ import os
 from typing import Dict, List, Literal, Optional
 from httpx import Client, AsyncClient, HTTPError
 
-DEFAULT_SEARCH_LIMIT = 20  # Updated to match server default
+DEFAULT_SEARCH_LIMIT = 20
+
+logger = logging.getLogger(__name__)
+
 
 class ScreenpipeClient:
     """Client for interacting with the ScreenPipe API."""
@@ -18,19 +21,11 @@ class ScreenpipeClient:
             api_key (str): Sent as a Bearer token when screenpipe has API auth on.
                 Defaults to the SCREENPIPE_API_KEY environment variable.
         """
-        self._configure_logging()
+        self.logger = logger
         self._configure_api(host, port)
         api_key = api_key or os.environ.get("SCREENPIPE_API_KEY")
         self._headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
         self._configure_valid_types()
-
-    def _configure_logging(self) -> None:
-        """Configure logging settings."""
-        logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s - %(levelname)s - %(message)s'
-        )
-        self.logger = logging.getLogger(__name__)
 
     def _configure_api(self, host: str, port: int) -> None:
         """Configure API connection settings.
@@ -118,8 +113,7 @@ class ScreenpipeClient:
             response.raise_for_status()
             return response.json()
         except HTTPError as e:
-            self.logger.error("API request failed!")
-            self.logger.debug(f"Error: {e}")
+            self.logger.error("API request failed: %s", e)
             return None
 
     async def _make_request_async(
@@ -134,8 +128,7 @@ class ScreenpipeClient:
             response.raise_for_status()
             return response.json()
         except HTTPError as e:
-            self.logger.error("API request failed!")
-            self.logger.debug(f"Error: {e}")
+            self.logger.error("API request failed: %s", e)
             return None
 
     def close(self) -> None:
@@ -211,8 +204,6 @@ class ScreenpipeClient:
         # Remove None values
         params = {k: v for k, v in params.items() if v is not None}
 
-        self.logger.info(
-            f"Searching for {limit} chunks. Type: {content_type or 'all'}")
         return self._make_request("get", "search", params=params)
 
     def list_audio_devices(self) -> Optional[List]:
@@ -460,35 +451,3 @@ class ScreenpipeClient:
         if metadata:
             payload["metadata"] = metadata
         return self._make_request("post", "speakers/update", json=payload)
-
-    def stream_frames(
-        self,
-        start_time: str,
-        end_time: str
-    ) -> Optional[Dict]:
-        """Stream frames between specified timestamps.
-        
-        Args:
-            start_time: Start timestamp in ISO format
-            end_time: End timestamp in ISO format
-            
-        Returns:
-            Optional[Dict]: Streaming response (SSE)
-        """
-        return self._make_request(
-            "get",
-            "stream/frames",
-            params={
-                "start_time": start_time,
-                "end_time": end_time
-            }
-        )
-
-
-if __name__ == "__main__":
-    with ScreenpipeClient() as client:
-        health = client.health_check()
-        if health and health.get("status") == "healthy":
-            print("Screenpipe is active")
-        else:
-            print("Screenpipe is not active")

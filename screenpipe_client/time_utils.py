@@ -39,28 +39,3 @@ def get_past_time(days: int = 0, weeks: int = 0, months: int = 0,
     delta = timedelta(days=days + weeks * 7 + months * 30,
                       hours=hours, minutes=minutes)
     return (datetime.now(timezone.utc) - delta).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def persistent_stamper():
-    while True:
-        timestamp = input("Enter a timestamp (or 'q' to quit): ")
-        if timestamp.lower() == 'q':
-            break
-        try:
-            print(format_timestamp(timestamp))
-        except ValueError:
-            print("Invalid timestamp format. Please use YYYY-MM-DDTHH:MM:SS.ssssssZ")
-
-
-def main():
-    print("Welcome! Current timestamp:")
-    current_timestamp = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-    print(current_timestamp)
-    print("Converted to your local time:")
-    print(format_timestamp(current_timestamp))
-    print("Converted to current timezone:")
-    print(format_timestamp(current_timestamp, offset_hours=-7))
-
-
-if __name__ == "__main__":
-    main()
