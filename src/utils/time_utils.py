@@ -18,8 +18,9 @@ def format_timestamp(
         raise ValueError("Timestamp must be a string")
 
     try:
-        dt = datetime.strptime(timestamp.split(
-            '.')[0] + 'Z', "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        dt = datetime.strptime(
+            timestamp.rstrip('Z').split('.')[0],
+            "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
     except ValueError:
         raise ValueError(f"Invalid timestamp format: {timestamp}")
 
@@ -37,7 +38,7 @@ def get_past_time(days: int = 0, weeks: int = 0, months: int = 0,
     """
     delta = timedelta(days=days + weeks * 7 + months * 30,
                       hours=hours, minutes=minutes)
-    return (datetime.now() - delta).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return (datetime.now(timezone.utc) - delta).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def persistent_stamper():
