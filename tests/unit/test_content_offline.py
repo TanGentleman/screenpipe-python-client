@@ -1,4 +1,6 @@
 """add_content and speaker calls against a fake server."""
+import json
+
 import pytest
 
 from screenpipe_client import ScreenpipeClient
@@ -43,3 +45,15 @@ def test_add_content_needs_matching_payload(client):
     with pytest.raises(ValueError):
         client.add_content("cam", "frames", transcription={"transcription": "x"})
 
+
+def test_update_speaker_sends_metadata_as_json_string(client, fake):
+    assert client.update_speaker(3, name="Ada", metadata={"role": "pm"})["name"] == "Ada"
+    body = fake.requests[-1]["json"]
+    assert body["id"] == 3 and body["name"] == "Ada"
+    assert isinstance(body["metadata"], str)
+    assert json.loads(body["metadata"]) == {"role": "pm"}
+
+
+def test_update_speaker_passes_string_metadata_through(client, fake):
+    client.update_speaker(3, metadata='{"role": "pm"}')
+    assert fake.requests[-1]["json"] == {"id": 3, "metadata": '{"role": "pm"}'}

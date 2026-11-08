@@ -1,6 +1,7 @@
+import json
 import logging
 import os
-from typing import Dict, List, Literal, Optional
+from typing import Dict, List, Literal, Optional, Union
 from httpx import Client, AsyncClient, HTTPError
 
 DEFAULT_SEARCH_LIMIT = 20
@@ -434,12 +435,16 @@ class ScreenpipeClient:
         self,
         speaker_id: int,
         name: Optional[str] = None,
-        metadata: Optional[Dict] = None
+        metadata: Optional[Union[Dict, str]] = None
     ) -> Optional[Dict]:
-        """Update speaker information."""
+        """Update a speaker's name and/or metadata.
+
+        screenpipe stores metadata as a JSON string; a dict is encoded for you.
+        """
         payload = {"id": speaker_id}
         if name:
             payload["name"] = name
         if metadata:
-            payload["metadata"] = metadata
+            payload["metadata"] = (
+                metadata if isinstance(metadata, str) else json.dumps(metadata))
         return self._make_request("post", "speakers/update", json=payload)
