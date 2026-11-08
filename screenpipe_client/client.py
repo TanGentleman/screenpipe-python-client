@@ -42,7 +42,7 @@ class ScreenpipeClient:
     def _configure_valid_types(self) -> None:
         """Configure valid content and tag types."""
         self._valid_content_types = frozenset(
-            {"all", "ocr", "audio", "input", "accessibility", "memory"})
+            {"all", "ocr", "audio", "input", "accessibility", "memory", "parsed"})
         self._valid_tag_types = frozenset({"audio", "vision"})
         # Add new valid types for content addition
         self._valid_add_types = frozenset({"frames", "transcription"})
@@ -165,7 +165,7 @@ class ScreenpipeClient:
         self,
         limit: int = DEFAULT_SEARCH_LIMIT,
         query: Optional[str] = None,
-        content_type: Optional[Literal["all", "ocr", "audio", "input", "accessibility", "memory"]] = "all",
+        content_type: Optional[Literal["all", "ocr", "audio", "input", "accessibility", "memory", "parsed"]] = "all",
         offset: Optional[int] = None,
         start_time: Optional[str] = None,
         end_time: Optional[str] = None,

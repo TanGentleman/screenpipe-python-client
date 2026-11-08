@@ -21,7 +21,7 @@ def main(argv=None) -> int:
     search_parser.add_argument("--query", help="The search term")
     search_parser.add_argument(
         "--content-type",
-        help="all, ocr, audio, input, accessibility or memory")
+        help="all, ocr, audio, input, accessibility, memory or parsed")
     search_parser.add_argument(
         "--limit",
         type=int,

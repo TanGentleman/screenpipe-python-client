@@ -79,7 +79,7 @@ def test_api_key_from_env(fake, monkeypatch):
     assert fake.requests[-1]["headers"]["Authorization"] == "Bearer k2"
 
 
-@pytest.mark.parametrize("content_type", ["input", "accessibility", "memory"])
+@pytest.mark.parametrize("content_type", ["input", "accessibility", "memory", "parsed"])
 def test_search_accepts_current_content_types(client, fake, content_type):
     client.search(content_type=content_type)
     assert fake.requests[-1]["query"]["content_type"] == content_type
