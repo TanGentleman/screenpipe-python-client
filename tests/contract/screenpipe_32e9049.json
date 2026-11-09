@@ -1,0 +1,1507 @@
+{
+  "upstream": {
+    "repo": "https://github.com/screenpipe/screenpipe",
+    "commit": "32e90499f96da33b687e6b3a6df9992251b12efa",
+    "router": "crates/screenpipe-engine/src/server.rs (Server::axum, pipe_routes nested at /pipes)",
+    "note": "Hand-written from the Rust request/response types at this commit. The checked-in openapi.yaml lags the Rust source, so the Rust types win. Schemas list the fields the client sends or reads; responses allow extra fields."
+  },
+  "auth": {
+    "header": "Authorization",
+    "scheme": "Bearer",
+    "rejected_status": 403,
+    "source": "crates/screenpipe-engine/src/server.rs is_api_auth_exempt_path and the api auth middleware",
+    "exempt_paths": [
+      "/health",
+      "/ws/health",
+      "/audio/device/status",
+      "/vision/device/status",
+      "/connections/oauth/callback",
+      "/connections/browser/pair/start",
+      "/connections/browser/pair/status",
+      "/notify"
+    ],
+    "exempt_path_prefixes": [
+      "/pipes/store"
+    ],
+    "exempt_path_patterns": [
+      "/mcp-servers/*/oauth/callback"
+    ]
+  },
+  "routes": {
+    "GET /health": {
+      "source": "crates/screenpipe-engine/src/routes/health.rs HealthCheckResponse, CaptureStatusInfo",
+      "auth_exempt": true,
+      "response": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "status_code": {
+            "type": "integer"
+          },
+          "frame_status": {
+            "type": "string"
+          },
+          "vision_reason": {
+            "type": "string"
+          },
+          "loop_stage": {
+            "type": "string"
+          },
+          "audio_capture_mode": {
+            "type": "string"
+          },
+          "audio_status": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "last_frame_timestamp": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_audio_timestamp": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "capture_status": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string"
+              },
+              "severity": {
+                "enum": [
+                  "ok",
+                  "waiting",
+                  "warning"
+                ]
+              },
+              "reason": {
+                "type": "string"
+              },
+              "audio_disabled": {
+                "type": "boolean"
+              },
+              "active_audio_devices": {
+                "type": "integer"
+              },
+              "paused_audio_devices": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "active_audio_devices",
+              "audio_disabled",
+              "paused_audio_devices",
+              "reason",
+              "severity",
+              "status"
+            ]
+          }
+        },
+        "required": [
+          "audio_capture_mode",
+          "audio_status",
+          "capture_status",
+          "frame_status",
+          "last_audio_timestamp",
+          "last_frame_timestamp",
+          "loop_stage",
+          "message",
+          "status",
+          "status_code",
+          "vision_reason"
+        ]
+      },
+      "example": {
+        "status": "healthy",
+        "status_code": 200,
+        "dependencies": {},
+        "runtime": {},
+        "startup": {},
+        "unhealthy_reasons": [],
+        "last_frame_timestamp": "2026-11-06T17:00:00Z",
+        "last_audio_timestamp": "2026-11-06T17:00:00Z",
+        "frame_status": "ok",
+        "vision_reason": "ok",
+        "loop_stage": "idle",
+        "loop_stage_age_secs": 1,
+        "audio_capture_mode": "continuous",
+        "audio_status": "ok",
+        "message": "all systems are functioning normally.",
+        "verbose_instructions": null,
+        "device_status_details": null,
+        "capture_status": {
+          "status": "ok",
+          "severity": "ok",
+          "reason": "ok",
+          "audio_disabled": false,
+          "active_audio_devices": 1,
+          "paused_audio_devices": 0
+        }
+      }
+    },
+    "GET /search": {
+      "source": "crates/screenpipe-engine/src/routes/search.rs SearchQuery, PaginationQuery, SearchResponse, StarredSearchHit; crates/screenpipe-engine/src/routes/content.rs ContentItem, OCRContent, AudioContent, PaginationInfo",
+      "query": {
+        "type": "object",
+        "properties": {
+          "q": {
+            "type": "string"
+          },
+          "starred_session_id": {
+            "type": "string"
+          },
+          "starred_only": {
+            "type": "boolean"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "content_type": {
+            "enum": [
+              "all",
+              "ocr",
+              "audio",
+              "input",
+              "accessibility",
+              "memory",
+              "parsed"
+            ]
+          },
+          "order": {
+            "enum": [
+              "ascending",
+              "descending"
+            ]
+          },
+          "input_context_only": {
+            "type": "boolean"
+          },
+          "start_time": {
+            "type": "string"
+          },
+          "end_time": {
+            "type": "string"
+          },
+          "app_name": {
+            "type": "string"
+          },
+          "window_name": {
+            "type": "string"
+          },
+          "frame_id": {
+            "type": "integer"
+          },
+          "actor_id": {
+            "type": "integer"
+          },
+          "frame_name": {
+            "type": "string"
+          },
+          "include_frames": {
+            "type": "boolean"
+          },
+          "min_length": {
+            "type": "integer"
+          },
+          "max_length": {
+            "type": "integer"
+          },
+          "speaker_ids": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(,-?[0-9]+)*$"
+          },
+          "focused": {
+            "type": "boolean"
+          },
+          "on_screen": {
+            "type": "boolean"
+          },
+          "browser_url": {
+            "type": "string"
+          },
+          "speaker_name": {
+            "type": "string"
+          },
+          "include_cloud": {
+            "type": "boolean"
+          },
+          "max_content_length": {
+            "type": "integer"
+          },
+          "device_name": {
+            "type": "string"
+          },
+          "machine_id": {
+            "type": "string"
+          },
+          "filter_pii": {
+            "type": "boolean"
+          },
+          "tags": {
+            "type": "string"
+          },
+          "include_related": {
+            "type": "boolean"
+          },
+          "format": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "string"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "response": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "type",
+                "content"
+              ],
+              "properties": {
+                "type": {
+                  "enum": [
+                    "OCR",
+                    "Audio",
+                    "UI",
+                    "Input",
+                    "Memory",
+                    "Parsed"
+                  ]
+                },
+                "content": {
+                  "type": "object"
+                },
+                "starred": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "limit": {
+                "type": "integer"
+              },
+              "offset": {
+                "type": "integer"
+              },
+              "total": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "limit",
+              "offset",
+              "total"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "data",
+          "pagination"
+        ]
+      },
+      "example": {
+        "data": [
+          {
+            "type": "OCR",
+            "content": {
+              "frame_id": 7,
+              "text": "standup notes",
+              "timestamp": "2026-11-06T17:00:00Z",
+              "file_path": "/data/monitor_1.mp4",
+              "offset_index": 3,
+              "app_name": "Notes",
+              "window_name": "standup",
+              "tags": [],
+              "frame": null,
+              "frame_name": null,
+              "browser_url": null,
+              "focused": true,
+              "device_name": "monitor_1",
+              "text_source": "accessibility",
+              "event_source": "typing_pause"
+            }
+          },
+          {
+            "type": "Audio",
+            "content": {
+              "chunk_id": 9,
+              "transcription": "standup starts now",
+              "text": "standup starts now",
+              "timestamp": "2026-11-06T17:01:00Z",
+              "file_path": "/data/mic.mp4",
+              "offset_index": 0,
+              "tags": [],
+              "device_name": "MacBook Pro Microphone",
+              "device_type": "Input",
+              "speaker": {
+                "id": 3,
+                "name": "Ada",
+                "metadata": "{}"
+              },
+              "speaker_label": null,
+              "speaker_source": null,
+              "speaker_confidence": null,
+              "speaker_provisional": false,
+              "start_time": 0.0,
+              "end_time": 2.5
+            }
+          }
+        ],
+        "pagination": {
+          "limit": 5,
+          "offset": 0,
+          "total": 2
+        }
+      },
+      "content_by_type": {
+        "OCR": {
+          "type": "object",
+          "properties": {
+            "frame_id": {
+              "type": "integer"
+            },
+            "text": {
+              "type": "string"
+            },
+            "timestamp": {
+              "type": "string"
+            },
+            "file_path": {
+              "type": "string"
+            },
+            "offset_index": {
+              "type": "integer"
+            },
+            "app_name": {
+              "type": "string"
+            },
+            "window_name": {
+              "type": "string"
+            },
+            "tags": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "frame": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "frame_name": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "browser_url": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "focused": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            },
+            "device_name": {
+              "type": "string"
+            },
+            "text_source": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "event_source": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "app_name",
+            "device_name",
+            "file_path",
+            "frame_id",
+            "offset_index",
+            "tags",
+            "text",
+            "timestamp",
+            "window_name"
+          ]
+        },
+        "Audio": {
+          "type": "object",
+          "properties": {
+            "chunk_id": {
+              "type": "integer"
+            },
+            "transcription": {
+              "type": "string"
+            },
+            "text": {
+              "type": "string"
+            },
+            "timestamp": {
+              "type": "string"
+            },
+            "file_path": {
+              "type": "string"
+            },
+            "offset_index": {
+              "type": "integer"
+            },
+            "tags": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "device_name": {
+              "type": "string"
+            },
+            "device_type": {
+              "enum": [
+                "Input",
+                "Output"
+              ]
+            },
+            "speaker": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "metadata": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "metadata",
+                    "name"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "speaker_label": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "speaker_source": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "speaker_confidence": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "speaker_provisional": {
+              "type": "boolean"
+            },
+            "start_time": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "end_time": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "chunk_id",
+            "device_name",
+            "device_type",
+            "file_path",
+            "offset_index",
+            "speaker_provisional",
+            "tags",
+            "text",
+            "timestamp",
+            "transcription"
+          ]
+        }
+      }
+    },
+    "GET /audio/list": {
+      "source": "crates/screenpipe-engine/src/routes/audio.rs ListDeviceResponse",
+      "response": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "is_default": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "is_default",
+            "name"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "example": [
+        {
+          "name": "MacBook Pro Microphone (input)",
+          "is_default": true
+        }
+      ]
+    },
+    "GET /vision/list": {
+      "source": "crates/screenpipe-engine/src/routes/health.rs MonitorInfo",
+      "response": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer"
+            },
+            "stable_id": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "width": {
+              "type": "integer"
+            },
+            "height": {
+              "type": "integer"
+            },
+            "is_default": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "height",
+            "id",
+            "is_default",
+            "name",
+            "stable_id",
+            "width"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "example": [
+        {
+          "id": 1,
+          "stable_id": "display-1",
+          "name": "Built-in Retina Display",
+          "width": 3024,
+          "height": 1964,
+          "is_default": true
+        }
+      ]
+    },
+    "POST /tags/{content_type}/{id}": {
+      "source": "crates/screenpipe-engine/src/routes/content.rs AddTagsRequest, AddTagsResponse",
+      "path_params": {
+        "content_type": [
+          "vision",
+          "audio"
+        ]
+      },
+      "body": {
+        "type": "object",
+        "properties": {
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "tags"
+        ],
+        "additionalProperties": false
+      },
+      "response": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "additionalProperties": false
+      },
+      "example": {
+        "success": true
+      }
+    },
+    "DELETE /tags/{content_type}/{id}": {
+      "source": "crates/screenpipe-engine/src/routes/content.rs RemoveTagsRequest, RemoveTagsResponse",
+      "path_params": {
+        "content_type": [
+          "vision",
+          "audio"
+        ]
+      },
+      "body": {
+        "type": "object",
+        "properties": {
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "tags"
+        ],
+        "additionalProperties": false
+      },
+      "response": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "additionalProperties": false
+      },
+      "example": {
+        "success": true
+      }
+    },
+    "GET /pipes": {
+      "source": "crates/screenpipe-engine/src/pipes_api.rs list_pipes, ListPipesQuery; crates/screenpipe-core/src/pipes/mod.rs PipeStatus",
+      "query": {
+        "type": "object",
+        "properties": {
+          "include_executions": {
+            "type": "boolean"
+          },
+          "execution_limit": {
+            "type": "integer"
+          },
+          "include_execution_counts": {
+            "type": "boolean"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "response": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "config",
+                    "last_run",
+                    "last_success",
+                    "is_running",
+                    "prompt_body",
+                    "raw_content",
+                    "last_error",
+                    "current_execution_id",
+                    "consecutive_failures"
+                  ],
+                  "properties": {
+                    "config": {
+                      "type": "object"
+                    },
+                    "is_running": {
+                      "type": "boolean"
+                    },
+                    "consecutive_failures": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              },
+              "total": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "data",
+              "total"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "error"
+            ]
+          }
+        ]
+      },
+      "example": {
+        "data": [
+          {
+            "config": {
+              "name": "daily-digest",
+              "schedule": "every 1h",
+              "enabled": true
+            },
+            "last_run": null,
+            "last_success": null,
+            "is_running": false,
+            "has_saved_context": false,
+            "is_bundled_builtin": false,
+            "prompt_body": "summarise my day",
+            "raw_content": "---\nschedule: every 1h\n---\nsummarise my day",
+            "last_error": null,
+            "current_execution_id": null,
+            "consecutive_failures": 0
+          }
+        ],
+        "total": 1
+      }
+    },
+    "GET /pipes/{id}": {
+      "source": "crates/screenpipe-engine/src/pipes_api.rs get_pipe",
+      "response": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "object",
+                "required": [
+                  "config",
+                  "last_run",
+                  "last_success",
+                  "is_running",
+                  "prompt_body",
+                  "raw_content",
+                  "last_error",
+                  "current_execution_id",
+                  "consecutive_failures"
+                ],
+                "properties": {
+                  "config": {
+                    "type": "object"
+                  },
+                  "is_running": {
+                    "type": "boolean"
+                  },
+                  "consecutive_failures": {
+                    "type": "integer"
+                  }
+                }
+              }
+            },
+            "required": [
+              "data"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "error"
+            ]
+          }
+        ]
+      },
+      "example": {
+        "data": {
+          "config": {
+            "name": "daily-digest",
+            "schedule": "every 1h",
+            "enabled": true
+          },
+          "last_run": null,
+          "last_success": null,
+          "is_running": false,
+          "has_saved_context": false,
+          "is_bundled_builtin": false,
+          "prompt_body": "summarise my day",
+          "raw_content": "---\nschedule: every 1h\n---\nsummarise my day",
+          "last_error": null,
+          "current_execution_id": null,
+          "consecutive_failures": 0
+        }
+      }
+    },
+    "POST /pipes/install": {
+      "source": "crates/screenpipe-engine/src/pipes_api.rs InstallRequest, install_pipe",
+      "body": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "source"
+        ],
+        "additionalProperties": false
+      },
+      "response": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "success": {
+                "type": "boolean"
+              },
+              "name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "success"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "error"
+            ]
+          }
+        ]
+      },
+      "example": {
+        "success": true,
+        "name": "daily-digest"
+      }
+    },
+    "POST /pipes/{id}/enable": {
+      "source": "crates/screenpipe-engine/src/pipes_api.rs EnableRequest, enable_pipe",
+      "body": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "additionalProperties": false
+      },
+      "response": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "success": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "success"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "error"
+            ]
+          }
+        ]
+      },
+      "example": {
+        "success": true
+      }
+    },
+    "POST /pipes/{id}/run": {
+      "source": "crates/screenpipe-engine/src/pipes_api.rs RunPipeBody (optional body), run_pipe_now",
+      "body": {
+        "oneOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "run_context": {
+                "type": "object"
+              },
+              "notification_context": {
+                "type": "object"
+              },
+              "trigger_type": {
+                "type": "string"
+              },
+              "meeting_summary": {
+                "type": "object"
+              }
+            },
+            "required": [],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "response": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "success": {
+                "type": "boolean"
+              },
+              "execution_id": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "execution_id",
+              "success"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "error"
+            ]
+          }
+        ]
+      },
+      "example": {
+        "success": true,
+        "execution_id": 42
+      }
+    },
+    "POST /pipes/{id}/stop": {
+      "source": "crates/screenpipe-engine/src/pipes_api.rs stop_pipe; crates/screenpipe-core/src/pipes/mod.rs PipeStopStatus",
+      "response": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "success": {
+                "type": "boolean"
+              },
+              "status": {
+                "enum": [
+                  "stopping",
+                  "stop_pending",
+                  "not_running"
+                ]
+              }
+            },
+            "required": [
+              "status",
+              "success"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "error"
+            ]
+          }
+        ]
+      },
+      "example": {
+        "success": true,
+        "status": "stopping"
+      }
+    },
+    "POST /pipes/{id}/config": {
+      "source": "crates/screenpipe-engine/src/pipes_api.rs ConfigUpdateRequest (#[serde(flatten)] map), update_pipe_config",
+      "body": {
+        "type": "object"
+      },
+      "response": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "success": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "success"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "error"
+            ]
+          }
+        ]
+      },
+      "example": {
+        "success": true
+      }
+    },
+    "DELETE /pipes/{id}": {
+      "source": "crates/screenpipe-engine/src/pipes_api.rs delete_pipe",
+      "response": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "success": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "success"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "error"
+            ]
+          }
+        ]
+      },
+      "example": {
+        "success": true
+      }
+    },
+    "POST /add": {
+      "source": "crates/screenpipe-engine/src/routes/content.rs AddContentRequest, AddContentData, ContentData (#[serde(untagged)]), FrameContent, OCRResult, AudioTranscription, AddContentResponse",
+      "body": {
+        "type": "object",
+        "properties": {
+          "device_name": {
+            "type": "string"
+          },
+          "content": {
+            "type": "object",
+            "properties": {
+              "content_type": {
+                "enum": [
+                  "frames",
+                  "transcription"
+                ]
+              },
+              "data": {
+                "oneOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "file_path": {
+                          "type": "string"
+                        },
+                        "timestamp": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "app_name": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "window_name": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "ocr_results": {
+                          "type": [
+                            "array",
+                            "null"
+                          ],
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "text": {
+                                "type": "string"
+                              },
+                              "text_json": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "ocr_engine": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "focused": {
+                                "type": [
+                                  "boolean",
+                                  "null"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "text"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "tags": {
+                          "type": [
+                            "array",
+                            "null"
+                          ],
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "file_path"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "transcription": {
+                        "type": "string"
+                      },
+                      "transcription_engine": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "transcription",
+                      "transcription_engine"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            },
+            "required": [
+              "content_type",
+              "data"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "content",
+          "device_name"
+        ],
+        "additionalProperties": false
+      },
+      "response": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "additionalProperties": false
+      },
+      "example": {
+        "success": true,
+        "message": null
+      }
+    },
+    "POST /raw_sql": {
+      "source": "crates/screenpipe-engine/src/routes/content.rs RawSqlQuery, execute_raw_sql (returns rows as JSON)",
+      "body": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      },
+      "response": {
+        "type": "array",
+        "items": {
+          "type": "object"
+        }
+      },
+      "example": [
+        {
+          "id": 1,
+          "text": "standup notes"
+        }
+      ]
+    },
+    "POST /experimental/frames/merge": {
+      "source": "crates/screenpipe-engine/src/video_utils.rs MergeVideosRequest, MergeVideosResponse",
+      "body": {
+        "type": "object",
+        "properties": {
+          "video_paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "video_paths"
+        ],
+        "additionalProperties": false
+      },
+      "response": {
+        "type": "object",
+        "properties": {
+          "video_path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "video_path"
+        ],
+        "additionalProperties": false
+      },
+      "example": {
+        "video_path": "/data/merged.mp4"
+      }
+    },
+    "GET /experimental/validate/media": {
+      "source": "crates/screenpipe-engine/src/video_utils.rs ValidateMediaParams; crates/screenpipe-engine/src/routes/content.rs validate_media_handler",
+      "query": {
+        "type": "object",
+        "properties": {
+          "file_path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "file_path"
+        ],
+        "additionalProperties": false
+      },
+      "response": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "example": {
+        "status": "valid media file"
+      }
+    },
+    "GET /speakers/unnamed": {
+      "source": "crates/screenpipe-engine/src/routes/speakers.rs GetUnnamedSpeakersRequest; crates/screenpipe-db/src/types.rs Speaker",
+      "query": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          },
+          "speaker_ids": {
+            "type": "string",
+            "pattern": "^-?[0-9]+(,-?[0-9]+)*$"
+          }
+        },
+        "required": [
+          "limit",
+          "offset"
+        ],
+        "additionalProperties": false
+      },
+      "response": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "integer"
+            },
+            "name": {
+              "type": "string"
+            },
+            "metadata": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "metadata",
+            "name"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "example": [
+        {
+          "id": 4,
+          "name": "",
+          "metadata": "{}"
+        }
+      ]
+    },
+    "POST /speakers/update": {
+      "source": "crates/screenpipe-engine/src/routes/speakers.rs UpdateSpeakerRequest; crates/screenpipe-db/src/types.rs Speaker",
+      "body": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "response": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "metadata",
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "example": {
+        "id": 3,
+        "name": "Ada",
+        "metadata": "{\"role\": \"pm\"}"
+      }
+    }
+  }
+}

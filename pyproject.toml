@@ -1,25 +1,42 @@
-[tool.poetry]
+[project]
 name = "screenpipe-python-client"
 version = "0.1.0"
-description = "Interface with the Screenpipe Rust API, and so, so much more!"
-authors = ["Tanuj <Tanuj@cmu.edu>"]
-license = "MIT"
+description = "Python client and CLI for the screenpipe REST API"
 readme = "README.md"
-packages = [
-    { include = "src" },
+license = "MIT"
+authors = [{ name = "Tanuj", email = "Tanuj@cmu.edu" }]
+requires-python = ">=3.10"
+dependencies = ["httpx>=0.28.1,<1"]
+keywords = ["screenpipe", "screen-recording", "transcription", "api-client"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Software Development :: Libraries",
 ]
 
-[tool.poetry.dependencies]
-python = "^3.10"
-openai = "^1.54.5"
-requests = "^2.32.3"
-fastapi = "^0.115.5"
-langchain-core = "^0.3.19"
-python-dotenv = "^1.0.1"
-uvicorn = "^0.32.0"
-baml-py = "^0.68.0"
-gnureadline = { version = "^8.2.13", markers = "platform_system != 'Windows'" }
+[project.urls]
+Homepage = "https://github.com/TanGentleman/screenpipe-python-client"
+Issues = "https://github.com/TanGentleman/screenpipe-python-client/issues"
+screenpipe = "https://github.com/screenpipe/screenpipe"
+
+[project.scripts]
+screenpipe-client = "screenpipe_client.cli:main"
+
+[dependency-groups]
+dev = ["pytest==9.2.0", "ruff==0.17.4"]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling==1.33.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["screenpipe_client"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
